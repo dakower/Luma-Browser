@@ -1,0 +1,49 @@
+name: release
+
+# Запуск: git tag v2.0.9 && git push origin v2.0.9
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Check tag matches project version
+        shell: pwsh
+        run: |
+          [xml]$p = Get-Content src/Luma/Luma.csproj
+          $v = [string]$p.Project.PropertyGroup.Version
+          $tag = '${{ github.ref_name }}'.TrimStart('v')
+          if ($v -ne $tag) { throw "Tag $tag does not match Luma.csproj Version $v" }
+
+      - name: Source preflight
+        shell: pwsh
+        run: ./tools/release-preflight.ps1 -SourceOnly
+
+      - name: Build installer (unsigned)
+        shell: pwsh
+        run: ./build.ps1 -NoOpen
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Luma ${{ github.ref_name }}
+          generate_release_notes: true
+          body: |
+            ⚠️ Установщик **не подписан** Authenticode-сертификатом, поэтому Windows SmartScreen может показать предупреждение.
+            Проверьте SHA-256 из `SHA256SUMS.txt` перед запуском.
+
+            Подробности изменений — в [CHANGELOG.md](CHANGELOG.md).
+          files: |
+            dist/LumaSetup-*-x64.exe
+            dist/SHA256SUMS.txt

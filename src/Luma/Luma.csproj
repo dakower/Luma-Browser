@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>WinExe</OutputType><TargetFramework>net8.0-windows10.0.19041.0</TargetFramework><UseWPF>true</UseWPF><UseWindowsForms>true</UseWindowsForms><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><ApplicationIcon>Assets\luma.ico</ApplicationIcon><ApplicationManifest>app.manifest</ApplicationManifest><ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode><AssemblyName>Luma</AssemblyName><RootNamespace>Luma</RootNamespace><Version>2.0.9</Version><RuntimeIdentifier>win-x64</RuntimeIdentifier><SelfContained>true</SelfContained></PropertyGroup><ItemGroup><ProjectReference Include="..\Luma.Core\Luma.Core.csproj" /></ItemGroup><ItemGroup><PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2792.45" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.10" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />  
+    <Resource Include="Assets\luma-mark.png" />
+    <Resource Include="Assets\luma-assistant.png" />
+    <None Update="updates.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="update-public.pem" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Updates\apply-update.ps1" CopyToOutputDirectory="PreserveNewest" />
+    <EmbeddedResource Include="Assets\settings.html" LogicalName="Luma.Assets.settings.html" />
+    <EmbeddedResource Include="Assets\import.html" LogicalName="Luma.Assets.import.html" />
+    <EmbeddedResource Include="Assets\translate-cleanup.js" LogicalName="Luma.Assets.translate-cleanup.js" />
+    <EmbeddedResource Include="Assets\context-menu.js" LogicalName="Luma.Assets.context-menu.js" />
+    <EmbeddedResource Include="Assets\welcome.html" LogicalName="Luma.Assets.welcome.html" />
+    <EmbeddedResource Include="Assets\assistant.html" LogicalName="Luma.Assets.assistant.html" />
+    <EmbeddedResource Include="Assets\search.html" LogicalName="Luma.Assets.search.html" />
+    <EmbeddedResource Include="Assets\Locales\ru.json" LogicalName="Luma.Assets.Locales.ru.json" />
+    <EmbeddedResource Include="Assets\Locales\en.json" LogicalName="Luma.Assets.Locales.en.json" />
+    <EmbeddedResource Include="Assets\Locales\uk.json" LogicalName="Luma.Assets.Locales.uk.json" />
+    <Resource Include="Fonts\Inter.ttf" Condition="Exists('Fonts\Inter.ttf')" />
+  </ItemGroup></Project>

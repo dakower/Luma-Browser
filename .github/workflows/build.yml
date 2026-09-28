@@ -1,0 +1,28 @@
+name: windows-release-check
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Source preflight
+        shell: pwsh
+        run: ./tools/release-preflight.ps1 -SourceOnly
+      - name: Build and test unsigned CI installer
+        shell: pwsh
+        run: ./build.ps1 -NoOpen
+      - name: Upload unsigned CI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Luma-Windows-unsigned-CI
+          path: |
+            dist/LumaSetup-*-x64.exe
+            dist/SHA256SUMS.txt
+          if-no-files-found: error

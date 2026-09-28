@@ -1,0 +1,21 @@
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+
+if (args.Length != 2) throw new ArgumentException("Usage: signer <manifest> <private-key>");
+var manifestPath = Path.GetFullPath(args[0]);
+var keyPath = Path.GetFullPath(args[1]);
+var root = JsonNode.Parse(File.ReadAllText(manifestPath))?.AsObject() ?? throw new InvalidDataException("Invalid manifest");
+string S(string name) => root[name]?.GetValue<string>() ?? "";
+long L(string name) => root[name]?.GetValue<long>() ?? 0;
+bool B(string name) => root[name]?.GetValue<bool>() ?? false;
+static string Field(string value) => value.Trim().Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Replace("\n", "\\n", StringComparison.Ordinal);
+var payload = string.Join("\n", Field(S("version")), Field(S("channel")), Field(S("packageKey")), S("sha256").Trim().ToLowerInvariant(), L("packageSize").ToString(System.Globalization.CultureInfo.InvariantCulture), B("mandatory") ? "true" : "false", Field(S("minimumVersion")), Field(S("title")), Field(S("notes")));
+using var key = ECDsa.Create();
+key.ImportFromPem(File.ReadAllText(keyPath));
+var signature = key.SignData(Encoding.UTF8.GetBytes(payload), HashAlgorithmName.SHA256, DSASignatureFormat.Rfc3279DerSequence);
+root["signature"] = Convert.ToBase64String(signature);
+var json = root.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+File.WriteAllText(manifestPath, json, new UTF8Encoding(false));
+Console.WriteLine("Manifest signed successfully.");
