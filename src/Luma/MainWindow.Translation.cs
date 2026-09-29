@@ -75,6 +75,8 @@ public partial class MainWindow
         if (IsConferencingHost(domain)) { if (notify) ShowToast("Перевод отключён", "На этом сайте он ломает интерфейс", true); return; }
         if (!notify && !_state.AlwaysTranslateDomains.Contains(domain)) return;
         MarkPageTranslationActive(view);
+        // Determine target language: use the user's configured language; default to Russian.
+        var targetLang = _state.Language switch { "uk" => "uk", "en" => "en", _ => "ru" };
         try
         {
             // Pages very often have nothing to translate yet on the first pass (framework
@@ -83,7 +85,7 @@ public partial class MainWindow
             var count = 0;
             for (var attempt = 0; attempt < 4; attempt++)
             {
-                count = await TranslateRoundAsync(view);
+                count = await TranslateRoundAsync(view, targetLang);
                 if (count > 0) break;
                 await Task.Delay(90 + attempt * 110);
             }
@@ -101,13 +103,13 @@ public partial class MainWindow
         """;
         await Script(view, watcher);
     }
-    private async Task<int> TranslateRoundAsync(WebView2 view)
+    private async Task<int> TranslateRoundAsync(WebView2 view, string targetLang = "ru")
     {
         const string collect = """
-        (()=>{if(!document.body)return[];window.__lumaTranslatedNodes??=new WeakSet();const nodes=[],walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT,{acceptNode:n=>{const p=n.parentElement,t=(n.nodeValue||'').trim();if(!p||!t||t.length<2||!/\p{L}/u.test(t)||/^[\p{Script=Cyrillic}0-9\s\p{P}]+$/u.test(t)||['SCRIPT','STYLE','NOSCRIPT','TEXTAREA','CODE','PRE','OPTION'].includes(p.tagName)||p.closest('[contenteditable="true"],.notranslate,[translate="no"]')||window.__lumaTranslatedNodes.has(n))return NodeFilter.FILTER_REJECT;return NodeFilter.FILTER_ACCEPT}});let n;while((n=walker.nextNode())&&nodes.length<2500)nodes.push(n);window.__lumaTranslationNodes=nodes;return nodes.map(n=>(n.nodeValue||'').trim())})()
+        (()=>{if(!document.body)return[];window.__lumaTranslatedNodes??=new WeakSet();const nodes=[],walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT,{acceptNode:n=>{const p=n.parentElement,t=(n.nodeValue||'').trim();if(!p||!t||t.length<2||!/\p{L}/u.test(t)||['SCRIPT','STYLE','NOSCRIPT','TEXTAREA','CODE','PRE','OPTION'].includes(p.tagName)||p.closest('[contenteditable="true"],.notranslate,[translate="no"]')||window.__lumaTranslatedNodes.has(n))return NodeFilter.FILTER_REJECT;return NodeFilter.FILTER_ACCEPT}});let n;while((n=walker.nextNode())&&nodes.length<2500)nodes.push(n);window.__lumaTranslationNodes=nodes;return nodes.map(n=>(n.nodeValue||'').trim())})()
         """;
         var raw = await Script(view, collect); var texts = JsonSerializer.Deserialize<List<string>>(raw) ?? []; if (texts.Count == 0) return 0;
-        return await TranslateAndApplyAsync(view, texts);
+        return await TranslateAndApplyAsync(view, texts, targetLang);
     }
 
     /// <summary>
@@ -115,7 +117,7 @@ public partial class MainWindow
     /// as its reply lands, and all batches are in flight at once. Waiting for the slowest request
     /// before touching the page was what made translation feel like a five second freeze.
     /// </summary>
-    private async Task<int> TranslateAndApplyAsync(WebView2 view, IReadOnlyList<string> texts)
+    private async Task<int> TranslateAndApplyAsync(WebView2 view, IReadOnlyList<string> texts, string targetLang = "ru")
     {
         const int MaxTextChars = 1400, MaxBatchItems = 28, MaxBatchChars = 2600;
         var sources = new string[texts.Count];
@@ -125,7 +127,8 @@ public partial class MainWindow
         for (var i = 0; i < texts.Count; i++)
         {
             sources[i] = texts[i].Length > MaxTextChars ? texts[i][..MaxTextChars] : texts[i];
-            if (TranslationCache.TryGetValue(sources[i], out var hit)) { cachedIndices.Add(i); cachedValues.Add(hit); }
+            var cacheKey = $"{targetLang}:{sources[i]}";
+            if (TranslationCache.TryGetValue(cacheKey, out var hit)) { cachedIndices.Add(i); cachedValues.Add(hit); }
             else pending.Add(i);
         }
 
@@ -146,7 +149,7 @@ public partial class MainWindow
 
         // Fire every batch immediately; TranslationGate is the only throttle.
         var running = batches.ToDictionary(
-            batch => TranslateGroupAsync(batch.Select(i => sources[i]).ToList()),
+            batch => TranslateGroupAsync(batch.Select(i => sources[i]).ToList(), targetLang),
             batch => batch);
 
         var inflight = new List<Task<List<string>?>>(running.Keys);
@@ -165,7 +168,8 @@ public partial class MainWindow
                 var value = values[i];
                 var source = sources[batch[i]];
                 if (string.IsNullOrWhiteSpace(value) || value == source) continue;
-                TranslationCache[source] = value;
+                if (TranslationCache.Count > 10000) TranslationCache.Clear();
+                TranslationCache[$"{targetLang}:{source}"] = value;
                 indices.Add(batch[i]);
                 translations.Add(value);
             }
@@ -191,7 +195,7 @@ public partial class MainWindow
     private static int _translateStrategy; // 0 = unknown, 1/2 = multi, 3 = marked batch, 4 = per text
 
     /// <summary>Translates one group of segments, learning which endpoint this network allows.</summary>
-    private static async Task<List<string>?> TranslateGroupAsync(IReadOnlyList<string> items)
+    private static async Task<List<string>?> TranslateGroupAsync(IReadOnlyList<string> items, string targetLang = "ru")
     {
         if (items.Count == 0) return new List<string>();
         int[] order = _translateStrategy switch
@@ -206,10 +210,10 @@ public partial class MainWindow
         {
             List<string>? values = strategy switch
             {
-                1 => await TranslateMultiAsync(items, "gtx"),
-                2 => await TranslateMultiAsync(items, "dict-chrome-ex"),
-                3 => await TranslateMarkedBatchAsync(items),
-                _ => await TranslateOneByOneAsync(items),
+                1 => await TranslateMultiAsync(items, "gtx", targetLang),
+                2 => await TranslateMultiAsync(items, "dict-chrome-ex", targetLang),
+                3 => await TranslateMarkedBatchAsync(items, targetLang),
+                _ => await TranslateOneByOneAsync(items, targetLang),
             };
             if (values is not null && values.Count == items.Count
                 && values.Select((value, index) => !string.IsNullOrWhiteSpace(value) && !string.Equals(value, items[index], StringComparison.Ordinal)).Any(changed => changed))
@@ -222,7 +226,7 @@ public partial class MainWindow
     }
 
     /// <summary>Batched request: every segment is its own q parameter, one reply entry each.</summary>
-    private static async Task<List<string>?> TranslateMultiAsync(IReadOnlyList<string> items, string client)
+    private static async Task<List<string>?> TranslateMultiAsync(IReadOnlyList<string> items, string client, string targetLang = "ru")
     {
         await TranslationGate.WaitAsync();
         try
@@ -231,7 +235,7 @@ public partial class MainWindow
             {
                 try
                 {
-                    var url = host + "/translate_a/t?client=" + Uri.EscapeDataString(client) + "&sl=auto&tl=ru&format=text";
+                    var url = host + "/translate_a/t?client=" + Uri.EscapeDataString(client) + "&sl=auto&tl=" + Uri.EscapeDataString(targetLang) + "&format=text";
                     using var body = new FormUrlEncodedContent(items.Select(item => new KeyValuePair<string, string>("q", item)));
                     using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = body };
                     using var response = await TranslationHttp.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
@@ -269,10 +273,10 @@ public partial class MainWindow
         return values.Count == expected ? values : null;
     }
 
-    private static async Task<List<string>?> TranslateMarkedBatchAsync(IReadOnlyList<string> items)
+    private static async Task<List<string>?> TranslateMarkedBatchAsync(IReadOnlyList<string> items, string targetLang = "ru")
     {
         var combined = string.Join("\n", items.Select((item, index) => $"[[[LUMA_SEG_{index:000}]]]\n{item}"));
-        var translated = await TranslateChunkAsync(combined);
+        var translated = await TranslateChunkAsync(combined, targetLang);
         if (string.IsNullOrWhiteSpace(translated) || string.Equals(translated, combined, StringComparison.Ordinal)) return null;
         var markers = System.Text.RegularExpressions.Regex.Matches(translated, @"\[\[\[\s*LUMA_SEG_(\d{3})\s*\]\]\]", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
         if (markers.Count != items.Count) return null;
@@ -288,13 +292,13 @@ public partial class MainWindow
     }
 
     /// <summary>Last resort: per-text requests with the shared four-request throttle.</summary>
-    private static async Task<List<string>?> TranslateOneByOneAsync(IReadOnlyList<string> items)
+    private static async Task<List<string>?> TranslateOneByOneAsync(IReadOnlyList<string> items, string targetLang = "ru")
     {
-        var values = (await Task.WhenAll(items.Select(TranslateChunkAsync))).ToList();
+        var values = (await Task.WhenAll(items.Select(item => TranslateChunkAsync(item, targetLang)))).ToList();
         return values.Select((value, index) => !string.IsNullOrWhiteSpace(value) && !string.Equals(value, items[index], StringComparison.Ordinal)).Any(changed => changed) ? values : null;
     }
 
-    private static async Task<string> TranslateChunkAsync(string text)
+    private static async Task<string> TranslateChunkAsync(string text, string targetLang = "ru")
     {
         if (string.IsNullOrWhiteSpace(text)) return text;
         await TranslationGate.WaitAsync();
@@ -304,7 +308,7 @@ public partial class MainWindow
             {
                 try
                 {
-                    var endpoint = host + "/translate_a/single?client=gtx&sl=auto&tl=ru&dt=t";
+                    var endpoint = host + "/translate_a/single?client=gtx&sl=auto&tl=" + Uri.EscapeDataString(targetLang) + "&dt=t";
                     using var body = new FormUrlEncodedContent(new Dictionary<string, string> { ["q"] = text });
                     using var response = await TranslationHttp.PostAsync(endpoint, body);
                     if (!response.IsSuccessStatusCode) continue;

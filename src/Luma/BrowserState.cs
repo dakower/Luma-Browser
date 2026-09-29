@@ -148,11 +148,19 @@ public sealed class LumaState
         // temp file is never written by two threads (that used to throw IOException and lose the save).
         lock (SaveLock)
         {
-            SchemaVersion = 15;
-            Directory.CreateDirectory(DirectoryPath);
-            var temp = FilePath + ".tmp";
-            File.WriteAllText(temp, JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
-            File.Move(temp, FilePath, true);
+            try
+            {
+                SchemaVersion = 15;
+                Directory.CreateDirectory(DirectoryPath);
+                var temp = FilePath + ".tmp";
+                File.WriteAllText(temp, JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
+                File.Move(temp, FilePath, true);
+            }
+            catch (Exception ex)
+            {
+                // Prevent crash if state.json is temporarily locked by antivirus, cloud sync, or external processes
+                System.Diagnostics.Debug.WriteLine($"[LumaState.Save Error]: {ex.Message}");
+            }
         }
     }
 }

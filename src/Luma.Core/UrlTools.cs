@@ -7,9 +7,44 @@ public static class UrlTools
 
     public static string NormalizeInput(string input, string searchEngine)
     {
-        input = (input ?? string.Empty).Trim();
-        if (Uri.TryCreate(input, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https" or "view-source" or "luma") return uri.ToString();
-        if (input.Contains('.') && !input.Contains(' ')) return "https://" + input;
+        input = (input ?? string.Empty).Replace("\r", "").Replace("\n", "").Trim();
+        if (string.IsNullOrWhiteSpace(input)) return HomeUrl(searchEngine);
+
+        // Absolute URIs with recognized schemes
+        if (Uri.TryCreate(input, UriKind.Absolute, out var uri))
+        {
+            if (uri.Scheme is "http" or "https" or "view-source" or "luma" or "file" or "blob" or "data" or "about" or "chrome" or "edge")
+                return uri.ToString();
+        }
+
+        // Local filesystem paths (e.g. C:\path\file.html or \\server\share)
+        if (input.Length >= 3 && char.IsLetter(input[0]) && input[1] == ':' && (input[2] == '\\' || input[2] == '/'))
+            return new Uri(input).AbsoluteUri;
+
+        // Localhost and bare IPs with or without port (e.g. localhost:3000, 127.0.0.1:8080)
+        var isLocal = input.StartsWith("localhost", StringComparison.OrdinalIgnoreCase)
+                   || input.StartsWith("127.0.0.1", StringComparison.OrdinalIgnoreCase)
+                   || input.StartsWith("0.0.0.0", StringComparison.OrdinalIgnoreCase);
+        if (isLocal && !input.Contains(' '))
+            return "http://" + input;
+
+        // Domain with port or IP:port without spaces (e.g. 192.168.1.5:8000, myserver:8080)
+        if (!input.Contains(' ') && input.Contains(':'))
+        {
+            var parts = input.Split(':', 2);
+            if (parts.Length == 2 && int.TryParse(parts[1].Split('/')[0], out var port) && port > 0 && port <= 65535)
+                return "http://" + input;
+        }
+
+        // Standard domain or IP without scheme
+        if (input.Contains('.') && !input.Contains(' '))
+        {
+            var hostPart = input.Split('/')[0];
+            if (System.Net.IPAddress.TryParse(hostPart, out _))
+                return "http://" + input;
+            return "https://" + input;
+        }
+
         var query = Uri.EscapeDataString(input);
         return searchEngine switch
         {

@@ -284,8 +284,22 @@ public partial class MainWindow
     // ---- Profile row: real spaces (same data as the bottom space-dots), rendered as letter avatars. ----
     // The avatar template root is a Grid: take the space either from Tag or from the row's DataContext.
     private static SpaceDotView? DotOf(object sender) => sender is FrameworkElement element ? element.Tag as SpaceDotView ?? element.DataContext as SpaceDotView : null;
+    private void ProfileAvatar_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton != MouseButton.Left) return;
+        if (!IsActive) Activate();
+        if (DotOf(sender) is { } dot) SwitchSpace(dot.Index);
+        e.Handled = true;
+    }
     private void ProfileAvatar_Click(object sender, MouseButtonEventArgs e) { if (DotOf(sender) is { } dot) SwitchSpace(dot.Index); e.Handled = true; }
     private void ProfileAvatar_MouseRightButtonUp(object sender, MouseButtonEventArgs e) { if (DotOf(sender) is { } dot) { ShowSpaceMenu(dot); e.Handled = true; } }
+    private void AvatarAdd_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton != MouseButton.Left) return;
+        if (!IsActive) Activate();
+        AvatarAdd_Click(sender, e);
+        e.Handled = true;
+    }
     private void AvatarAdd_Click(object sender, MouseButtonEventArgs e)
     {
         CloseMenusExcept(NewSpacePopup);
@@ -472,18 +486,38 @@ public partial class MainWindow
         Save();
         _spaces[previousIndex].Current = CurrentTab;
 
-        // Keep the current space fully visible while the target's selected tab is prepared.
-        // The old fade-to-15% happened before WebView creation and left the whole sidebar looking
-        // frozen for seconds when a space contained many restored tabs.
-        await LoadSpaceAsync(index);
-        if (request != _spaceSwitchSerial) return;
+        // Switch active space index immediately so the UI responds without any perceived lag
         _activeSpace = index;
         _state.ActiveSpace = index;
         RecordTesterAction($"Переключено пространство: {index + 1}");
+
+        // Ensure space has at least one tab if it's currently empty
         if (_spaces[index].Tabs.Count == 0) _spaces[index].Current = EnsureHomeTab(_spaces[index]);
         OnChanged(nameof(Tabs));
         CurrentTab = _spaces[index].Current ?? Tabs.FirstOrDefault() ?? EnsureHomeTab(_spaces[index]);
-        RefreshSpaces(); RefreshFolders(); FilterTabs();
+
+        // Refresh UI immediately so the user sees the active space dot and new tabs list
+        RefreshSpaces();
+        RefreshFolders();
+        FilterTabs();
+
+        try
+        {
+            await LoadSpaceAsync(index);
+        }
+        catch (Exception ex)
+        {
+            App.Log(ex);
+        }
+
+        if (request != _spaceSwitchSerial) return;
+
+        if (_spaces[index].Tabs.Count == 0) _spaces[index].Current = EnsureHomeTab(_spaces[index]);
+        CurrentTab = _spaces[index].Current ?? Tabs.FirstOrDefault() ?? EnsureHomeTab(_spaces[index]);
+        RefreshSpaces();
+        RefreshFolders();
+        FilterTabs();
+
         SpaceContentTranslate.X = 10 * direction;
         SpaceContentRoot.Opacity = .92;
         await AnimateSpaceContentAsync(10 * direction, 0, .92, 1, 145);

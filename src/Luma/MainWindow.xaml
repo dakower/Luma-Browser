@@ -495,14 +495,14 @@
                     <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                       <DataTemplate>
-                        <Grid Width="34" Height="34" Margin="0,0,5,0" Background="Transparent" Cursor="Hand" Tag="{Binding}" ToolTip="{Binding Name}" AllowDrop="True" Drop="SpaceDot_Drop" MouseLeftButtonUp="ProfileAvatar_Click" MouseRightButtonUp="ProfileAvatar_MouseRightButtonUp">
+                        <Grid Width="34" Height="34" Margin="0,0,5,0" Background="Transparent" Cursor="Hand" Tag="{Binding}" ToolTip="{Binding Name}" AllowDrop="True" Drop="SpaceDot_Drop" PreviewMouseLeftButtonDown="ProfileAvatar_MouseDown" MouseLeftButtonUp="ProfileAvatar_Click" MouseRightButtonUp="ProfileAvatar_MouseRightButtonUp">
                           <Border Width="34" Height="34" CornerRadius="10" Background="{DynamicResource SurfaceBrush}" BorderBrush="{Binding OutlineBrush}" BorderThickness="1.5"/>
                           <Border Width="30" Height="30" CornerRadius="9" Background="{Binding Brush}"><TextBlock Text="{Binding Letter}" FontSize="12.5" FontWeight="Bold" Foreground="{Binding TextBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
                         </Grid>
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
-                  <Grid x:Name="AvatarAddButton" Grid.Column="1" Width="28" Height="28" Background="Transparent" Cursor="Hand" VerticalAlignment="Center" HorizontalAlignment="Right" ToolTip="Добавить пространство" MouseLeftButtonUp="AvatarAdd_Click">
+                  <Grid x:Name="AvatarAddButton" Grid.Column="1" Width="28" Height="28" Background="Transparent" Cursor="Hand" VerticalAlignment="Center" HorizontalAlignment="Right" ToolTip="Добавить пространство" PreviewMouseLeftButtonDown="AvatarAdd_MouseDown" MouseLeftButtonUp="AvatarAdd_Click">
                     <Path Stretch="Uniform" Width="12" Height="12" Data="{StaticResource IconPlus}" Stroke="White" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" IsHitTestVisible="False"/>
                   </Grid>
                 </Grid></Border>

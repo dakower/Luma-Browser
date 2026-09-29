@@ -405,9 +405,15 @@ public partial class MainWindow
                 {
                     case CoreWebView2PermissionKind.Microphone:
                     case CoreWebView2PermissionKind.Camera:
-                        if (!IsConferencingHost(host)) return;
-                        args.State = CoreWebView2PermissionState.Allow;
-                        args.Handled = true;
+                        if (IsConferencingHost(host) || args.IsUserInitiated)
+                        {
+                            args.State = CoreWebView2PermissionState.Allow;
+                            args.Handled = true;
+                        }
+                        else
+                        {
+                            args.State = CoreWebView2PermissionState.Default;
+                        }
                         break;
                     case CoreWebView2PermissionKind.Autoplay:
                         args.State = CoreWebView2PermissionState.Allow;
@@ -429,6 +435,7 @@ public partial class MainWindow
             web.IsDocumentPlayingAudioChanged += async (_, _) => await SyncDocumentAudioStateAsync(tab, view);
             web.NavigationStarting += (_, args) => Dispatcher.Invoke(() =>
             {
+                tab.IsNavigating = true;
                 _latestNavigationIds[view] = args.NavigationId;
                 ResetPageTranslation(view);
                 try
@@ -487,16 +494,16 @@ public partial class MainWindow
                 // everything else still becomes a normal tab.
                 var features = e.WindowFeatures;
                 e.Handled = true;
+                var ctrl = Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
+                var activate = !ctrl;
                 var newHost = Uri.TryCreate(e.Uri, UriKind.Absolute, out var newWindowUri) ? newWindowUri.Host : "";
-                // A call squeezed into a small popup sheet is unusable, and Meet refuses to run
-                // there at all. Classroom opens it exactly that way.
-                if (IsConferencingHost(newHost)) { _ = Dispatcher.BeginInvoke(async () => await AddTabAsync(e.Uri)); return; }
-                if (!features.HasSize && !features.HasPosition) { _ = Dispatcher.BeginInvoke(async () => await AddTabAsync(e.Uri)); return; }
+                if (IsConferencingHost(newHost)) { _ = Dispatcher.BeginInvoke(async () => await AddTabAsync(e.Uri, activate)); return; }
+                if (!features.HasSize && !features.HasPosition) { _ = Dispatcher.BeginInvoke(async () => await AddTabAsync(e.Uri, activate)); return; }
                 var deferral = e.GetDeferral();
                 _ = Dispatcher.BeginInvoke(async () =>
                 {
                     try { await OpenAuthPopupAsync(e, view); }
-                    catch (Exception ex) { App.Log(ex); await AddTabAsync(e.Uri); }
+                    catch (Exception ex) { App.Log(ex); await AddTabAsync(e.Uri, activate); }
                     finally { deferral.Complete(); }
                 });
             };
@@ -510,6 +517,7 @@ public partial class MainWindow
             web.DOMContentLoaded += async (_, _) => await ApplyTranslationAsync(view, false);
             web.NavigationCompleted += async (_, args) =>
             {
+                tab.IsNavigating = false;
                 if (_networkErrorUrls.ContainsKey(view) && string.Equals(view.Source?.ToString(), "about:blank", StringComparison.OrdinalIgnoreCase)) return;
                 var source = view.Source?.ToString() ?? "";
                 var engineErrorPage = source.StartsWith("chrome-error://", StringComparison.OrdinalIgnoreCase)

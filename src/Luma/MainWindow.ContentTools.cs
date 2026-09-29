@@ -98,7 +98,7 @@ public partial class MainWindow
                         await core.CallDevToolsProtocolMethodAsync("Network.deleteCookies", payload);
                     }
             }
-            var removed = _state.History.RemoveAll(entry => entry.Url.Contains(host, StringComparison.OrdinalIgnoreCase));
+            var removed = _state.History.RemoveAll(entry => UrlTools.SameSite(entry.Url, "https://" + host) || (Uri.TryCreate(entry.Url, UriKind.Absolute, out var u) && string.Equals(u.Host.Replace("www.", ""), host.Replace("www.", ""), StringComparison.OrdinalIgnoreCase)));
             if (removed > 0) _stateStore.Save();
             core.Reload();
             ShowToast("\u0421\u0430\u0439\u0442 \u0437\u0430\u0431\u044b\u0442", host);
@@ -292,7 +292,8 @@ public partial class MainWindow
             Sep(menu);
             Add(menu, "Спросить Luma о фрагменте", async () => await AskLumaAsync("Что значит выделенный фрагмент?"), true, "", "IconSpark");
             Add(menu, "Объяснить проще", async () => await AskLumaAsync("Объясни выделенный фрагмент простыми словами."), true, "", "IconCircleHelp");
-            Add(menu, "Перевести фрагмент", async () => await AskLumaAsync("Переведи выделенный фрагмент на русский."), true, "", "IconGlobe");
+            var targetLangName = _state.Language switch { "uk" => "українську", "en" => "English", _ => "русский" };
+            Add(menu, "Перевести фрагмент", async () => await AskLumaAsync($"Переведи выделенный фрагмент на {targetLangName} язык."), true, "", "IconGlobe");
         }
         else if (mode == "video")
         {
@@ -307,7 +308,7 @@ public partial class MainWindow
         }
         else if (!string.IsNullOrEmpty(link))
         {
-            Add(menu, "Открыть ссылку в новой вкладке", async () => await AddTabAsync(link), true, "", "IconExternalLink");
+            Add(menu, "Открыть ссылку в новой вкладке", async () => await AddTabAsync(link, false), true, "", "IconExternalLink");
             Add(menu, "Открыть ссылку в Split View", async () => await EnableSplitAsync(tab, link, true), true, "", "IconSplit");
             Add(menu, "Открыть ссылку в новом окне", () => OpenProcess(link), true, "", "IconSquare");
             Sep(menu);
@@ -324,7 +325,8 @@ public partial class MainWindow
             Add(menu, "Сохранить как…", async () => await SavePageAsync(view), true, "Ctrl+S", "IconDownload");
             Add(menu, "Печать…", () => view.CoreWebView2?.ShowPrintUI(), true, "Ctrl+P", "IconPrinter");
             Add(menu, "Трансляция…", () => ShowToast("Трансляция", "Зависит от поддержки устройства"), true, "", "IconCast");
-            Add(menu, "Перевести на русский", async () => await ApplyTranslationAsync(view, true), true, "", "IconGlobe");
+            var transLabel = _state.Language switch { "uk" => "Перекласти сторінку", "en" => "Translate page", _ => "Перевести страницу" };
+            Add(menu, transLabel, async () => await ApplyTranslationAsync(view, true), true, "", "IconGlobe");
             Add(menu, "Режим чтения", async () => await ToggleReaderAsync(view), true, "Ctrl+Shift+R", "IconBookOpen");
             Add(menu, _state.ForceDarkDomains.Contains(DomainKey(view.Source?.ToString() ?? "")) ? "Выключить тёмный режим сайта" : "Включить тёмный режим сайта", async () => await ToggleSiteDarkAsync(view), !tab.IsInternal, "", "IconMoon");
             Sep(menu);
@@ -338,7 +340,75 @@ public partial class MainWindow
         OpenMenu(menu);
     }
     private static async Task<string> Script(WebView2 view, string script) => view.CoreWebView2 is null ? "null" : await view.CoreWebView2.ExecuteScriptAsync(script);
-    private async Task SaveUrlAsync(string url) { var d = new SaveFileDialog { FileName = Path.GetFileName(new Uri(url).LocalPath) }; if (d.ShowDialog() != true) return; try { using var http = new HttpClient(); await File.WriteAllBytesAsync(d.FileName, await http.GetByteArrayAsync(url)); ShowToast("Файл сохранён", Path.GetFileName(d.FileName)); } catch (Exception ex) { ShowToast("Ошибка сохранения", ex.Message); } }
+    private async Task SaveUrlAsync(string url)
+    {
+        // Handle blob: and data: URIs that cannot be fetched by HttpClient.
+        if (url.StartsWith("blob:", StringComparison.OrdinalIgnoreCase) || url.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+        {
+            var view = CurrentTab?.ActiveView;
+            if (view?.CoreWebView2 is null) { ShowToast("Ошибка сохранения", "Не удалось получить доступ к файлу", true); return; }
+            // Use the page's own JS to convert blob/data URL to base64 bytes.
+            var rawJson = await view.CoreWebView2.ExecuteScriptAsync($@"
+                (async () => {{
+                    try {{
+                        const r = await fetch({System.Text.Json.JsonSerializer.Serialize(url)});
+                        const ab = await r.arrayBuffer();
+                        const bytes = new Uint8Array(ab);
+                        let b = '';
+                        bytes.forEach(byte => b += String.fromCharCode(byte));
+                        return btoa(b);
+                    }} catch(e) {{ return null; }}
+                }})()");
+            var b64 = System.Text.Json.JsonSerializer.Deserialize<string?>(rawJson);
+            if (string.IsNullOrWhiteSpace(b64)) { ShowToast("Ошибка сохранения", "Не удалось прочитать файл", true); return; }
+            var d2 = new SaveFileDialog { FileName = "image.png" };
+            if (d2.ShowDialog() != true) return;
+            await File.WriteAllBytesAsync(d2.FileName, Convert.FromBase64String(b64));
+            ShowToast("Файл сохранён", Path.GetFileName(d2.FileName));
+            return;
+        }
+        string fileName;
+        try { fileName = Path.GetFileName(new Uri(url).LocalPath); } catch { fileName = "file"; }
+        var dlg = new SaveFileDialog { FileName = string.IsNullOrEmpty(fileName) ? "image" : fileName };
+        if (dlg.ShowDialog() != true) return;
+        try
+        {
+            // Use WebView2's own cookie store by fetching via the page's JS context,
+            // which preserves auth cookies and session headers.
+            var view = CurrentTab?.ActiveView;
+            byte[] bytes;
+            if (view?.CoreWebView2 is not null)
+            {
+                var rawJson = await view.CoreWebView2.ExecuteScriptAsync($@"
+                    (async () => {{
+                        try {{
+                            const r = await fetch({System.Text.Json.JsonSerializer.Serialize(url)}, {{credentials: 'include'}});
+                            if (!r.ok) return null;
+                            const ab = await r.arrayBuffer();
+                            const bytes = new Uint8Array(ab);
+                            let b = '';
+                            bytes.forEach(byte => b += String.fromCharCode(byte));
+                            return btoa(b);
+                        }} catch(e) {{ return null; }}
+                    }})()");
+                var b64 = System.Text.Json.JsonSerializer.Deserialize<string?>(rawJson);
+                if (!string.IsNullOrWhiteSpace(b64))
+                {
+                    bytes = Convert.FromBase64String(b64);
+                    await File.WriteAllBytesAsync(dlg.FileName, bytes);
+                    ShowToast("Файл сохранён", Path.GetFileName(dlg.FileName));
+                    return;
+                }
+            }
+            // Fallback: plain HttpClient (works for public URLs).
+            using var http = new HttpClient();
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0");
+            bytes = await http.GetByteArrayAsync(url);
+            await File.WriteAllBytesAsync(dlg.FileName, bytes);
+            ShowToast("Файл сохранён", Path.GetFileName(dlg.FileName));
+        }
+        catch (Exception ex) { ShowToast("Ошибка сохранения", ex.Message, true); }
+    }
     private async Task SavePageAsync(WebView2 view) { if (view.CoreWebView2 is null) return; var d = new SaveFileDialog { FileName = "page.html", Filter = "HTML|*.html" }; if (d.ShowDialog() != true) return; var json = await view.CoreWebView2.ExecuteScriptAsync("document.documentElement.outerHTML"); await File.WriteAllTextAsync(d.FileName, JsonSerializer.Deserialize<string>(json) ?? ""); }
     private static void OpenProcess(string url) => Process.Start(new ProcessStartInfo(Environment.ProcessPath!, "\"" + url.Replace("\"", "") + "\"") { UseShellExecute = true });
 

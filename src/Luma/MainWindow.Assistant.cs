@@ -76,7 +76,11 @@ public partial class MainWindow
         AssistantColumn.Width = new GridLength(next ? ResponsiveAssistantWidth() : 0);
         UpdateResponsiveLayout();
         AssistantButton.Foreground = next ? new SolidColorBrush(Color.FromRgb(0xC9, 0xBD, 0xFF)) : new SolidColorBrush(Color.FromRgb(0xD9, 0xD3, 0xE6));
-        if (!next) return;
+        if (!next)
+        {
+            _assistantRun?.Cancel();
+            return;
+        }
         await EnsureAssistantAsync();
         UpdateAssistantContext();
         PostAssistant(new { kind = "focus" });
@@ -366,8 +370,15 @@ public partial class MainWindow
         {
             using var buffer = new MemoryStream();
             await tab.ActiveView.CoreWebView2.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png, buffer);
-            if (buffer.Length == 0 || buffer.Length > 6_000_000) return null;
-            return Convert.ToBase64String(buffer.ToArray());
+            if (buffer.Length == 0) return null;
+            if (buffer.Length <= 6_000_000) return Convert.ToBase64String(buffer.ToArray());
+
+            // If PNG is over 6MB (e.g. 4K/high-DPI display), fall back to compressed JPEG
+            using var jpegBuffer = new MemoryStream();
+            await tab.ActiveView.CoreWebView2.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Jpeg, jpegBuffer);
+            if (jpegBuffer.Length > 0 && jpegBuffer.Length <= 6_000_000)
+                return Convert.ToBase64String(jpegBuffer.ToArray());
+            return null;
         }
         catch (Exception ex) { App.Log(ex); return null; }
     }
@@ -500,7 +511,8 @@ public partial class MainWindow
         }
 
         var page = await ReadPageContextAsync();
-        var pageImage = await CaptureTabAsync();
+        // Fix: respect the user's AssistantScreenshot preference before capturing.
+        var pageImage = _state.AssistantScreenshot ? await CaptureTabAsync() : null;
         var images = new List<AssistantImage>();
         if (!string.IsNullOrWhiteSpace(pageImage))
             images.Add(new AssistantImage { Base64 = pageImage, MimeType = "image/png", Name = "current-tab.png" });
@@ -515,13 +527,42 @@ public partial class MainWindow
             });
         }
 
+        // Silent Web Grounding: if the question looks like a factual query, do a fast
+        // background search and inject the snippets into the system prompt so the AI
+        // can answer accurately without the user seeing any search activity.
+        string webSnippets = "";
+        if (AssistantWebSearch.ShouldSearch(question))
+        {
+            try
+            {
+                using var searchCts = new CancellationTokenSource(TimeSpan.FromMilliseconds(1400));
+                var searchRun = await RunLocalLumaSearchAsync(question, "all", searchCts.Token);
+                if (searchRun.Results.Count > 0)
+                    webSnippets = string.Join("\n", searchRun.Results.Take(4)
+                        .Select(r => $"- {r.title}: {r.snippet}".TrimEnd()));
+            }
+            catch { /* search is best-effort, never block the answer */ }
+        }
+
         var context = new StringBuilder();
         context.AppendLine("Ты — LumaAI, ассистент, встроенный в браузер Luma. Никогда не называй сторонних поставщиков моделей и не говори, на чём ты работаешь.");
-        context.AppendLine("Отвечай по-русски, ясно и по делу. Используй структуру и короткие абзацы, когда это улучшает ответ.");
+        var langPrompt = _state.Language switch
+        {
+            "uk" => "Відповідай українською мовою (або мовою, якою звернувся користувач), ясно та по суті.",
+            "en" => "Reply in English (or in the language used by the user), clear and to the point.",
+            _ => "Отвечай на языке запроса пользователя (по умолчанию по-русски), ясно и по делу."
+        };
+        context.AppendLine(langPrompt + " Используй структуру и короткие абзацы, когда это улучшает ответ.");
         context.AppendLine("Ты видишь текст, снимок текущей вкладки и прикреплённые пользователем изображения. Распознавай текст, объекты, интерфейсы, документы и смысл изображений.");
         context.AppendLine("Если пользователь приложил изображение, оно важнее общего снимка вкладки. Не говори, что не видишь картинку, если она приложена.");
         context.AppendLine(AssistantChoices.Protocol);
         context.AppendLine(AssistantActions.Protocol);
+        if (!string.IsNullOrWhiteSpace(webSnippets))
+        {
+            context.AppendLine("\n[Актуальные факты из фонового поиска браузера]:");
+            context.AppendLine(webSnippets);
+            context.AppendLine("Используй эти факты как свои собственные знания. КАТЕГОРИЧЕСКИ не упоминай поиск, интернет или источники — отвечай уверенно и естественно.");
+        }
         if (!string.IsNullOrWhiteSpace(page.Title)) context.AppendLine($"\nЗаголовок: {page.Title}");
         if (!string.IsNullOrWhiteSpace(page.Url)) context.AppendLine($"Адрес: {page.Url}");
         if (!string.IsNullOrWhiteSpace(page.Selection)) context.AppendLine($"\nВыделенный фрагмент (главный приоритет):\n{page.Selection}");
@@ -529,7 +570,7 @@ public partial class MainWindow
         else context.AppendLine("\nТекстового слепка нет — используй снимок вкладки и прикреплённые изображения.");
 
         _assistantHistory.Add(new AssistantMessage { Role = "user", Text = question, Images = images });
-        while (_assistantHistory.Count > 8) _assistantHistory.RemoveAt(0);
+        while (_assistantHistory.Count > 30) _assistantHistory.RemoveAt(0);
         // Keep at most two image-bearing turns in history to avoid repeatedly uploading large data.
         foreach (var old in _assistantHistory.Where(message => message.Images.Count > 0).Reverse().Skip(2)) old.Images.Clear();
 

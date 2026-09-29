@@ -327,7 +327,19 @@ public partial class MainWindow
         await RunAccountBusyAsync(async () => { await _auth.SendPasswordResetAsync(email); ShowAccountStatus("Ссылка для восстановления отправлена на почту.", true); });
     }
 
-    private async void AccountSignOut_Click(object sender, RoutedEventArgs e) => await RunAccountBusyAsync(async () => { await _auth.SignOutAsync(); _accountRegisterMode = false; UpdateAccountMenu(); AnimateAccountSurface(); });
+    private async void AccountSignOut_Click(object sender, RoutedEventArgs e) => await RunAccountBusyAsync(async () =>
+    {
+        await _auth.SignOutAsync();
+        _accountRegisterMode = false;
+        _assistantRun?.Cancel();
+        _assistantHistory.Clear();
+        _state.AssistantConversations.Clear();
+        _state.AssistantQuota = new();
+        PostAssistant(new { kind = "clear" });
+        Save();
+        UpdateAccountMenu();
+        AnimateAccountSurface();
+    });
 
     private async void AccountCreateBetaCode_Click(object sender, RoutedEventArgs e)
     {

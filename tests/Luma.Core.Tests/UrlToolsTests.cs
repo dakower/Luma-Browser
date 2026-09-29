@@ -8,6 +8,11 @@ public sealed class UrlToolsTests
     [Theory]
     [InlineData("example.com", "https://example.com")]
     [InlineData("hello world", "https://www.google.com/search?q=hello%20world")]
+    [InlineData("localhost:3000", "http://localhost:3000")]
+    [InlineData("127.0.0.1:8080", "http://127.0.0.1:8080")]
+    [InlineData("file:///C:/test.html", "file:///C:/test.html")]
+    [InlineData("blob:https://example.com/123", "blob:https://example.com/123")]
+    [InlineData("example.com\n", "https://example.com")]
     public void NormalizeInput_HandlesAddressAndSearch(string input, string expected) => Assert.Equal(expected, UrlTools.NormalizeInput(input, "google"));
 
 

@@ -367,7 +367,7 @@ public partial class MainWindow
     private void DefaultBrowser_Click(object sender, RoutedEventArgs e) { CloseTransientUi(); BrowserRegistry.OpenDefaultAppsSettings(); }
     private async void CheckUpdates_Click(object sender, RoutedEventArgs e) { CloseTransientUi(); await CheckForUpdatesManuallyAsync(); }
     private async void AboutMenu_Click(object sender, RoutedEventArgs e) { CloseTransientUi(); await OpenAboutAsync(); }
-    public static string AppVersion => System.Reflection.Assembly.GetExecutingAssembly().GetName().Version is { } v ? $"{v.Major}.{v.Minor}.{v.Build}" : "2.1.1";
+    public static string AppVersion => System.Reflection.Assembly.GetExecutingAssembly().GetName().Version is { } v ? $"{v.Major}.{v.Minor}.{v.Build}" : "2.1.2";
     private async void Import_Click(object sender, RoutedEventArgs e) { CloseTransientUi(); await OpenImportAsync(); }
     private void Exit_Click(object sender, RoutedEventArgs e) => ((App)Application.Current).ExitCompletely();
     // Kept for the WPF chrome, but the cursor poll above is what actually drives the reveal,
@@ -380,8 +380,15 @@ public partial class MainWindow
     {
         if (!_manualMaximized)
         {
-            _restoreBounds = new Rect(Left, Top, ActualWidth, ActualHeight); var area = SystemParameters.WorkArea;
-            WindowState = WindowState.Normal; Left = area.Left; Top = area.Top; Width = area.Width; Height = area.Height; _manualMaximized = true;
+            _restoreBounds = new Rect(Left, Top, ActualWidth, ActualHeight);
+            // Fix: use the monitor the window is currently on, not always the primary monitor.
+            var screen = System.Windows.Forms.Screen.FromHandle(new System.Windows.Interop.WindowInteropHelper(this).Handle);
+            var transform = PresentationSource.FromVisual(this)?.CompositionTarget?.TransformFromDevice ?? System.Windows.Media.Matrix.Identity;
+            var topLeft = transform.Transform(new System.Windows.Point(screen.WorkingArea.Left, screen.WorkingArea.Top));
+            var size = transform.Transform(new System.Windows.Point(screen.WorkingArea.Width, screen.WorkingArea.Height));
+            WindowState = WindowState.Normal;
+            Left = topLeft.X; Top = topLeft.Y; Width = size.X; Height = size.Y;
+            _manualMaximized = true;
         }
         else { Left = _restoreBounds.Left; Top = _restoreBounds.Top; Width = _restoreBounds.Width; Height = _restoreBounds.Height; _manualMaximized = false; }
     }
@@ -397,11 +404,87 @@ public partial class MainWindow
         if (e.ClickCount == 2) { ToggleMaximize(); e.Handled = true; }
         else if (e.ButtonState == MouseButtonState.Pressed && !_manualMaximized) DragMove();
     }
-    private void Window_PreviewKeyDown(object sender, KeyEventArgs e) { if (e.Key == Key.Escape && HistoryOverlay.Visibility == Visibility.Visible) { CloseHistory(); e.Handled = true; return; } if (e.Key == Key.F11) { SetFullscreen(!_fullscreen); e.Handled = true; } else if (e.Key == Key.Escape && _fullscreen) { ExitPageFullscreen(); SetFullscreen(false); e.Handled = true; } else if (e.Key == Key.Escape) CloseTransientUi(); else if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control) && Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) && e.Key == Key.S) { _ = AskLumaAsync("Кратко о странице: главные тезисы списком."); e.Handled = true; }
-        else if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control) && Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) && e.Key == Key.R) { _ = ToggleReaderAsync(CurrentTab?.ActiveView); e.Handled = true; }
-        else if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control) && Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) && e.Key == Key.T) { _ = ReopenLastClosedAsync(); e.Handled = true; }
-        else if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control) && Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) && e.Key == Key.V) { _ = PasteCleanAsync(); e.Handled = true; }
-        else if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control) && e.Key == Key.T) { OpenNewHomeTab(); e.Handled = true; } else if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control) && e.Key == Key.K) { OpenSearch(SearchPurpose.TabSearch); e.Handled = true; } else if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control) && e.Key == Key.R) { if (CurrentTab is { IsHome: false } tab) tab.ActiveView.Reload(); } else if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control) && e.Key == Key.J) { _ = ToggleAssistantAsync(); e.Handled = true; } }
+    private void Window_PreviewKeyDown(object sender, KeyEventArgs e) {
+        var ctrl = Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
+        var shift = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift);
+        var alt = Keyboard.Modifiers.HasFlag(ModifierKeys.Alt);
+        if (e.Key == Key.Escape && HistoryOverlay.Visibility == Visibility.Visible) { CloseHistory(); e.Handled = true; return; }
+        if (e.Key == Key.F11) { SetFullscreen(!_fullscreen); e.Handled = true; }
+        else if (e.Key == Key.Escape && _fullscreen) { ExitPageFullscreen(); SetFullscreen(false); e.Handled = true; }
+        else if (e.Key == Key.Escape) CloseTransientUi();
+        else if (e.Key == Key.F5) { if (CurrentTab is { IsHome: false } tab5) tab5.ActiveView.Reload(); e.Handled = true; }
+        else if (ctrl && e.Key == Key.W) { if (CurrentTab is { } tabW) { CloseTab(tabW); FilterTabs(); } e.Handled = true; }
+        else if (ctrl && e.Key == Key.F4) { if (CurrentTab is { } tabF4) { CloseTab(tabF4); FilterTabs(); } e.Handled = true; }
+        else if (ctrl && e.Key == Key.Tab) { CycleTab(+1); e.Handled = true; }
+        else if (ctrl && shift && e.Key == Key.Tab) { CycleTab(-1); e.Handled = true; }
+        else if (ctrl && e.Key == Key.D1) { SelectTabByIndex(0); e.Handled = true; }
+        else if (ctrl && e.Key == Key.D2) { SelectTabByIndex(1); e.Handled = true; }
+        else if (ctrl && e.Key == Key.D3) { SelectTabByIndex(2); e.Handled = true; }
+        else if (ctrl && e.Key == Key.D4) { SelectTabByIndex(3); e.Handled = true; }
+        else if (ctrl && e.Key == Key.D5) { SelectTabByIndex(4); e.Handled = true; }
+        else if (ctrl && e.Key == Key.D6) { SelectTabByIndex(5); e.Handled = true; }
+        else if (ctrl && e.Key == Key.D7) { SelectTabByIndex(6); e.Handled = true; }
+        else if (ctrl && e.Key == Key.D8) { SelectTabByIndex(7); e.Handled = true; }
+        else if (ctrl && e.Key == Key.D9) { SelectTabByIndex(Tabs.Count - 1); e.Handled = true; }
+        else if ((ctrl && e.Key == Key.L) || (alt && e.Key == Key.D) || e.Key == Key.F6) { FocusAddressBar(); e.Handled = true; }
+        else if (ctrl && e.Key == Key.H) { History_Click(this, new RoutedEventArgs()); e.Handled = true; }
+        else if (e.Key == Key.F12) { if (CurrentTab is { IsHome: false } tab12) tab12.ActiveView.CoreWebView2?.OpenDevToolsWindow(); e.Handled = true; }
+        else if (alt && e.Key == Key.Home) { OpenNewHomeTab(); e.Handled = true; }
+        else if (alt && e.Key == Key.Left) { if (CurrentTab is { IsHome: false } tabBack && tabBack.ActiveView.CanGoBack) { tabBack.ActiveView.GoBack(); e.Handled = true; } }
+        else if (alt && e.Key == Key.Right) { if (CurrentTab is { IsHome: false } tabFwd && tabFwd.ActiveView.CanGoForward) { tabFwd.ActiveView.GoForward(); e.Handled = true; } }
+        else if (ctrl && e.Key == Key.F) { OpenSearch(SearchPurpose.TabSearch); e.Handled = true; }
+        else if (ctrl && shift && e.Key == Key.S) { _ = AskLumaAsync("Кратко о странице: главные тезисы списком."); e.Handled = true; }
+        else if (ctrl && shift && e.Key == Key.R) { _ = ToggleReaderAsync(CurrentTab?.ActiveView); e.Handled = true; }
+        else if (ctrl && shift && e.Key == Key.T) { _ = ReopenLastClosedAsync(); e.Handled = true; }
+        else if (ctrl && e.Key == Key.T) { OpenNewHomeTab(); e.Handled = true; }
+        else if (ctrl && e.Key == Key.K) { OpenSearch(SearchPurpose.TabSearch); e.Handled = true; }
+        else if (ctrl && alt && e.Key == Key.Right) { CycleSpace(+1); e.Handled = true; }
+        else if (ctrl && alt && e.Key == Key.Left) { CycleSpace(-1); e.Handled = true; }
+        else if (ctrl && alt && e.Key == Key.D1) { SelectSpaceByIndex(0); e.Handled = true; }
+        else if (ctrl && alt && e.Key == Key.D2) { SelectSpaceByIndex(1); e.Handled = true; }
+        else if (ctrl && alt && e.Key == Key.D3) { SelectSpaceByIndex(2); e.Handled = true; }
+        else if (ctrl && alt && e.Key == Key.D4) { SelectSpaceByIndex(3); e.Handled = true; }
+        else if (ctrl && alt && e.Key == Key.D5) { SelectSpaceByIndex(4); e.Handled = true; }
+        else if (ctrl && e.Key == Key.R) { if (CurrentTab is { IsHome: false } tabR) tabR.ActiveView.Reload(); }
+        else if (ctrl && e.Key == Key.J) { _ = ToggleAssistantAsync(); e.Handled = true; }
+    }
     private void OnClosing(object? sender, CancelEventArgs e) { if (_closing) return; _closing = true; _auth.SessionChanged -= AccountSessionChanged; CloseFloatingVideoForShutdown(); _floatingMusic?.Close(); _floatingMusic = null; _downloadWatchdog?.Stop(); _tabInputWatch.Stop(); _edgeWatch.Stop(); _sleepWatch.Stop(); _feedbackRefreshTimer.Stop(); StopUpdateLoop(); StopAccountUsageTracking(); Save(); foreach (var s in _spaces) foreach (var t in s.Tabs) t.Dispose(); if (!((App)Application.Current).IsExiting && !((App)Application.Current).KeepInBackground) Application.Current.Shutdown(); }
+    /// <summary>Cycles through spaces by the given delta (+1 right, -1 left).</summary>
+    private void CycleSpace(int delta)
+    {
+        if (_spaces.Count < 2) return;
+        var next = (_activeSpace + delta + _spaces.Count) % _spaces.Count;
+        SwitchSpace(next);
+    }
+
+    /// <summary>Selects a space by zero-based index.</summary>
+    private void SelectSpaceByIndex(int index)
+    {
+        if (index >= 0 && index < _spaces.Count) SwitchSpace(index);
+    }
+
+    /// <summary>Cycles through tabs in the current space by the given delta (+1 right, -1 left).</summary>
+    private void CycleTab(int delta)
+    {
+        if (Tabs.Count < 2) return;
+        var idx = Tabs.IndexOf(CurrentTab!);
+        if (idx < 0) return;
+        CurrentTab = Tabs[(idx + delta + Tabs.Count) % Tabs.Count];
+    }
+
+    /// <summary>Selects a tab by zero-based index in the current space.</summary>
+    private void SelectTabByIndex(int index)
+    {
+        if (index >= 0 && index < Tabs.Count) CurrentTab = Tabs[index];
+    }
+
+    /// <summary>Moves keyboard focus to the address bar / URL input.</summary>
+    private void FocusAddressBar()
+    {
+        // Open the navigation search popup pre-filled with the current URL, identical to
+        // clicking the domain pill in the toolbar.
+        OpenSearch(SearchPurpose.Navigate, CurrentTab?.ActiveUrl);
+    }
+
     private void OnChanged([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }

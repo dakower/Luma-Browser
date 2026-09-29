@@ -122,7 +122,17 @@ public static class AssistantClient
         while (!reader.EndOfStream)
         {
             token.ThrowIfCancellationRequested();
-            var line = await reader.ReadLineAsync(token);
+            using var idleCts = CancellationTokenSource.CreateLinkedTokenSource(token);
+            idleCts.CancelAfter(TimeSpan.FromSeconds(25));
+            string? line;
+            try
+            {
+                line = await reader.ReadLineAsync(idleCts.Token);
+            }
+            catch (OperationCanceledException) when (!token.IsCancellationRequested)
+            {
+                throw new TimeoutException("Время ожидания ответа ассистента истекло (таймаут соединения).");
+            }
             if (string.IsNullOrWhiteSpace(line) || !line.StartsWith("data:", StringComparison.Ordinal)) continue;
             var data = line[5..].Trim();
             if (data == "[DONE]") break;
@@ -172,7 +182,7 @@ public static class AssistantClient
         var hint = (status, code) switch
         {
             (401, _) => "Войдите в аккаунт Luma, чтобы пользоваться LumaAI.",
-            (429, "daily_limit_reached") => "Сегодняшний лимит LumaAI исчерпан: 15 запросов. Новый лимит откроется после полуночи UTC.",
+            (429, "daily_limit_reached") => "Сегодняшний лимит LumaAI исчерпан. Новый лимит откроется после полуночи UTC.",
             (413, _) => "Изображение или контекст слишком большие.",
             (422, _) => "Выбранная модель не смогла обработать изображение.",
             (>= 500, _) => "LumaAI временно недоступен.",

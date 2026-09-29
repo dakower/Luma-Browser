@@ -192,8 +192,15 @@ public partial class MainWindow
     {
         if (!Uri.TryCreate(WebUtility.HtmlDecode(value ?? ""), UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https")) return "";
         var host = uri.Host.Replace("www.", "", StringComparison.OrdinalIgnoreCase);
-        if (host is "bing.com" or "google.com" or "duckduckgo.com" || host.EndsWith(".bing.com", StringComparison.OrdinalIgnoreCase)
-            || host.EndsWith(".google.com", StringComparison.OrdinalIgnoreCase) || host.EndsWith(".duckduckgo.com", StringComparison.OrdinalIgnoreCase)) return "";
+        // Only block the search engine home/results pages themselves, not every subdomain.
+        // This allows Google Docs, Google Drive, Google Maps, Bing Maps etc. to appear in results.
+        var isSearchRedirect =
+            (host == "google.com" && (uri.AbsolutePath.TrimEnd('/') == "/url" || uri.AbsolutePath.TrimEnd('/') == "/search")) ||
+            (host == "bing.com" && uri.AbsolutePath.StartsWith("/search", StringComparison.OrdinalIgnoreCase)) ||
+            (host == "duckduckgo.com" && uri.AbsolutePath.TrimEnd('/') == "/l") ||
+            (host == "duckduckgo.com" && uri.AbsolutePath.TrimEnd('/') == "") ||
+            uri.Query.Contains("uddg=", StringComparison.OrdinalIgnoreCase);
+        if (isSearchRedirect) return "";
         return uri.AbsoluteUri;
     }
 
@@ -798,9 +805,18 @@ public partial class MainWindow
         var accessToken = await _auth.GetAccessTokenAsync(token);
         if (string.IsNullOrWhiteSpace(accessToken)) return new LumaAiSearchResult { error = "Войдите в аккаунт Luma, чтобы использовать режим ИИ.", results = results, sources = results.Take(6).ToArray() };
         var sources = string.Join("\n\n", results.Take(10).Select((item, index) => $"[{index + 1}] {item.title}\n{item.url}\n{item.snippet}"));
+        var langHint = _state.Language switch
+        {
+            "uk" => "українською мовою (або мовою запиту)",
+            "en" => "in English (or in the language of the query)",
+            _ => "на языке запроса пользователя (по умолчанию по-русски)"
+        };
+        var systemText = concise
+            ? $"Ты — LumaAI. Дай сверхкраткий ответ {langHint}: 2–4 коротких предложения, максимум 70 слов. Без заголовков, списков, Markdown, решёток, звёздочек и обратных кавычек. Только суть. При необходимости укажи источники как [1], [2]. Не называй поставщиков поиска или моделей."
+            : $"Ты — поисковый режим LumaAI. Отвечай {langHint}, ясно и по существу. Не используй Markdown, решётки, звёздочки или обратные кавычки — только обычный текст. Используй переданные источники и ссылайся на них как [1], [2]. Поддерживай диалог и учитывай предыдущие реплики. Не называй сторонние поисковые сервисы или поставщиков моделей. Если веб-источники временно не загрузились, всё равно дай полезный ответ по общим знаниям, кратко отметив отсутствие веб-ссылок.";
         var messages = new List<AssistantMessage>
         {
-            new() { Role = "system", Text = concise ? "Ты — LumaAI. Дай сверхкраткий ответ на русском: 2–4 коротких предложения, максимум 70 слов. Без заголовков, списков, Markdown, решёток, звёздочек и обратных кавычек. Только суть. При необходимости укажи источники как [1], [2]. Не называй поставщиков поиска или моделей." : "Ты — поисковый режим LumaAI. Отвечай по-русски, ясно и по существу. Не используй Markdown, решётки, звёздочки или обратные кавычки — только обычный текст. Используй переданные источники и ссылайся на них как [1], [2]. Поддерживай диалог и учитывай предыдущие реплики. Не называй сторонние поисковые сервисы или поставщиков моделей. Если веб-источники временно не загрузились, всё равно дай полезный ответ по общим знаниям, кратко отметив отсутствие веб-ссылок." }
+            new() { Role = "system", Text = systemText }
         };
         try
         {
@@ -912,8 +928,17 @@ public partial class MainWindow
         string S(string n, string f) => root.TryGetProperty(n, out var v) ? v.GetString() ?? f : f; bool B(string n, bool f) => root.TryGetProperty(n, out var v) && v.ValueKind is JsonValueKind.True or JsonValueKind.False ? v.GetBoolean() : f; int I(string n, int f) => root.TryGetProperty(n, out var v) && v.TryGetInt32(out var number) ? number : f;
         _state.StartupBehavior = S("startup", _state.StartupBehavior); _state.SidebarVisible = B("sidebar", _state.SidebarVisible); _state.ConfirmManyTabs = B("confirm", _state.ConfirmManyTabs); _state.SearchEngine = S("search", _state.SearchEngine); _state.Language = NormalizeInterfaceLanguage(S("language", _state.Language)); ConfigureBrowserLanguage(_state.Language); _state.AnimationsEnabled = B("animations", _state.AnimationsEnabled); _state.DownloadPath = S("download", _state.DownloadPath);
         _state.BlockThirdPartyCookies = B("blockThirdPartyCookies", _state.BlockThirdPartyCookies); _state.DoNotTrack = B("doNotTrack", _state.DoNotTrack); _state.FloatingMusicEnabled = B("floatingMusic", _state.FloatingMusicEnabled); _state.FloatingVideoEnabled = B("floatingVideo", _state.FloatingVideoEnabled); _state.FloatingMediaAlwaysOnTop = B("floatingAlwaysOnTop", _state.FloatingMediaAlwaysOnTop); if (root.TryGetProperty("floatingVideoQuality", out var quality) && quality.TryGetInt32(out var q)) _state.FloatingVideoQuality = Math.Clamp(q, 45, 95);
-        _state.RestoreSession = B("restore", _state.RestoreSession); _state.SleepAfterMinutes = Math.Clamp(I("sleepMinutes", _state.SleepAfterMinutes), 0, 240); _state.PerformanceProfile = S("performanceProfile", _state.PerformanceProfile); _state.PageScale = Math.Clamp(I("pageScale", _state.PageScale), 80, 200);
-        if (_state.PerformanceProfile == "memory") _state.SleepAfterMinutes = 5; else if (_state.PerformanceProfile == "speed") _state.SleepAfterMinutes = 0;
+        _state.RestoreSession = B("restore", _state.RestoreSession);
+        var oldProfile = _state.PerformanceProfile;
+        _state.PerformanceProfile = S("performanceProfile", _state.PerformanceProfile);
+        _state.PageScale = Math.Clamp(I("pageScale", _state.PageScale), 80, 200);
+        if (root.TryGetProperty("sleepMinutes", out _))
+            _state.SleepAfterMinutes = Math.Clamp(I("sleepMinutes", _state.SleepAfterMinutes), 0, 240);
+        else if (oldProfile != _state.PerformanceProfile)
+        {
+            if (_state.PerformanceProfile == "memory") _state.SleepAfterMinutes = 5;
+            else if (_state.PerformanceProfile == "speed") _state.SleepAfterMinutes = 0;
+        }
         using (var key = Registry.CurrentUser.CreateSubKey(@"Software\Luma")) key.SetValue("Theme", S("theme", "dark")); CommitThemePreview(); Save(); ApplyTheme(); ApplyInterfaceLanguage(); ApplyPageScaleToOpenTabs(); ApplyPrivacySettings(); SetSidebar(_state.SidebarVisible, true); ShowToast(L("Настройки сохранены", "Settings saved", "Налаштування збережено"));
     }
 

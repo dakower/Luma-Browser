@@ -22,6 +22,7 @@ public sealed class BrowserTab : INotifyPropertyChanged, IDisposable
     public string InternalPageKind { get; set; } = "";
     public string BackFallbackInternalUrl { get; set; } = "";
     public bool IsHome => IsInternal && InternalPageKind == "luma://home";
+    public bool IsNavigating { get; set; }
     private bool _isAsleep;
     /// <summary>Last time this tab was in front; drives the quiet background sleep.</summary>
     public DateTime LastActiveAt { get; set; } = DateTime.UtcNow;

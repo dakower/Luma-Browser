@@ -60,7 +60,7 @@ public partial class MainWindow
         foreach (var space in _spaces)
             foreach (var tab in space.Tabs.ToList())
             {
-                if (tab == CurrentTab || tab.IsAsleep || tab.IsInternal || tab.IsSplit) continue;
+                if (tab == CurrentTab || tab.IsAsleep || tab.IsInternal || tab.IsSplit || tab.IsNavigating) continue;
                 if (_clock.UtcNow - tab.LastActiveAt < limit) continue;
                 var core = tab.View.CoreWebView2;
                 if (core is null) continue;
@@ -108,7 +108,7 @@ public partial class MainWindow
         if (Math.Abs(zoom - defaultZoom) < .01) { if (!_state.ZoomByDomain.Remove(domain)) return; }
         else if (_state.ZoomByDomain.TryGetValue(domain, out var old) && Math.Abs(old - zoom) < .01) return;
         else _state.ZoomByDomain[domain] = zoom;
-        _stateStore.Save();
+        ScheduleNavigationSave();
     }
 
     private async Task ToggleSiteDarkAsync(WebView2? view)
@@ -244,7 +244,16 @@ public partial class MainWindow
         ForgetViewState(tab.View); ForgetViewState(tab.SecondaryView);
         tab.Dispose();
 
-        if (ReferenceEquals(_nowPlaying, tab)) { _nowPlaying = null; RefreshNowPlaying(); }
+        if (ReferenceEquals(_floatingVideoTab, tab))
+        {
+            _ = StopFloatingVideoAsync(true);
+        }
+        if (ReferenceEquals(_nowPlaying, tab))
+        {
+            _nowPlaying = null;
+            RefreshNowPlaying();
+            RefreshFloatingMusic();
+        }
         Save();
     }
 

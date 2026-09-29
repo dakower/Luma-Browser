@@ -1,6 +1,6 @@
-# Luma Setup 2.1.1
+# Luma Setup 2.1.2
 
-The stable release is distributed as the signed single-file installer `LumaSetup-2.1.1-x64.exe` with `SHA256SUMS.txt`.
+The stable release is distributed as the signed single-file installer `LumaSetup-2.1.2-x64.exe` with `SHA256SUMS.txt`.
 
 ## Modes
 
