@@ -4,7 +4,7 @@
 
 > Luma is a native Windows browser built on WPF and Chromium WebView2, featuring Spaces, Split View, its own Luma Search with an AI mode, the LumaAI assistant, page translation, floating music/video players and signed auto-updates. UI languages: Russian, English, Ukrainian.
 
-**Текущая версия:** 2.0.9 · **Платформа:** Windows 10/11 x64 · **Интерфейс:** RU / EN / UK
+**Текущая версия:** 2.1.0 · **Платформа:** Windows 10/11 x64 · **Интерфейс:** RU / EN / UK
 
 ## Установка
 
@@ -12,7 +12,7 @@
 2. Скачайте `LumaSetup-<версия>-x64.exe` и `SHA256SUMS.txt`.
 3. Проверьте хеш:
    ```powershell
-   (Get-FileHash .\LumaSetup-2.0.9-x64.exe -Algorithm SHA256).Hash
+   (Get-FileHash .\LumaSetup-2.1.0-x64.exe -Algorithm SHA256).Hash
    ```
 4. Запустите установщик. Доступны установка для текущего пользователя (без прав администратора) и для всех пользователей (Program Files).
 
@@ -55,7 +55,7 @@ WebView2 Runtime устанавливается и восстанавливае�
 - Проверка обновлений не требует входа в аккаунт
 - Установщик проверяет целостность пакета и защищён от zip-slip
 
-Подробнее: [PRIVACY.md](PRIVACY.md), [SECURITY.md](SECURITY.md), [CHANGELOG.md](CHANGELOG.md).
+Подробнее: [PRIVACY.md](PRIVACY.md), [CHANGELOG.md](CHANGELOG.md).
 
 ## Структура репозитория
 
@@ -106,8 +106,8 @@ dotnet test tests/Luma.Core.Tests/Luma.Core.Tests.csproj
 ## Выпуск релиза через GitHub Actions
 
 ```powershell
-git tag v2.0.9
-git push origin v2.0.9
+git tag v2.1.0
+git push origin v2.1.0
 ```
 
 Workflow `release.yml` соберёт установщик и приложит его к GitHub Release. Версия тега должна совпадать с `Version` в `src/Luma/Luma.csproj`.

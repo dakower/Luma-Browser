@@ -32,7 +32,7 @@ public partial class MainWindow
         value = value?.Trim().ToLowerInvariant();
         var dash = value?.IndexOf('-') ?? -1;
         if (dash > 0) value = value![..dash];
-        return value is "en" or "uk" or "ru" ? value : "ru";
+        return value is "en" or "uk" or "ru" ? value : "en";
     }
 
     private string L(string ru, string en, string uk) => EffectiveLanguage == "ru" ? ru : EffectiveLanguage == "uk" ? uk : en;

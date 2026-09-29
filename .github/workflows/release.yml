@@ -1,6 +1,6 @@
 name: release
 
-# Запуск: git tag v2.0.9 && git push origin v2.0.9
+# Запуск: git tag v2.1.0 && git push origin v2.1.0
 on:
   push:
     tags: ['v*']

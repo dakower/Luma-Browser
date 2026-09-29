@@ -16,7 +16,7 @@ if ($browserVersion -ne $setupVersion) { throw "Version mismatch: browser=$brows
 
 $required = @(
   'src\Luma\updates.json', 'src\Luma\update-public.pem', 'src\Luma\Updates\apply-update.ps1',
-  'PRIVACY.md', 'SECURITY.md', 'LICENSE.txt', 'RELEASE-CHECKLIST.md', 'tools\publish-update.ps1'
+  'PRIVACY.md', 'LICENSE.txt', 'RELEASE-CHECKLIST.md', 'tools\publish-update.ps1'
 )
 foreach ($relative in $required) {
   if (-not (Test-Path (Join-Path $root $relative))) { throw "Required release file missing: $relative" }

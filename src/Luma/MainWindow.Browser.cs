@@ -55,6 +55,18 @@ public partial class MainWindow
 {
     private readonly Dictionary<WebView2, string> _networkErrorUrls = new();
     private readonly Dictionary<WebView2, string> _pendingNavigationUrls = new();
+    // Tracks the newest navigation per view so late "failed" events of a navigation that was
+    // already replaced (redirect, new click, reload, download) never produce an error page.
+    private readonly Dictionary<WebView2, ulong> _latestNavigationIds = new();
+    private readonly Dictionary<WebView2, (string Url, int Count)> _transientRetries = new();
+    private readonly Dictionary<WebView2, DateTime> _lastDownloadStartedUtc = new();
+
+    private static bool IsTransientNetworkError(CoreWebView2WebErrorStatus status) => status is
+        CoreWebView2WebErrorStatus.ConnectionAborted
+        or CoreWebView2WebErrorStatus.ConnectionReset
+        or CoreWebView2WebErrorStatus.Disconnected
+        or CoreWebView2WebErrorStatus.Unknown
+        or CoreWebView2WebErrorStatus.ErrorHttpInvalidServerResponse;
 
     private async Task<BrowserTab> AddTabAsync(string input, bool activate = true, string? folderId = null, bool pinned = false)
     {
@@ -409,6 +421,7 @@ public partial class MainWindow
             web.IsDocumentPlayingAudioChanged += async (_, _) => await SyncDocumentAudioStateAsync(tab, view);
             web.NavigationStarting += (_, args) => Dispatcher.Invoke(() =>
             {
+                _latestNavigationIds[view] = args.NavigationId;
                 ResetPageTranslation(view);
                 try
                 {
@@ -485,7 +498,7 @@ public partial class MainWindow
                 if (string.IsNullOrWhiteSpace(icon)) return;
                 if (ReferenceEquals(tab.SecondaryView, view)) tab.SecondaryFavicon = icon; else tab.Favicon = icon;
             });
-            web.DownloadStarting += (_, e) => Dispatcher.Invoke(() => HandleDownloadStarting(e));
+            web.DownloadStarting += (_, e) => Dispatcher.Invoke(() => { _lastDownloadStartedUtc[view] = DateTime.UtcNow; HandleDownloadStarting(e); });
             web.DOMContentLoaded += async (_, _) => await ApplyTranslationAsync(view, false);
             web.NavigationCompleted += async (_, args) =>
             {
@@ -495,9 +508,33 @@ public partial class MainWindow
                     || source.StartsWith("edge-error://", StringComparison.OrdinalIgnoreCase);
                 if ((!args.IsSuccess || engineErrorPage) && !tab.IsInternal)
                 {
+                    // 1) The navigation was replaced by a newer one (redirect, click, reload):
+                    //    its failure is meaningless, the newer navigation decides what to show.
+                    if (!engineErrorPage && _latestNavigationIds.TryGetValue(view, out var latestId) && args.NavigationId != latestId) return;
+                    // 2) Cancelled by the user/engine, or turned into a file download: not an error.
+                    if (!engineErrorPage && args.WebErrorStatus == CoreWebView2WebErrorStatus.OperationCanceled) return;
+                    if (!engineErrorPage && _lastDownloadStartedUtc.TryGetValue(view, out var downloadAt) && (DateTime.UtcNow - downloadAt).TotalSeconds < 5) return;
+
                     var failedUrl = _pendingNavigationUrls.TryGetValue(view, out var requestedUrl)
                         ? requestedUrl
                         : ReferenceEquals(tab.SecondaryView, view) ? tab.SecondaryUrl : tab.FullUrl;
+
+                    // 3) Transient connection glitches (aborted/reset connection, HTTP/2 hiccup) are
+                    //    retried silently up to twice before the error page is shown.
+                    if (IsTransientNetworkError(args.WebErrorStatus) && Uri.TryCreate(failedUrl, UriKind.Absolute, out var retryUri) && retryUri.Scheme is "http" or "https")
+                    {
+                        var known = _transientRetries.TryGetValue(view, out var entry) && string.Equals(entry.Url, failedUrl, StringComparison.Ordinal) ? entry.Count : 0;
+                        if (known < 2)
+                        {
+                            _transientRetries[view] = (failedUrl, known + 1);
+                            var expectedId = args.NavigationId;
+                            await Task.Delay(400 * (known + 1));
+                            if (view.CoreWebView2 is not null && _latestNavigationIds.TryGetValue(view, out var currentId) && currentId == expectedId)
+                                view.CoreWebView2.Navigate(failedUrl);
+                            return;
+                        }
+                    }
+                    _transientRetries.Remove(view);
                     if (Uri.TryCreate(failedUrl, UriKind.Absolute, out var failedUri) && failedUri.Scheme is "http" or "https")
                     {
                         _networkErrorUrls[view] = failedUrl;
@@ -512,6 +549,7 @@ public partial class MainWindow
                     return;
                 }
                 _pendingNavigationUrls.Remove(view);
+                if (args.IsSuccess) _transientRetries.Remove(view);
                 await ApplyPipAsync(view); await ApplyTranslationAsync(view, false); await ApplyDomainPrefsAsync(view);
                 if (!args.IsSuccess || tab.IsInternal) return;
                 await Dispatcher.InvokeAsync(() =>

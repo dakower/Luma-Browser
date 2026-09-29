@@ -1,3 +1,4 @@
+using Microsoft.Win32;
 using System.IO;
 using System.Text.Json;
 
@@ -12,7 +13,7 @@ public sealed class LumaState
     public bool SidebarVisible { get; set; } = true;
     public string StartupBehavior { get; set; } = "home";
     public string SearchEngine { get; set; } = "google";
-    public string Language { get; set; } = "ru";
+    public string Language { get; set; } = "en";
     public bool RestoreSession { get; set; }
     public bool ConfirmManyTabs { get; set; } = true;
     public bool BlockThirdPartyCookies { get; set; }
@@ -49,11 +50,22 @@ public sealed class LumaState
     public List<SpaceState> Spaces { get; set; } = [new SpaceState()];
     public static string DirectoryPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Luma");
     public static string FilePath => Path.Combine(DirectoryPath, "state.json");
+    /// <summary>Language chosen in the installer (HKCU\Software\Luma\Language). English when the user never changed it.</summary>
+    private static string InstalledLanguage()
+    {
+        try
+        {
+            var chosen = Registry.CurrentUser.OpenSubKey(@"Software\Luma")?.GetValue("Language") as string;
+            return chosen is "ru" or "uk" ? chosen : "en";
+        }
+        catch { return "en"; }
+    }
+
     public static LumaState Load()
     {
         try
         {
-            if (!File.Exists(FilePath)) return new();
+            if (!File.Exists(FilePath)) return new() { Language = InstalledLanguage() };
             var state = JsonSerializer.Deserialize<LumaState>(File.ReadAllText(FilePath)) ?? new();
             state.AutoPictureInPicture = new(state.AutoPictureInPicture ?? [], StringComparer.OrdinalIgnoreCase);
             state.AlwaysTranslateDomains = new(state.AlwaysTranslateDomains ?? [], StringComparer.OrdinalIgnoreCase);

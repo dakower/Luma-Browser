@@ -37,7 +37,7 @@ public partial class App : Application
     private static void ShowFatal(Exception ex)
     {
         Log(ex);
-        MessageBox.Show("Luma Setup не удалось запустить.\n\n" + ex.Message + "\n\nДиагностика сохранена в:\n" + CrashLog,
+        MessageBox.Show("Luma Setup could not start.\n\n" + ex.Message + "\n\nDiagnostics saved to:\n" + CrashLog,
             "Luma Setup", MessageBoxButton.OK, MessageBoxImage.Error);
     }
 

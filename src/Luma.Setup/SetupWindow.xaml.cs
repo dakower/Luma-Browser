@@ -18,7 +18,7 @@ public partial class SetupWindow : Window
 {
     private static string ProductVersion => Assembly.GetExecutingAssembly().GetName().Version is { } version
         ? $"{version.Major}.{version.Minor}.{version.Build}"
-        : "2.0.9";
+        : "2.1.0";
     private static readonly string DefaultUserDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Luma");
     private static readonly string DefaultMachineDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Luma");
     private FrameworkElement _current = null!;
@@ -38,9 +38,158 @@ public partial class SetupWindow : Window
         public bool AutoStart { get; set; }
         public bool OfferDefaultBrowser { get; set; } = true;
         public string Theme { get; set; } = "purple";
+        public string Language { get; set; } = "en";
     }
 
     private sealed record InstallProgress(double Value, string Status, string Detail, string Right);
+
+    // ---- Localization: English by default; Русский / Українська selectable on the options screen ----
+    private static string _lang = "en";
+    private static readonly Dictionary<string, (string Ru, string Uk)> Loc = new()
+    {
+        ["The internet,\nbuilt around you."] = ("Интернет,\nсобранный вокруг вас.", "Інтернет,\nзібраний навколо вас."),
+        ["Install Luma — a fast browser with spaces,\nvertical tabs and a calm interface."] = ("Установите Luma — быстрый браузер с пространствами,\nвертикальными вкладками и спокойным интерфейсом.", "Встановіть Luma — швидкий браузер із просторами,\nвертикальними вкладками та спокійним інтерфейсом."),
+        ["Start installation"] = ("Начать установку", "Почати встановлення"),
+        ["Options"] = ("Параметры", "Параметри"),
+        ["By continuing, you accept the terms of use"] = ("Продолжая, вы принимаете условия использования", "Продовжуючи, ви приймаєте умови використання"),
+        ["How would you like to install?"] = ("Как установить?", "Як встановити?"),
+        ["Choose access and install location."] = ("Выберите доступ и место установки.", "Виберіть доступ і місце встановлення."),
+        ["Language"] = ("Язык", "Мова"),
+        ["Applies to the installer and the browser."] = ("Применяется к установщику и браузеру.", "Застосовується до встановлювача та браузера."),
+        ["Just for me"] = ("Только для меня", "Лише для мене"),
+        ["No administrator rights required"] = ("Без запроса прав администратора", "Без запиту прав адміністратора"),
+        ["For all users"] = ("Для всех пользователей", "Для всіх користувачів"),
+        ["Installs to Program Files, Windows will ask for confirmation"] = ("Установка в Program Files с подтверждением Windows", "Встановлення в Program Files з підтвердженням Windows"),
+        ["Install folder"] = ("Папка установки", "Папка встановлення"),
+        ["Browse…"] = ("Обзор…", "Огляд…"),
+        ["Additional"] = ("Дополнительно", "Додатково"),
+        ["Desktop shortcut"] = ("Ярлык на рабочем столе", "Ярлик на робочому столі"),
+        ["Start menu shortcut"] = ("Ярлык в меню «Пуск»", "Ярлик у меню «Пуск»"),
+        ["Launch with Windows"] = ("Запускать вместе с Windows", "Запускати разом із Windows"),
+        ["Offer as default browser"] = ("Предложить браузер по умолчанию", "Запропонувати браузер за замовчуванням"),
+        ["Reset to default path"] = ("Вернуть стандартный путь", "Повернути стандартний шлях"),
+        ["Back"] = ("Назад", "Назад"),
+        ["Continue"] = ("Продолжить", "Продовжити"),
+        ["Choose your mood"] = ("Выберите настроение", "Оберіть настрій"),
+        ["Your first space will be yours."] = ("Первое пространство уже будет вашим.", "Перший простір уже буде вашим."),
+        ["Install"] = ("Установить", "Встановити"),
+        ["Building your browser"] = ("Собираем ваш браузер", "Збираємо ваш браузер"),
+        ["Preparing your space…"] = ("Подготавливаем пространство…", "Готуємо простір…"),
+        ["Verifying the install package"] = ("Проверяем установочный пакет", "Перевіряємо пакет встановлення"),
+        ["Installing Luma"] = ("Установка Luma", "Встановлення Luma"),
+        ["Preparing"] = ("Подготовка", "Підготовка"),
+        ["Luma is ready"] = ("Luma готов", "Luma готова"),
+        ["Browser installed"] = ("Браузер установлен", "Браузер встановлено"),
+        ["Open browser"] = ("Открыть браузер", "Відкрити браузер"),
+        ["✓ Integrity verified"] = ("✓ Целостность проверена", "✓ Цілісність перевірено"),
+        ["✓ Can be removed via Windows"] = ("✓ Можно удалить через Windows", "✓ Можна видалити через Windows"),
+        ["Choose the Luma install folder"] = ("Выберите папку установки Luma", "Виберіть папку встановлення Luma"),
+        ["Available to all users · administrator rights required"] = ("Доступно всем пользователям · потребуются права администратора", "Доступно всім користувачам · потрібні права адміністратора"),
+        ["Available only to your Windows profile"] = ("Доступно только вашему профилю Windows", "Доступно лише вашому профілю Windows"),
+        ["Free {0}"] = ("Свободно {0}", "Вільно {0}"),
+        ["Invalid path"] = ("Некорректный путь", "Некоректний шлях"),
+        ["Enter the full install path."] = ("Укажите полный путь установки.", "Вкажіть повний шлях встановлення."),
+        ["Luma can't be installed directly in the drive root."] = ("Нельзя устанавливать Luma прямо в корень диска.", "Не можна встановлювати Luma прямо в корінь диска."),
+        ["Not enough free space on the selected drive."] = ("На выбранном диске недостаточно свободного места.", "На вибраному диску недостатньо вільного місця."),
+        ["The selected folder is not empty and is not a Luma installation."] = ("Выбранная папка не пуста и не является установкой Luma.", "Вибрана папка не порожня і не є встановленням Luma."),
+        ["Couldn't use the selected folder: "] = ("Не удалось использовать выбранную папку: ", "Не вдалося використати вибрану папку: "),
+        ["Couldn't determine the installer path."] = ("Не удалось определить путь установщика.", "Не вдалося визначити шлях встановлювача."),
+        ["Installation for all users was cancelled."] = ("Установка для всех пользователей отменена.", "Встановлення для всіх користувачів скасовано."),
+        ["Install settings are corrupted."] = ("Параметры установки повреждены.", "Параметри встановлення пошкоджено."),
+        ["Couldn't continue the installation:\n\n"] = ("Не удалось продолжить установку:\n\n", "Не вдалося продовжити встановлення:\n\n"),
+        ["Installation complete"] = ("Установка завершена", "Встановлення завершено"),
+        ["All components verified"] = ("Все компоненты проверены", "Усі компоненти перевірено"),
+        ["Done"] = ("Готово", "Готово"),
+        ["Luma is installed in\n{0}"] = ("Luma установлена в\n{0}", "Luma встановлено в\n{0}"),
+        ["Couldn't install Luma:\n\n"] = ("Не удалось установить Luma:\n\n", "Не вдалося встановити Luma:\n\n"),
+        ["\n\nThe previous version was restored if it was installed."] = ("\n\nПредыдущая версия восстановлена, если она была установлена.", "\n\nПопередню версію відновлено, якщо вона була встановлена."),
+        ["Invalid install folder."] = ("Некорректная папка установки.", "Некоректна папка встановлення."),
+        ["Verifying package…"] = ("Проверяем пакет…", "Перевіряємо пакет…"),
+        ["SHA-256 checksum"] = ("Контрольная сумма SHA-256", "Контрольна сума SHA-256"),
+        ["Verifying"] = ("Проверка", "Перевірка"),
+        ["Preparing files…"] = ("Подготавливаем файлы…", "Готуємо файли…"),
+        ["Creating a safe temporary folder"] = ("Создаём безопасную временную папку", "Створюємо безпечну тимчасову папку"),
+        ["Extracting Luma…"] = ("Распаковываем Luma…", "Розпаковуємо Luma…"),
+        ["The install package is missing Luma.exe."] = ("В установочном пакете отсутствует Luma.exe.", "У пакеті встановлення відсутній Luma.exe."),
+        ["Updating the app…"] = ("Обновляем приложение…", "Оновлюємо застосунок…"),
+        ["Closing the installed Luma"] = ("Закрываем установленную Luma", "Закриваємо встановлену Luma"),
+        ["Updating"] = ("Обновление", "Оновлення"),
+        ["Configuring Windows…"] = ("Настраиваем Windows…", "Налаштовуємо Windows…"),
+        ["Shortcuts, protocols and uninstall entry"] = ("Ярлыки, протоколы и удаление", "Ярлики, протоколи та видалення"),
+        ["Setup"] = ("Настройка", "Налаштування"),
+        ["Finishing…"] = ("Завершаем…", "Завершуємо…"),
+        ["Removing temporary files"] = ("Удаляем временные файлы", "Видаляємо тимчасові файли"),
+        ["Cleanup"] = ("Очистка", "Очищення"),
+        ["WebView2 Runtime found"] = ("WebView2 Runtime найден", "WebView2 Runtime знайдено"),
+        ["Using the already installed compatible component"] = ("Используем уже установленный совместимый компонент", "Використовуємо вже встановлений сумісний компонент"),
+        ["The install package is missing the WebView2 Runtime repair tool."] = ("В установочном пакете отсутствует средство восстановления WebView2 Runtime.", "У пакеті встановлення відсутній засіб відновлення WebView2 Runtime."),
+        ["Repairing WebView2 Runtime…"] = ("Восстанавливаем WebView2 Runtime…", "Відновлюємо WebView2 Runtime…"),
+        ["Installing the system web component"] = ("Установка системного веб-компонента", "Встановлення системного веб-компонента"),
+        ["WebView2 Runtime is ready"] = ("WebView2 Runtime готов", "WebView2 Runtime готовий"),
+        ["The browser component was installed or repaired"] = ("Компонент браузера установлен или восстановлен", "Компонент браузера встановлено або відновлено"),
+        ["Windows confirmation required…"] = ("Требуется подтверждение Windows…", "Потрібне підтвердження Windows…"),
+        ["Retrying the WebView2 repair with administrator rights"] = ("Повторяем восстановление WebView2 с правами администратора", "Повторюємо відновлення WebView2 з правами адміністратора"),
+        ["Windows did not register a compatible WebView2 Runtime after repair. Installer codes: {0}"] = ("Windows не зарегистрировала совместимый WebView2 Runtime после восстановления. Коды установщика: {0}", "Windows не зареєструвала сумісний WebView2 Runtime після відновлення. Коди встановлювача: {0}"),
+        [". Restart Windows and run the installation again."] = (". Перезагрузите Windows и повторите установку.", ". Перезавантажте Windows і повторіть встановлення."),
+        ["Couldn't start the WebView2 Runtime installation."] = ("Не удалось запустить установку WebView2 Runtime.", "Не вдалося запустити встановлення WebView2 Runtime."),
+        ["Embedded package not found."] = ("Встроенный пакет не найден.", "Вбудований пакет не знайдено."),
+        ["Package checksum not found."] = ("Контрольная сумма пакета не найдена.", "Контрольну суму пакета не знайдено."),
+        ["The install package is corrupted: SHA-256 mismatch."] = ("Установочный пакет повреждён: SHA-256 не совпадает.", "Пакет встановлення пошкоджено: SHA-256 не збігається."),
+        ["The package contains an unsafe path."] = ("Пакет содержит небезопасный путь.", "Пакет містить небезпечний шлях."),
+        ["Installer executable not found."] = ("Не найден исполняемый файл установщика.", "Не знайдено виконуваний файл встановлювача."),
+        ["Fast vertical browser"] = ("Быстрый вертикальный браузер", "Швидкий вертикальний браузер"),
+        ["Windows Script Host is unavailable."] = ("Windows Script Host недоступен.", "Windows Script Host недоступний."),
+        ["GB"] = ("ГБ", "ГБ"),
+        ["MB"] = ("МБ", "МБ"),
+        ["Uninstall Luma Browser?\n\nYes — remove the browser and local profile.\nNo — remove the browser but keep the profile.\nCancel — change nothing."] = ("Удалить Luma Browser?\n\nДа — удалить браузер и локальный профиль.\nНет — удалить браузер, но сохранить профиль.\nОтмена — ничего не менять.", "Видалити Luma Browser?\n\nТак — видалити браузер і локальний профіль.\nНі — видалити браузер, але зберегти профіль.\nСкасувати — нічого не змінювати."),
+        ["Uninstall Luma"] = ("Удаление Luma", "Видалення Luma"),
+        ["Removing Luma…"] = ("Удаляем Luma…", "Видаляємо Luma…"),
+        ["Closing the browser"] = ("Закрываем браузер", "Закриваємо браузер"),
+        ["Uninstalling"] = ("Удаление", "Видалення"),
+        ["Cleaning up files and shortcuts"] = ("Очищаем файлы и ярлыки", "Очищуємо файли та ярлики"),
+        ["Please wait for the installation to finish."] = ("Дождитесь завершения установки.", "Дочекайтеся завершення встановлення."),
+    };
+
+    internal static string T(string en) => _lang == "en" || !Loc.TryGetValue(en, out var v) ? en : _lang == "ru" ? v.Ru : v.Uk;
+
+    private static string NormalizeLang(string? value) => value is "ru" or "uk" ? value : "en";
+
+    private static string ReadSavedLanguage()
+    {
+        try { return NormalizeLang(Registry.CurrentUser.OpenSubKey(@"Software\Luma")?.GetValue("Language") as string); }
+        catch { return "en"; }
+    }
+
+    private readonly System.Runtime.CompilerServices.ConditionalWeakTable<DependencyObject, string> _sourceText = new();
+
+    private void ApplyLanguage()
+    {
+        TranslateTree(this);
+        UpdateLocationMeta();
+    }
+
+    private void TranslateTree(DependencyObject node)
+    {
+        if (node is TextBlock block && !string.IsNullOrEmpty(block.Text))
+        {
+            if (!_sourceText.TryGetValue(block, out var src) && Loc.ContainsKey(block.Text)) { src = block.Text; _sourceText.Add(block, src); }
+            if (src is not null) block.Text = T(src);
+        }
+        else if (node is ContentControl { Content: string content } control)
+        {
+            if (!_sourceText.TryGetValue(control, out var src) && Loc.ContainsKey(content)) { src = content; _sourceText.Add(control, src); }
+            if (src is not null) control.Content = T(src);
+        }
+        foreach (var child in LogicalTreeHelper.GetChildren(node))
+            if (child is DependencyObject d) TranslateTree(d);
+    }
+
+    private void Language_Checked(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded || sender is not RadioButton { Tag: string tag }) return;
+        _lang = NormalizeLang(tag);
+        ApplyLanguage();
+    }
 
     public SetupWindow()
     {
@@ -135,7 +284,7 @@ public partial class SetupWindow : Window
 
     private void BrowseInstallPath_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new OpenFolderDialog { Title = "Выберите папку установки Luma", InitialDirectory = Directory.Exists(InstallPathBox.Text) ? InstallPathBox.Text : Path.GetDirectoryName(InstallPathBox.Text) };
+        var dialog = new OpenFolderDialog { Title = T("Choose the Luma install folder"), InitialDirectory = Directory.Exists(InstallPathBox.Text) ? InstallPathBox.Text : Path.GetDirectoryName(InstallPathBox.Text) };
         if (dialog.ShowDialog(this) == true) SetInstallPath(Path.Combine(dialog.FolderName, "Luma"));
     }
 
@@ -148,16 +297,16 @@ public partial class SetupWindow : Window
     {
         if (InstallScopeText is null || FreeSpaceText is null || OptionsContinueButton is null) return;
         var all = ForEveryone?.IsChecked == true;
-        InstallScopeText.Text = all ? "Доступно всем пользователям · потребуются права администратора" : "Доступно только вашему профилю Windows";
+        InstallScopeText.Text = all ? T("Available to all users · administrator rights required") : T("Available only to your Windows profile");
         try
         {
             var full = Path.GetFullPath(Environment.ExpandEnvironmentVariables(InstallPathBox.Text.Trim()));
             var root = Path.GetPathRoot(full);
             var drive = string.IsNullOrWhiteSpace(root) ? null : new DriveInfo(root);
-            FreeSpaceText.Text = drive is null ? "" : $"Свободно {FormatBytes(drive.AvailableFreeSpace)}";
+            FreeSpaceText.Text = drive is null ? "" : string.Format(T("Free {0}"), FormatBytes(drive.AvailableFreeSpace));
             OptionsContinueButton.IsEnabled = Path.IsPathFullyQualified(full);
         }
-        catch { FreeSpaceText.Text = "Некорректный путь"; OptionsContinueButton.IsEnabled = false; }
+        catch { FreeSpaceText.Text = T("Invalid path"); OptionsContinueButton.IsEnabled = false; }
     }
 
     private bool ValidateInstallPath(out string error)
@@ -166,15 +315,15 @@ public partial class SetupWindow : Window
         try
         {
             var path = Path.GetFullPath(Environment.ExpandEnvironmentVariables(InstallPathBox.Text.Trim()));
-            if (!Path.IsPathFullyQualified(path)) { error = "Укажите полный путь установки."; return false; }
-            if (string.Equals(path, Path.GetPathRoot(path), StringComparison.OrdinalIgnoreCase)) { error = "Нельзя устанавливать Luma прямо в корень диска."; return false; }
+            if (!Path.IsPathFullyQualified(path)) { error = T("Enter the full install path."); return false; }
+            if (string.Equals(path, Path.GetPathRoot(path), StringComparison.OrdinalIgnoreCase)) { error = T("Luma can't be installed directly in the drive root."); return false; }
             var root = Path.GetPathRoot(path)!; var drive = new DriveInfo(root);
-            if (drive.AvailableFreeSpace < 350L * 1024 * 1024) { error = "На выбранном диске недостаточно свободного места."; return false; }
+            if (drive.AvailableFreeSpace < 350L * 1024 * 1024) { error = T("Not enough free space on the selected drive."); return false; }
             var existing = new DirectoryInfo(path);
-            if (existing.Exists && existing.EnumerateFileSystemInfos().Any() && !File.Exists(Path.Combine(path, "Luma.exe"))) { error = "Выбранная папка не пуста и не является установкой Luma."; return false; }
+            if (existing.Exists && existing.EnumerateFileSystemInfos().Any() && !File.Exists(Path.Combine(path, "Luma.exe"))) { error = T("The selected folder is not empty and is not a Luma installation."); return false; }
             return true;
         }
-        catch (Exception ex) { error = "Не удалось использовать выбранную папку: " + ex.Message; return false; }
+        catch (Exception ex) { error = T("Couldn't use the selected folder: ") + ex.Message; return false; }
     }
 
     private void Theme_Checked(object sender, RoutedEventArgs e)
@@ -203,7 +352,8 @@ public partial class SetupWindow : Window
         StartMenuShortcut = StartMenuShortcutCheck.IsChecked == true,
         AutoStart = AutoStartCheck.IsChecked == true,
         OfferDefaultBrowser = DefaultBrowserCheck.IsChecked == true,
-        Theme = _selectedTheme
+        Theme = _selectedTheme,
+        Language = _lang
     };
 
     private async void Install_Click(object sender, RoutedEventArgs e)
@@ -218,24 +368,25 @@ public partial class SetupWindow : Window
     {
         var file = Path.Combine(Path.GetTempPath(), $"luma-install-{Guid.NewGuid():N}.json");
         File.WriteAllText(file, JsonSerializer.Serialize(config));
-        var exe = Environment.ProcessPath ?? Process.GetCurrentProcess().MainModule?.FileName ?? throw new InvalidOperationException("Не удалось определить путь установщика.");
+        var exe = Environment.ProcessPath ?? Process.GetCurrentProcess().MainModule?.FileName ?? throw new InvalidOperationException(T("Couldn't determine the installer path."));
         var info = new ProcessStartInfo(exe) { UseShellExecute = true, Verb = "runas" };
         info.ArgumentList.Add("--elevated-config"); info.ArgumentList.Add(file);
         try { Process.Start(info); Close(); }
-        catch { try { File.Delete(file); } catch { } MessageBox.Show("Установка для всех пользователей отменена.", "Luma Setup", MessageBoxButton.OK, MessageBoxImage.Information); }
+        catch { try { File.Delete(file); } catch { } MessageBox.Show(T("Installation for all users was cancelled."), "Luma Setup", MessageBoxButton.OK, MessageBoxImage.Information); }
     }
 
     private async Task ContinueElevatedInstallAsync(string configPath)
     {
         try
         {
-            var config = JsonSerializer.Deserialize<InstallConfig>(await File.ReadAllTextAsync(configPath)) ?? throw new InvalidDataException("Параметры установки повреждены.");
+            var config = JsonSerializer.Deserialize<InstallConfig>(await File.ReadAllTextAsync(configPath)) ?? throw new InvalidDataException(T("Install settings are corrupted."));
             try { File.Delete(configPath); } catch { }
+            _lang = NormalizeLang(config.Language); ApplyLanguage();
             _selectedTheme = config.Theme; Theme_Checked(new RadioButton { Tag = config.Theme }, new RoutedEventArgs());
             WelcomeScreen.Visibility = Visibility.Collapsed; ProgressScreen.Visibility = Visibility.Visible; _current = ProgressScreen;
             await BeginInstallAsync(config, false);
         }
-        catch (Exception ex) { MessageBox.Show("Не удалось продолжить установку:\n\n" + ex.Message, "Luma Setup", MessageBoxButton.OK, MessageBoxImage.Error); Close(); }
+        catch (Exception ex) { MessageBox.Show(T("Couldn't continue the installation:\n\n") + ex.Message, "Luma Setup", MessageBoxButton.OK, MessageBoxImage.Error); Close(); }
     }
 
     private async Task BeginInstallAsync(InstallConfig config, bool animateTransition = true)
@@ -248,13 +399,13 @@ public partial class SetupWindow : Window
         {
             var work = Task.Run(() => InstallFiles(config, reporter));
             await Task.WhenAll(work, Task.Delay(1100));
-            SetProgress(100); SetStatus("Установка завершена", "Все компоненты проверены", "Готово");
-            DoneLocationText.Text = $"Luma установлена в\n{config.InstallDir}";
+            SetProgress(100); SetStatus(T("Installation complete"), T("All components verified"), T("Done"));
+            DoneLocationText.Text = string.Format(T("Luma is installed in\n{0}"), config.InstallDir);
             await GoTo(DoneScreen, false); AnimateDone();
         }
         catch (Exception ex)
         {
-            MessageBox.Show("Не удалось установить Luma:\n\n" + ex.Message + "\n\nПредыдущая версия восстановлена, если она была установлена.", "Luma Setup", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(T("Couldn't install Luma:\n\n") + ex.Message + T("\n\nThe previous version was restored if it was installed."), "Luma Setup", MessageBoxButton.OK, MessageBoxImage.Error);
             await GoTo(ThemeScreen, true);
         }
         finally { _installing = false; }
@@ -281,16 +432,16 @@ public partial class SetupWindow : Window
 
     private void InstallFiles(InstallConfig config, IProgress<InstallProgress> progress)
     {
-        var installDir = Path.GetFullPath(config.InstallDir); var parent = Directory.GetParent(installDir)?.FullName ?? throw new InvalidOperationException("Некорректная папка установки.");
+        var installDir = Path.GetFullPath(config.InstallDir); var parent = Directory.GetParent(installDir)?.FullName ?? throw new InvalidOperationException(T("Invalid install folder."));
         Directory.CreateDirectory(parent);
         var staging = Path.Combine(parent, $".Luma-staging-{Guid.NewGuid():N}"); var backup = Path.Combine(parent, $".Luma-backup-{Guid.NewGuid():N}"); var payloadFile = Path.Combine(Path.GetTempPath(), $"LumaPayload-{Guid.NewGuid():N}.zip");
         var movedOld = false; var movedNew = false;
         try
         {
-            progress.Report(new(4, "Проверяем пакет…", "Контрольная сумма SHA-256", "Проверка"));
+            progress.Report(new(4, T("Verifying package…"), T("SHA-256 checksum"), T("Verifying")));
             ExtractEmbeddedPayload(payloadFile);
             VerifyPayload(payloadFile);
-            progress.Report(new(10, "Подготавливаем файлы…", "Создаём безопасную временную папку", "Подготовка"));
+            progress.Report(new(10, T("Preparing files…"), T("Creating a safe temporary folder"), T("Preparing")));
             Directory.CreateDirectory(staging);
             using (var archive = ZipFile.OpenRead(payloadFile))
             {
@@ -299,18 +450,18 @@ public partial class SetupWindow : Window
                 {
                     var entry = entries[i]; var target = SafeDestination(staging, entry.FullName); Directory.CreateDirectory(Path.GetDirectoryName(target)!);
                     using var input = entry.Open(); using var output = new FileStream(target, FileMode.Create, FileAccess.Write, FileShare.None); input.CopyTo(output);
-                    progress.Report(new(12 + 58d * (i + 1) / Math.Max(1, entries.Length), "Распаковываем Luma…", entry.Name, $"{i + 1}/{entries.Length}"));
+                    progress.Report(new(12 + 58d * (i + 1) / Math.Max(1, entries.Length), T("Extracting Luma…"), entry.Name, $"{i + 1}/{entries.Length}"));
                 }
             }
-            if (!File.Exists(Path.Combine(staging, "Luma.exe"))) throw new InvalidDataException("В установочном пакете отсутствует Luma.exe.");
-            progress.Report(new(73, "Обновляем приложение…", "Закрываем установленную Luma", "Обновление"));
+            if (!File.Exists(Path.Combine(staging, "Luma.exe"))) throw new InvalidDataException(T("The install package is missing Luma.exe."));
+            progress.Report(new(73, T("Updating the app…"), T("Closing the installed Luma"), T("Updating")));
             StopInstalledBrowser(installDir);
             if (Directory.Exists(installDir)) { Directory.Move(installDir, backup); movedOld = true; }
             Directory.Move(staging, installDir); movedNew = true;
             InstallWebView2Runtime(installDir, progress);
-            progress.Report(new(88, "Настраиваем Windows…", "Ярлыки, протоколы и удаление", "Настройка"));
+            progress.Report(new(88, T("Configuring Windows…"), T("Shortcuts, protocols and uninstall entry"), T("Setup")));
             InstallIntegration(config);
-            progress.Report(new(96, "Завершаем…", "Удаляем временные файлы", "Очистка"));
+            progress.Report(new(96, T("Finishing…"), T("Removing temporary files"), T("Cleanup")));
             if (Directory.Exists(backup)) Directory.Delete(backup, true);
         }
         catch
@@ -330,30 +481,30 @@ public partial class SetupWindow : Window
     {
         if (InstalledBrowserSeesWebView2(installDir))
         {
-            progress.Report(new(84, "WebView2 Runtime найден", "Используем уже установленный совместимый компонент", "Готово"));
+            progress.Report(new(84, T("WebView2 Runtime found"), T("Using the already installed compatible component"), T("Done")));
             return;
         }
         var setup = Path.Combine(installDir, "MicrosoftEdgeWebview2Setup.exe");
-        if (!File.Exists(setup)) throw new InvalidDataException("В установочном пакете отсутствует средство восстановления WebView2 Runtime.");
-        progress.Report(new(78, "Восстанавливаем WebView2 Runtime…", "Установка системного веб-компонента", "WebView2"));
+        if (!File.Exists(setup)) throw new InvalidDataException(T("The install package is missing the WebView2 Runtime repair tool."));
+        progress.Report(new(78, T("Repairing WebView2 Runtime…"), T("Installing the system web component"), "WebView2"));
         var firstCode = RunWebView2Setup(setup, false);
         if (WaitForWebView2(installDir))
         {
-            progress.Report(new(84, "WebView2 Runtime готов", "Компонент браузера установлен или восстановлен", "Готово"));
+            progress.Report(new(84, T("WebView2 Runtime is ready"), T("The browser component was installed or repaired"), T("Done")));
             return;
         }
         int? elevatedCode = null;
         if (!IsAdministrator())
         {
-            progress.Report(new(81, "Требуется подтверждение Windows…", "Повторяем восстановление WebView2 с правами администратора", "UAC"));
+            progress.Report(new(81, T("Windows confirmation required…"), T("Retrying the WebView2 repair with administrator rights"), "UAC"));
             elevatedCode = RunWebView2Setup(setup, true);
             if (WaitForWebView2(installDir))
             {
-                progress.Report(new(84, "WebView2 Runtime готов", "Компонент браузера установлен или восстановлен", "Готово"));
+                progress.Report(new(84, T("WebView2 Runtime is ready"), T("The browser component was installed or repaired"), T("Done")));
                 return;
             }
         }
-        throw new InvalidOperationException($"Windows не зарегистрировала совместимый WebView2 Runtime после восстановления. Коды установщика: {firstCode}" + (elevatedCode.HasValue ? $", {elevatedCode.Value}" : "") + ". Перезагрузите Windows и повторите установку.");
+        throw new InvalidOperationException(string.Format(T("Windows did not register a compatible WebView2 Runtime after repair. Installer codes: {0}"), firstCode) + (elevatedCode.HasValue ? $", {elevatedCode.Value}" : "") + T(". Restart Windows and run the installation again."));
     }
 
     private static int RunWebView2Setup(string setup, bool elevated)
@@ -367,7 +518,7 @@ public partial class SetupWindow : Window
                 Arguments = "/silent /install",
             };
             if (elevated) info.Verb = "runas";
-            using var process = Process.Start(info) ?? throw new InvalidOperationException("Не удалось запустить установку WebView2 Runtime.");
+            using var process = Process.Start(info) ?? throw new InvalidOperationException(T("Couldn't start the WebView2 Runtime installation."));
             if (!process.WaitForExit(4 * 60 * 1000))
             {
                 try { process.Kill(true); } catch { }
@@ -410,21 +561,21 @@ public partial class SetupWindow : Window
     private static void ExtractEmbeddedPayload(string destination)
     {
         var assembly = Assembly.GetExecutingAssembly(); var name = assembly.GetManifestResourceNames().Single(x => x.EndsWith("Payload.zip", StringComparison.OrdinalIgnoreCase));
-        using var source = assembly.GetManifestResourceStream(name) ?? throw new InvalidDataException("Встроенный пакет не найден."); using var output = File.Create(destination); source.CopyTo(output);
+        using var source = assembly.GetManifestResourceStream(name) ?? throw new InvalidDataException(T("Embedded package not found.")); using var output = File.Create(destination); source.CopyTo(output);
     }
 
     private static void VerifyPayload(string payload)
     {
         var assembly = Assembly.GetExecutingAssembly(); var name = assembly.GetManifestResourceNames().Single(x => x.EndsWith("Payload.sha256", StringComparison.OrdinalIgnoreCase));
-        using var expectedStream = assembly.GetManifestResourceStream(name) ?? throw new InvalidDataException("Контрольная сумма пакета не найдена."); using var reader = new StreamReader(expectedStream); var expected = reader.ReadToEnd().Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries)[0];
+        using var expectedStream = assembly.GetManifestResourceStream(name) ?? throw new InvalidDataException(T("Package checksum not found.")); using var reader = new StreamReader(expectedStream); var expected = reader.ReadToEnd().Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries)[0];
         using var stream = File.OpenRead(payload); var actual = Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
-        if (!actual.Equals(expected, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Установочный пакет повреждён: SHA-256 не совпадает.");
+        if (!actual.Equals(expected, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException(T("The install package is corrupted: SHA-256 mismatch."));
     }
 
     private static string SafeDestination(string root, string relative)
     {
         var rootFull = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar; var target = Path.GetFullPath(Path.Combine(rootFull, relative));
-        if (!target.StartsWith(rootFull, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Пакет содержит небезопасный путь."); return target;
+        if (!target.StartsWith(rootFull, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException(T("The package contains an unsafe path.")); return target;
     }
 
     private static void StopInstalledBrowser(string installDir)
@@ -447,9 +598,9 @@ public partial class SetupWindow : Window
         if (config.DesktopShortcut) CreateShortcut(DesktopShortcutPath(config), exe, config.InstallDir); else DeleteFile(DesktopShortcutPath(config));
         var startFolder = StartMenuFolder(config); if (config.StartMenuShortcut) { Directory.CreateDirectory(startFolder); CreateShortcut(Path.Combine(startFolder, "Luma.lnk"), exe, config.InstallDir); } else try { if (Directory.Exists(startFolder)) Directory.Delete(startFolder, true); } catch { }
         using (var run = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run")) { if (config.AutoStart) run!.SetValue("Luma", $"\"{exe}\" --background"); else run!.DeleteValue("Luma", false); }
-        Registry.CurrentUser.CreateSubKey(@"Software\Luma")!.SetValue("Theme", config.Theme);
+        Registry.CurrentUser.CreateSubKey(@"Software\Luma")!.SetValue("Theme", config.Theme); Registry.CurrentUser.CreateSubKey(@"Software\Luma")!.SetValue("Language", NormalizeLang(config.Language));
         RegisterBrowser(config, exe);
-        var setupExe = Environment.ProcessPath ?? Process.GetCurrentProcess().MainModule?.FileName ?? throw new InvalidOperationException("Не найден исполняемый файл установщика.");
+        var setupExe = Environment.ProcessPath ?? Process.GetCurrentProcess().MainModule?.FileName ?? throw new InvalidOperationException(T("Installer executable not found."));
         var uninstaller = Path.Combine(config.InstallDir, "Uninstall.exe"); File.Copy(setupExe, uninstaller, true);
         RegisterUninstaller(config, exe, uninstaller);
     }
@@ -460,7 +611,7 @@ public partial class SetupWindow : Window
         using var classes = root.CreateSubKey(@"Software\Classes");
         using (var prog = classes.CreateSubKey("LumaURL")) { prog.SetValue("", "Luma URL"); prog.SetValue("URL Protocol", ""); prog.DefaultIcon().SetValue("", $"\"{exe}\",0"); prog.CreateSubKey(@"shell\open\command")!.SetValue("", $"\"{exe}\" \"%1\""); }
         using var client = root.CreateSubKey(@"Software\Clients\StartMenuInternet\Luma"); client.SetValue("", "Luma Browser"); client.CreateSubKey(@"shell\open\command")!.SetValue("", $"\"{exe}\"");
-        var caps = client.CreateSubKey("Capabilities")!; caps.SetValue("ApplicationName", "Luma Browser"); caps.SetValue("ApplicationDescription", "Быстрый вертикальный браузер"); caps.SetValue("ApplicationIcon", $"{exe},0"); var urls = caps.CreateSubKey("URLAssociations")!; urls.SetValue("http", "LumaURL"); urls.SetValue("https", "LumaURL");
+        var caps = client.CreateSubKey("Capabilities")!; caps.SetValue("ApplicationName", "Luma Browser"); caps.SetValue("ApplicationDescription", T("Fast vertical browser")); caps.SetValue("ApplicationIcon", $"{exe},0"); var urls = caps.CreateSubKey("URLAssociations")!; urls.SetValue("http", "LumaURL"); urls.SetValue("https", "LumaURL");
         root.CreateSubKey(@"Software\RegisteredApplications")!.SetValue("Luma", @"Software\Clients\StartMenuInternet\Luma\Capabilities");
     }
 
@@ -475,18 +626,19 @@ public partial class SetupWindow : Window
 
     private static void CreateShortcut(string path, string target, string workingDirectory)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!); var type = Type.GetTypeFromProgID("WScript.Shell") ?? throw new InvalidOperationException("Windows Script Host недоступен."); dynamic shell = Activator.CreateInstance(type)!; dynamic shortcut = shell.CreateShortcut(path); shortcut.TargetPath = target; shortcut.WorkingDirectory = workingDirectory; shortcut.IconLocation = target + ",0"; shortcut.Save();
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!); var type = Type.GetTypeFromProgID("WScript.Shell") ?? throw new InvalidOperationException(T("Windows Script Host is unavailable.")); dynamic shell = Activator.CreateInstance(type)!; dynamic shortcut = shell.CreateShortcut(path); shortcut.TargetPath = target; shortcut.WorkingDirectory = workingDirectory; shortcut.IconLocation = target + ",0"; shortcut.Save();
     }
 
     private static string DesktopShortcutPath(InstallConfig c) => Path.Combine(Environment.GetFolderPath(c.AllUsers ? Environment.SpecialFolder.CommonDesktopDirectory : Environment.SpecialFolder.DesktopDirectory), "Luma.lnk");
     private static string StartMenuFolder(InstallConfig c) => Path.Combine(Environment.GetFolderPath(c.AllUsers ? Environment.SpecialFolder.CommonStartMenu : Environment.SpecialFolder.StartMenu), "Programs", "Luma");
     private static void DeleteFile(string path) { try { if (File.Exists(path)) File.Delete(path); } catch { } }
     private static long DirectorySize(string path) { try { return Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories).Sum(f => new FileInfo(f).Length); } catch { return 0; } }
-    private static string FormatBytes(long bytes) => bytes >= 1024L * 1024 * 1024 ? $"{bytes / 1024d / 1024 / 1024:0.0} ГБ" : $"{bytes / 1024d / 1024:0} МБ";
+    private static string FormatBytes(long bytes) => bytes >= 1024L * 1024 * 1024 ? $"{bytes / 1024d / 1024 / 1024:0.0} " + T("GB") : $"{bytes / 1024d / 1024:0} " + T("MB");
     private static bool IsAdministrator() => new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator);
 
     private async Task RunUninstallAsync(string installDir, bool allUsers)
     {
+        _lang = ReadSavedLanguage(); ApplyLanguage();
         if (allUsers && !IsAdministrator())
         {
             var exe = Environment.ProcessPath ?? Process.GetCurrentProcess().MainModule?.FileName!; var info = new ProcessStartInfo(exe) { UseShellExecute = true, Verb = "runas" }; info.ArgumentList.Add("--uninstall"); info.ArgumentList.Add("--scope"); info.ArgumentList.Add("machine"); info.ArgumentList.Add("--dir"); info.ArgumentList.Add(installDir);
@@ -496,11 +648,11 @@ public partial class SetupWindow : Window
         var deleteProfile = false;
         if (!quiet)
         {
-            var answer = MessageBox.Show("Удалить Luma Browser?\n\nДа — удалить браузер и локальный профиль.\nНет — удалить браузер, но сохранить профиль.\nОтмена — ничего не менять.", "Удаление Luma", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+            var answer = MessageBox.Show(T("Uninstall Luma Browser?\n\nYes — remove the browser and local profile.\nNo — remove the browser but keep the profile.\nCancel — change nothing."), T("Uninstall Luma"), MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
             if (answer == MessageBoxResult.Cancel) { Close(); return; } deleteProfile = answer == MessageBoxResult.Yes;
         }
-        WelcomeScreen.Visibility = Visibility.Collapsed; ProgressScreen.Visibility = Visibility.Visible; _current = ProgressScreen; SetProgress(20); SetStatus("Удаляем Luma…", "Закрываем браузер", "Удаление"); await Task.Delay(250);
-        StopInstalledBrowser(installDir); var config = new InstallConfig { InstallDir = installDir, AllUsers = allUsers }; RemoveIntegration(config); SetProgress(75); SetStatus("Удаляем Luma…", "Очищаем файлы и ярлыки", "Очистка");
+        WelcomeScreen.Visibility = Visibility.Collapsed; ProgressScreen.Visibility = Visibility.Visible; _current = ProgressScreen; SetProgress(20); SetStatus(T("Removing Luma…"), T("Closing the browser"), T("Uninstalling")); await Task.Delay(250);
+        StopInstalledBrowser(installDir); var config = new InstallConfig { InstallDir = installDir, AllUsers = allUsers }; RemoveIntegration(config); SetProgress(75); SetStatus(T("Removing Luma…"), T("Cleaning up files and shortcuts"), T("Cleanup"));
         if (deleteProfile) try { Directory.Delete(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Luma"), true); } catch { }
         ScheduleDirectoryRemoval(installDir); SetProgress(100); await Task.Delay(300); Close();
     }
@@ -534,7 +686,7 @@ public partial class SetupWindow : Window
 
     private void CloseButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_installing) { MessageBox.Show("Дождитесь завершения установки.", "Luma Setup", MessageBoxButton.OK, MessageBoxImage.Information); return; }
+        if (_installing) { MessageBox.Show(T("Please wait for the installation to finish."), "Luma Setup", MessageBoxButton.OK, MessageBoxImage.Information); return; }
         Close();
     }
 }
