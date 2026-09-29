@@ -367,7 +367,7 @@ public partial class MainWindow
     private void DefaultBrowser_Click(object sender, RoutedEventArgs e) { CloseTransientUi(); BrowserRegistry.OpenDefaultAppsSettings(); }
     private async void CheckUpdates_Click(object sender, RoutedEventArgs e) { CloseTransientUi(); await CheckForUpdatesManuallyAsync(); }
     private async void AboutMenu_Click(object sender, RoutedEventArgs e) { CloseTransientUi(); await OpenAboutAsync(); }
-    public static string AppVersion => System.Reflection.Assembly.GetExecutingAssembly().GetName().Version is { } v ? $"{v.Major}.{v.Minor}.{v.Build}" : "2.1.0";
+    public static string AppVersion => System.Reflection.Assembly.GetExecutingAssembly().GetName().Version is { } v ? $"{v.Major}.{v.Minor}.{v.Build}" : "2.1.1";
     private async void Import_Click(object sender, RoutedEventArgs e) { CloseTransientUi(); await OpenImportAsync(); }
     private void Exit_Click(object sender, RoutedEventArgs e) => ((App)Application.Current).ExitCompletely();
     // Kept for the WPF chrome, but the cursor poll above is what actually drives the reveal,
@@ -402,6 +402,6 @@ public partial class MainWindow
         else if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control) && Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) && e.Key == Key.T) { _ = ReopenLastClosedAsync(); e.Handled = true; }
         else if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control) && Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) && e.Key == Key.V) { _ = PasteCleanAsync(); e.Handled = true; }
         else if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control) && e.Key == Key.T) { OpenNewHomeTab(); e.Handled = true; } else if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control) && e.Key == Key.K) { OpenSearch(SearchPurpose.TabSearch); e.Handled = true; } else if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control) && e.Key == Key.R) { if (CurrentTab is { IsHome: false } tab) tab.ActiveView.Reload(); } else if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control) && e.Key == Key.J) { _ = ToggleAssistantAsync(); e.Handled = true; } }
-    private void OnClosing(object? sender, CancelEventArgs e) { if (_closing) return; _closing = true; _auth.SessionChanged -= AccountSessionChanged; CloseFloatingVideoForShutdown(); _floatingMusic?.Close(); _floatingMusic = null; _tabInputWatch.Stop(); _edgeWatch.Stop(); _sleepWatch.Stop(); _feedbackRefreshTimer.Stop(); StopUpdateLoop(); StopAccountUsageTracking(); Save(); foreach (var s in _spaces) foreach (var t in s.Tabs) t.Dispose(); if (!((App)Application.Current).IsExiting && !((App)Application.Current).KeepInBackground) Application.Current.Shutdown(); }
+    private void OnClosing(object? sender, CancelEventArgs e) { if (_closing) return; _closing = true; _auth.SessionChanged -= AccountSessionChanged; CloseFloatingVideoForShutdown(); _floatingMusic?.Close(); _floatingMusic = null; _downloadWatchdog?.Stop(); _tabInputWatch.Stop(); _edgeWatch.Stop(); _sleepWatch.Stop(); _feedbackRefreshTimer.Stop(); StopUpdateLoop(); StopAccountUsageTracking(); Save(); foreach (var s in _spaces) foreach (var t in s.Tabs) t.Dispose(); if (!((App)Application.Current).IsExiting && !((App)Application.Current).KeepInBackground) Application.Current.Shutdown(); }
     private void OnChanged([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }

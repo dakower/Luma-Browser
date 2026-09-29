@@ -1,4 +1,4 @@
-# Luma Beta access setup — 2.1.0
+# Luma Beta access setup — 2.1.1
 
 ## 1. Apply Supabase migrations
 
@@ -8,7 +8,7 @@ Apply every migration in `supabase/migrations` in numeric order. Never expose th
 
 ```powershell
 supabase functions deploy download-beta
-supabase secrets set BETA_INSTALLER_PATH=windows/LumaSetup-2.1.0-x64.exe
+supabase secrets set BETA_INSTALLER_PATH=windows/LumaSetup-2.1.1-x64.exe
 ```
 
 ## 3. Upload the signed installer
@@ -20,7 +20,7 @@ $env:LUMA_CODESIGN_THUMBPRINT='CERTIFICATE_THUMBPRINT'
 .\release.ps1 -PrivateKeyPath 'D:\Luma-Secrets\luma-update-private.pem'
 ```
 
-Upload `dist\release\installer\LumaSetup-2.1.0-x64.exe` to the private `beta-installers/windows` path and verify its SHA-256 against `SHA256SUMS.txt`. The object path must match `BETA_INSTALLER_PATH`.
+Upload `dist\release\installer\LumaSetup-2.1.1-x64.exe` to the private `beta-installers/windows` path and verify its SHA-256 against `SHA256SUMS.txt`. The object path must match `BETA_INSTALLER_PATH`.
 
 ## 4. Beta access
 

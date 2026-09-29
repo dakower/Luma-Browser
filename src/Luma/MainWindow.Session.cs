@@ -241,6 +241,7 @@ public partial class MainWindow
         if (wasWindowCurrent) CurrentTab = replacement;
         FilterTabs();
         NormalizeTabSelection();
+        ForgetViewState(tab.View); ForgetViewState(tab.SecondaryView);
         tab.Dispose();
 
         if (ReferenceEquals(_nowPlaying, tab)) { _nowPlaying = null; RefreshNowPlaying(); }

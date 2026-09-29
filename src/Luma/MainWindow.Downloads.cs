@@ -8,6 +8,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using WpfApplication = System.Windows.Application;
 using WpfButton = System.Windows.Controls.Button;
 
@@ -81,11 +83,48 @@ public partial class MainWindow
                 return extension is ".png" or ".jpg" or ".jpeg" or ".gif" or ".bmp" or ".webp" ? _entry.FilePath : null;
             }
         }
+        private ImageSource? _preview; private string? _previewPath;
+        /// <summary>Thumbnail loaded into memory (OnLoad) so the downloaded image file is never kept locked by the UI.</summary>
+        public ImageSource? PreviewImage
+        {
+            get
+            {
+                var path = PreviewPath;
+                if (path is null) { _preview = null; _previewPath = null; return null; }
+                if (_preview is not null && string.Equals(_previewPath, path, StringComparison.OrdinalIgnoreCase)) return _preview;
+                try
+                {
+                    var bitmap = new BitmapImage();
+                    bitmap.BeginInit();
+                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                    bitmap.CreateOptions = BitmapCreateOptions.IgnoreColorProfile;
+                    bitmap.DecodePixelWidth = 128;
+                    bitmap.UriSource = new Uri(path);
+                    bitmap.EndInit();
+                    bitmap.Freeze();
+                    _preview = bitmap; _previewPath = path;
+                }
+                catch { _preview = null; _previewPath = null; }
+                return _preview;
+            }
+        }
+        private ImageSource? _icon; private string? _iconStatus;
+        /// <summary>The real Windows icon of the file (own icon for .exe, associated app icon for documents).</summary>
+        public ImageSource? FileIcon
+        {
+            get
+            {
+                if (PreviewImage is not null) return null;
+                if (_iconStatus != _entry.Status) { _iconStatus = _entry.Status; _icon = FileIcons.Get(_entry.FilePath); }
+                return _icon;
+            }
+        }
+        public Visibility VectorIconVisibility => FileIcon is null && PreviewImage is null ? Visibility.Visible : Visibility.Collapsed;
         public string StartedText => _entry.StartedAt.ToLocalTime().ToString("dd.MM HH:mm");
         public event PropertyChangedEventHandler? PropertyChanged;
         public void Refresh()
         {
-            foreach (var name in new[] { nameof(Status), nameof(IsActive), nameof(Progress), nameof(ProgressText), nameof(StatusText), nameof(StatusColor), nameof(PreviewPath) })
+            foreach (var name in new[] { nameof(Status), nameof(IsActive), nameof(Progress), nameof(ProgressText), nameof(StatusText), nameof(StatusColor), nameof(PreviewPath), nameof(PreviewImage), nameof(FileIcon), nameof(VectorIconVisibility) })
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
         }
         private static string Size(long value)
@@ -101,9 +140,19 @@ public partial class MainWindow
     private readonly ObservableCollection<DownloadItemView> _downloads = [];
     private readonly Dictionary<string, CoreWebView2DownloadOperation> _downloadOperations = new(StringComparer.Ordinal);
     public ObservableCollection<DownloadItemView> Downloads => _downloads;
+    private DispatcherTimer? _downloadWatchdog;
 
     private void InitializeDownloads()
     {
+        // Safety net: if a completion event is ever missed, the row must not spin forever.
+        _downloadWatchdog = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _downloadWatchdog.Tick += (_, _) =>
+        {
+            var privateSession = ((App)WpfApplication.Current).IsPrivateSession;
+            foreach (var item in _downloads.Where(value => value.IsActive).ToList())
+                if (_downloadOperations.TryGetValue(item.Id, out var operation)) SyncDownload(item.Entry, item, operation, privateSession);
+        };
+        _downloadWatchdog.Start();
         if (((App)WpfApplication.Current).IsPrivateSession) { DownloadsList.ItemsSource = _downloads; UpdateDownloadChrome(); return; }
         var stateChanged = false;
         foreach (var entry in _state.Downloads.OrderByDescending(item => item.StartedAt).Take(100))
@@ -165,37 +214,56 @@ public partial class MainWindow
             CloseMenusExcept(DownloadPopup);
             DownloadPopup.IsOpen = true;
 
-            operation.BytesReceivedChanged += (_, _) => Dispatcher.BeginInvoke(() =>
-            {
-                entry.BytesReceived = operation.BytesReceived;
-                entry.TotalBytes = DownloadTotalBytes(operation.TotalBytesToReceive);
-                item.Refresh();
-                UpdateDownloadChrome();
-            });
-            operation.StateChanged += (_, _) => Dispatcher.BeginInvoke(() =>
-            {
-                entry.BytesReceived = operation.BytesReceived;
-                entry.TotalBytes = DownloadTotalBytes(operation.TotalBytesToReceive);
-                if (operation.State == CoreWebView2DownloadState.Completed)
-                {
-                    entry.Status = "completed";
-                    entry.CompletedAt = _clock.UtcNow;
-                    ShowToast("Загрузка завершена", item.FileName);
-                }
-                else if (operation.State == CoreWebView2DownloadState.Interrupted)
-                    entry.Status = operation.InterruptReason == CoreWebView2DownloadInterruptReason.UserCanceled ? "cancelled" : "interrupted";
-                if (operation.State != CoreWebView2DownloadState.InProgress) _downloadOperations.Remove(entry.Id);
-                item.Refresh();
-                if (!isPrivate) _stateStore.Save();
-                UpdateDownloadChrome();
-                if (!isPrivate) PushDownloadsToSettings();
-            });
+            operation.BytesReceivedChanged += (_, _) => Dispatcher.BeginInvoke(() => SyncDownload(entry, item, operation, isPrivate));
+            operation.StateChanged += (_, _) => Dispatcher.BeginInvoke(() => SyncDownload(entry, item, operation, isPrivate));
+            // Very small files can finish before the handlers above are attached.
+            Dispatcher.BeginInvoke(() => SyncDownload(entry, item, operation, isPrivate));
         }
         catch (Exception ex)
         {
             App.Log(ex);
             ShowToast("Не удалось начать загрузку", ex.Message, true);
         }
+    }
+
+    /// <summary>Idempotent: brings entry, UI and saved state in line with the real download state. Each step is isolated so
+    /// one failing step (toast, save, settings push) can never leave the row spinning after the file is complete.</summary>
+    private void SyncDownload(DownloadEntry entry, DownloadItemView item, CoreWebView2DownloadOperation operation, bool isPrivate)
+    {
+        var wasActive = entry.Status == "downloading";
+        CoreWebView2DownloadState state;
+        try
+        {
+            state = operation.State;
+            entry.BytesReceived = operation.BytesReceived;
+            entry.TotalBytes = DownloadTotalBytes(operation.TotalBytesToReceive);
+            if (state == CoreWebView2DownloadState.Completed)
+            {
+                if (wasActive) { entry.Status = "completed"; entry.CompletedAt = _clock.UtcNow; }
+                if (entry.TotalBytes > 0 && entry.BytesReceived < entry.TotalBytes) entry.BytesReceived = entry.TotalBytes;
+            }
+            else if (state == CoreWebView2DownloadState.Interrupted)
+            {
+                if (wasActive) entry.Status = operation.InterruptReason == CoreWebView2DownloadInterruptReason.UserCanceled ? "cancelled" : "interrupted";
+            }
+        }
+        catch (Exception ex)
+        {
+            App.Log(ex);
+            return;
+        }
+        var finished = state != CoreWebView2DownloadState.InProgress;
+        if (finished) _downloadOperations.Remove(entry.Id);
+        try { item.Refresh(); } catch (Exception ex) { App.Log(ex); }
+        try { UpdateDownloadChrome(); } catch (Exception ex) { App.Log(ex); }
+        if (!finished || !wasActive) return;
+        if (!isPrivate)
+        {
+            try { _stateStore.Save(); } catch (Exception ex) { App.Log(ex); }
+            try { PushDownloadsToSettings(); } catch (Exception ex) { App.Log(ex); }
+        }
+        if (state == CoreWebView2DownloadState.Completed)
+            try { ShowToast("Загрузка завершена", item.FileName); } catch (Exception ex) { App.Log(ex); }
     }
 
     private static long DownloadTotalBytes(ulong? value)

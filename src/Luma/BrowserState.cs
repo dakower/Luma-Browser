@@ -134,9 +134,27 @@ public sealed class LumaState
             if (state.Spaces.Count == 0) state.Spaces.Add(new SpaceState());
             state.Save(); return state;
         }
-        catch { return new(); }
+        catch
+        {
+            // A damaged state file must not silently wipe the profile: keep a copy for recovery.
+            try { if (File.Exists(FilePath)) File.Copy(FilePath, Path.Combine(DirectoryPath, $"state.corrupt-{DateTime.Now:yyyyMMdd-HHmmss}.json"), true); } catch { }
+            return new() { Language = InstalledLanguage() };
+        }
     }
-    public void Save() { SchemaVersion = 15; Directory.CreateDirectory(DirectoryPath); var temp = FilePath + ".tmp"; File.WriteAllText(temp, JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true })); File.Move(temp, FilePath, true); }
+    private static readonly object SaveLock = new();
+    public void Save()
+    {
+        // Saves come from timers, download callbacks and the UI at once; serialise them so the shared
+        // temp file is never written by two threads (that used to throw IOException and lose the save).
+        lock (SaveLock)
+        {
+            SchemaVersion = 15;
+            Directory.CreateDirectory(DirectoryPath);
+            var temp = FilePath + ".tmp";
+            File.WriteAllText(temp, JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
+            File.Move(temp, FilePath, true);
+        }
+    }
 }
 
 public sealed class SpaceState

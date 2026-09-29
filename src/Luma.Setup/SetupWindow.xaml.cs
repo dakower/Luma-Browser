@@ -18,7 +18,7 @@ public partial class SetupWindow : Window
 {
     private static string ProductVersion => Assembly.GetExecutingAssembly().GetName().Version is { } version
         ? $"{version.Major}.{version.Minor}.{version.Build}"
-        : "2.1.0";
+        : "2.1.1";
     private static readonly string DefaultUserDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Luma");
     private static readonly string DefaultMachineDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Luma");
     private FrameworkElement _current = null!;

@@ -1,4 +1,4 @@
-# Luma 2.1.0 stable release
+# Luma 2.1.1 stable release
 
 ## Prerequisites
 

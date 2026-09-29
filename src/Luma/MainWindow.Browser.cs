@@ -61,6 +61,14 @@ public partial class MainWindow
     private readonly Dictionary<WebView2, (string Url, int Count)> _transientRetries = new();
     private readonly Dictionary<WebView2, DateTime> _lastDownloadStartedUtc = new();
 
+    /// <summary>Drops per-view bookkeeping so closed tabs are not kept alive by these dictionaries.</summary>
+    private void ForgetViewState(WebView2? view)
+    {
+        if (view is null) return;
+        _networkErrorUrls.Remove(view); _pendingNavigationUrls.Remove(view);
+        _latestNavigationIds.Remove(view); _transientRetries.Remove(view); _lastDownloadStartedUtc.Remove(view);
+    }
+
     private static bool IsTransientNetworkError(CoreWebView2WebErrorStatus status) => status is
         CoreWebView2WebErrorStatus.ConnectionAborted
         or CoreWebView2WebErrorStatus.ConnectionReset
@@ -508,12 +516,13 @@ public partial class MainWindow
                     || source.StartsWith("edge-error://", StringComparison.OrdinalIgnoreCase);
                 if ((!args.IsSuccess || engineErrorPage) && !tab.IsInternal)
                 {
+                    // 0) Engine error pages carry no useful status; treat "unknown" ones as transient below.
                     // 1) The navigation was replaced by a newer one (redirect, click, reload):
                     //    its failure is meaningless, the newer navigation decides what to show.
-                    if (!engineErrorPage && _latestNavigationIds.TryGetValue(view, out var latestId) && args.NavigationId != latestId) return;
+                    if (_latestNavigationIds.TryGetValue(view, out var latestId) && args.NavigationId != latestId) return;
                     // 2) Cancelled by the user/engine, or turned into a file download: not an error.
-                    if (!engineErrorPage && args.WebErrorStatus == CoreWebView2WebErrorStatus.OperationCanceled) return;
-                    if (!engineErrorPage && _lastDownloadStartedUtc.TryGetValue(view, out var downloadAt) && (DateTime.UtcNow - downloadAt).TotalSeconds < 5) return;
+                    if (args.WebErrorStatus == CoreWebView2WebErrorStatus.OperationCanceled) return;
+                    if (_lastDownloadStartedUtc.TryGetValue(view, out var downloadAt) && (DateTime.UtcNow - downloadAt).TotalSeconds < 5) return;
 
                     var failedUrl = _pendingNavigationUrls.TryGetValue(view, out var requestedUrl)
                         ? requestedUrl
@@ -529,8 +538,12 @@ public partial class MainWindow
                             _transientRetries[view] = (failedUrl, known + 1);
                             var expectedId = args.NavigationId;
                             await Task.Delay(400 * (known + 1));
-                            if (view.CoreWebView2 is not null && _latestNavigationIds.TryGetValue(view, out var currentId) && currentId == expectedId)
-                                view.CoreWebView2.Navigate(failedUrl);
+                            try
+                            {
+                                if (view.CoreWebView2 is not null && _latestNavigationIds.TryGetValue(view, out var currentId) && currentId == expectedId)
+                                    view.CoreWebView2.Navigate(failedUrl);
+                            }
+                            catch (Exception retryEx) { App.Log(retryEx); } // the tab may have been closed during the delay
                             return;
                         }
                     }

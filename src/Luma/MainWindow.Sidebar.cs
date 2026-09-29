@@ -456,7 +456,7 @@ public partial class MainWindow
     private void DeleteSpace(int index)
     {
         if (_spaces.Count <= 1 || index < 0 || index >= _spaces.Count) { ShowToast("Нельзя удалить", "Должно остаться хотя бы одно пространство"); return; }
-        var removed = _spaces[index]; foreach (var tab in removed.Tabs.ToList()) tab.Dispose(); removed.Tabs.Clear();
+        var removed = _spaces[index]; foreach (var tab in removed.Tabs.ToList()) { ForgetViewState(tab.View); ForgetViewState(tab.SecondaryView); tab.Dispose(); } removed.Tabs.Clear();
         _spaces.RemoveAt(index); _state.Spaces.RemoveAt(index);
         if (_activeSpace > index) _activeSpace--; else if (_activeSpace == index) _activeSpace = Math.Min(index, _spaces.Count - 1);
         _state.ActiveSpace = _activeSpace; OnChanged(nameof(Tabs)); CurrentTab = _spaces[_activeSpace].Current ?? Tabs.FirstOrDefault();
