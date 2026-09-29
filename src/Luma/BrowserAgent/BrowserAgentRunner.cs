@@ -52,12 +52,13 @@ public static class BrowserAgentRunner
         // 1. Initial concise notice
         await onDelta($"**[{badge}]**\n{goalText}\n\n{searchHeading}\n");
 
+        var searchTerm = isGaming ? (budget >= 42000m ? "ноутбук+rtx+4060" : "ноутбук+rtx") : "ноутбук";
         var storeQueries = new (string StoreName, string SearchUrl)[]
         {
-            ("Rozetka", $"https://rozetka.com.ua/search/?text={(isGaming ? "ноутбук+rtx" : "ноутбук")}"),
-            ("Comfy", $"https://comfy.ua/search/?q={(isGaming ? "ноутбук+rtx" : "ноутбук")}"),
-            ("Moyo", $"https://www.moyo.ua/search/?q={(isGaming ? "ноутбук+rtx" : "ноутбук")}"),
-            ("Foxtrot", $"https://www.foxtrot.com.ua/search?query={(isGaming ? "ноутбук+rtx" : "ноутбук")}")
+            ("Rozetka", $"https://rozetka.com.ua/search/?text={searchTerm}"),
+            ("Comfy", $"https://comfy.ua/search/?q={searchTerm}"),
+            ("Moyo", $"https://www.moyo.ua/search/?q={searchTerm}"),
+            ("Foxtrot", $"https://www.foxtrot.com.ua/search?query={searchTerm}")
         };
 
         var tabs = new List<(string Store, BrowserTab Tab)>();
@@ -216,8 +217,8 @@ public static class BrowserAgentRunner
                 {
                     var clickScript = BrowserAgentScripts.BuildClickBuyButtonScript(winner.Title);
                     await actionTab.ActiveView.CoreWebView2.ExecuteScriptAsync(clickScript);
-                    await Task.Delay(1200, token);
-                    await actionTab.ActiveView.CoreWebView2.ExecuteScriptAsync(BrowserAgentScripts.CheckCartUpdatedScript);
+                    await Task.Delay(1400, token);
+                    await actionTab.ActiveView.CoreWebView2.ExecuteScriptAsync(BrowserAgentScripts.OpenCartAndCleanAccidentalItemsScript);
                 }
                 catch { }
             }
