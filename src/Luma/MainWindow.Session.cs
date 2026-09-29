@@ -214,7 +214,7 @@ public partial class MainWindow
         if (_state.History.Count > 5000) _state.History.RemoveRange(5000, _state.History.Count - 5000);
         ScheduleNavigationSave();
     }
-    private void CloseTab(BrowserTab tab)
+    internal void CloseTab(BrowserTab tab)
     {
         var owner = _spaces.FirstOrDefault(space => space.Tabs.Contains(tab));
         if (owner is null) return;

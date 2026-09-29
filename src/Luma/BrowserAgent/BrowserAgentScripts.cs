@@ -3,18 +3,18 @@ namespace Luma.BrowserAgent;
 public static class BrowserAgentScripts
 {
     /// <summary>
-    /// Injected into active store pages to extract product tiles, prices, specs, and buy buttons.
-    /// Works with Rozetka, Telemart, Comfy, Brain, Hotline, Allo, Foxtrot, and generic stores.
+    /// Injected into active store pages to extract product tiles, prices, specs, and direct product links.
+    /// Filters out accessories, cleaning products, and non-target items.
     /// </summary>
     public const string ScanECommercePageScript = """
     (() => {
         try {
             const results = [];
-            // Common product card selectors
             const cardSelectors = [
-                '.goods-tile', '.product-item', '.product-card', '.product-wrapper',
-                '.catalog-item', '.products-layout__item', '[data-product-id]',
-                'article.product', '.item-card', '.c-product-card'
+                '.goods-tile', 'rz-goods-tile', 'app-goods-tile', '.catalog-grid__cell',
+                '.product-item', '.product-card', '.product-wrapper', '.catalog-item',
+                '.products-layout__item', '[data-product-id]', 'article.product',
+                '.item-card', '.c-product-card', '.products-item'
             ];
             
             let cards = [];
@@ -27,42 +27,50 @@ public static class BrowserAgentScripts
             }
 
             if (cards.length === 0) {
-                // Generic fallback for any repeating article/div with prices
                 cards = Array.from(document.querySelectorAll('article, div[class*="product"], div[class*="goods"]'))
                     .filter(c => c.textContent.match(/\d{2,3}[\s.,]?\d{3}\s*(?:грн|₴|uah)/i));
             }
 
-            for (const card of cards.slice(0, 15)) {
+            for (const card of cards.slice(0, 20)) {
                 // Title
-                const titleEl = card.querySelector('a[class*="title"], .goods-tile__title, .product-title, h2, h3, a[href*="/p"]') || card.querySelector('a');
+                const titleEl = card.querySelector('a[class*="title"], .goods-tile__title, .product-title, h2, h3, a[href*="/p/"]') || card.querySelector('a');
                 const title = titleEl ? (titleEl.textContent || titleEl.getAttribute('title') || '').trim() : '';
-                const link = titleEl && titleEl.href ? titleEl.href : window.location.href;
+                if (!title) continue;
 
-                // Price
+                // Category verification: must be a computer/laptop, never detergent/accessories/cleaning supplies
+                const lower = title.toLowerCase();
+                const isLaptop = /(?:ноутбук|laptop|notebook|loq|tuf|nitro|legion|victus|macbook|thinkpad|rog|predator|katana|sword|pulse|thin|cyborg|ideapad|vivobook|zenbook|pavilion|omen|alienware)/i.test(lower);
+                if (!isLaptop) continue;
+
+                const isAccessory = /(?:сумка|рюкзак|чохол|чехол|підставка|подставка|миша|мышь|клавіатура|клавиатура|порошок|кабель|зарядн|адаптер)/i.test(lower);
+                if (isAccessory) continue;
+
+                // Direct link
+                let link = titleEl && titleEl.href ? titleEl.href : '';
+                if (!link) {
+                    const anyA = card.querySelector('a[href]');
+                    if (anyA) link = anyA.href;
+                }
+
+                // Price extraction
                 const priceMatch = card.textContent.match(/(\d{1,3}(?:[\s.,]\d{3})+|\d{4,6})\s*(?:грн|₴|uah|\$|€)?/i);
                 let price = 0;
-                let currency = '₴';
                 if (priceMatch) {
                     const cleanNum = priceMatch[1].replace(/[\s.,]/g, '');
                     price = parseInt(cleanNum, 10) || 0;
                 }
 
-                // Specs description
+                // Specs
                 const specsEl = card.querySelector('.goods-tile__description, .product-specs, .short-desc, ul');
                 const specs = specsEl ? specsEl.textContent.trim() : '';
 
-                // Buy button selector or presence
-                const buyBtn = card.querySelector('button[class*="buy"], button[class*="cart"], button[class*="basket"], [data-qa="buy-button"], a[class*="buy"]');
-                const hasBuyBtn = !!buyBtn;
-
-                if (title && price > 0) {
+                if (price > 0) {
                     results.push({
                         title: title.slice(0, 140),
                         price: price,
-                        currency: currency,
-                        url: link,
-                        specs: specs.slice(0, 200),
-                        hasBuyBtn: hasBuyBtn
+                        currency: '₴',
+                        url: link || window.location.href,
+                        specs: specs.slice(0, 200)
                     });
                 }
             }
@@ -75,83 +83,92 @@ public static class BrowserAgentScripts
     """;
 
     /// <summary>
-    /// Clicks the buy/cart button on the active page, animating a visual Luma glow ring.
+    /// Generates targeted JavaScript to find and click the buy button for the specified product model.
+    /// Handles both product detail pages and catalog grids, never clicking unrelated or promoted items.
     /// </summary>
-    public const string ClickBuyButtonScript = """
-    (() => {
-        try {
-            // Find the buy button using various strategies
-            const selectors = [
-                'button[class*="buy"]',
-                'button[class*="cart"]',
-                'button[class*="basket"]',
-                '[data-qa="buy-button"]',
-                'a[class*="buy"]',
-                'button.btn-success',
-                'button.primary-btn'
-            ];
+    public static string BuildClickBuyButtonScript(string? targetModelName)
+    {
+        var modelSafe = (targetModelName ?? "").Replace("\"", "\\\"").Replace("\n", " ").Trim();
+        return $$"""
+        (() => {
+            try {
+                const targetModel = "{{modelSafe}}".toLowerCase();
+                let button = null;
 
-            let button = null;
-            for (const sel of selectors) {
-                const b = document.querySelector(sel);
-                if (b && b.offsetParent !== null) {
-                    button = b;
-                    break;
+                // Strategy A: We are on a single product page
+                const productBtnSelectors = [
+                    'app-buy-button button',
+                    'button.buy-button',
+                    'button.button--green',
+                    'button[data-qa="buy-button"]',
+                    '.product-about__buy button',
+                    '.product__buy button',
+                    '.product-buy-btn',
+                    '.price-box__buy button',
+                    'button.btn-buy'
+                ];
+
+                for (const sel of productBtnSelectors) {
+                    const b = document.querySelector(sel);
+                    if (b && b.offsetParent !== null && !b.closest('.similar, .recommended, .cross-sell, .carousel, .slider')) {
+                        button = b;
+                        break;
+                    }
                 }
-            }
 
-            if (!button) {
-                // Search by button text
-                const allButtons = Array.from(document.querySelectorAll('button, a, div[role="button"]'));
-                button = allButtons.find(b => {
-                    const t = (b.textContent || '').trim().toLowerCase();
-                    return (t === 'купить' || t === 'купити' || t === 'в корзину' || t === 'до кошика' || t === 'в кошик' || t === 'add to cart' || t === 'додати в кошик');
-                });
-            }
-
-            if (!button) return JSON.stringify({ success: false, reason: 'Buy button not found' });
-
-            // Visual Highlight (Luma Agent pulse)
-            button.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            
-            const pulse = document.createElement('div');
-            pulse.id = '__luma_agent_pulse';
-            pulse.style.position = 'fixed';
-            pulse.style.pointerEvents = 'none';
-            pulse.style.zIndex = '999999';
-            pulse.style.border = '3px solid #9f86ff';
-            pulse.style.boxShadow = '0 0 25px #9f86ff, inset 0 0 15px #9f86ff';
-            pulse.style.borderRadius = '12px';
-            pulse.style.transition = 'all 0.3s ease-out';
-
-            const rect = button.getBoundingClientRect();
-            pulse.style.left = (rect.left - 4) + 'px';
-            pulse.style.top = (rect.top - 4) + 'px';
-            pulse.style.width = (rect.width + 8) + 'px';
-            pulse.style.height = (rect.height + 8) + 'px';
-            document.body.appendChild(pulse);
-
-            setTimeout(() => {
-                try {
-                    // Full mouse interaction events sequence
-                    ['mouseover', 'mouseenter', 'mousedown', 'mouseup', 'click'].forEach(evtType => {
-                        const evt = new MouseEvent(evtType, { bubbles: true, cancelable: true, view: window });
-                        button.dispatchEvent(evt);
+                // Strategy B: If on a catalog/search grid, find the specific card matching target model
+                if (!button && targetModel) {
+                    const cards = Array.from(document.querySelectorAll('.goods-tile, .product-card, article, [data-product-id], .catalog-grid__cell'));
+                    const tokens = targetModel.split(/[\s,()\/]+/).filter(w => w.length > 2);
+                    
+                    const matchingCard = cards.find(c => {
+                        const txt = (c.textContent || '').toLowerCase();
+                        let matches = 0;
+                        for (const tok of tokens) {
+                            if (txt.includes(tok)) matches++;
+                        }
+                        return matches >= Math.min(2, tokens.length);
                     });
-                    if (button.click) button.click();
-                } catch(e) {}
-            }, 350);
 
-            setTimeout(() => {
-                if (pulse.parentNode) pulse.parentNode.removeChild(pulse);
-            }, 2500);
+                    if (matchingCard) {
+                        button = matchingCard.querySelector('button[class*="buy"], button[aria-label*="Купити"], button[aria-label*="Купить"], app-buy-button button, [data-qa="buy-button"], a[class*="buy"]');
+                    }
+                }
 
-            return JSON.stringify({ success: true, buttonText: (button.textContent || '').trim() });
-        } catch(err) {
-            return JSON.stringify({ success: false, error: err.toString() });
-        }
-    })()
-    """;
+                // Strategy C: Text-based lookup excluding promos/recommendations
+                if (!button) {
+                    const allButtons = Array.from(document.querySelectorAll('button, a[role="button"], a.btn'));
+                    button = allButtons.find(b => {
+                        if (b.offsetParent === null) return false;
+                        if (b.closest('.similar, .recommended, .cross-sell, .carousel, .slider, footer')) return false;
+                        const t = (b.textContent || '').trim().toLowerCase();
+                        return t === 'купити' || t === 'купить' || t === 'в корзину' || t === 'до кошика' || t === 'в кошик';
+                    });
+                }
+
+                if (!button) return JSON.stringify({ success: false, reason: 'Buy button not found' });
+
+                // Smooth scroll into view
+                button.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                // Highlight button
+                button.style.outline = '3px solid #7468c7';
+                button.style.outlineOffset = '2px';
+
+                // Dispatch synthetic user mouse events
+                ['mouseover', 'mouseenter', 'mousedown', 'mouseup', 'click'].forEach(evtType => {
+                    const evt = new MouseEvent(evtType, { bubbles: true, cancelable: true, view: window });
+                    button.dispatchEvent(evt);
+                });
+                if (button.click) button.click();
+
+                return JSON.stringify({ success: true, buttonText: (button.textContent || '').trim() });
+            } catch(err) {
+                return JSON.stringify({ success: false, error: err.toString() });
+            }
+        })()
+        """;
+    }
 
     /// <summary>
     /// Checks if a cart modal, badge, or notification appeared after clicking Buy.
@@ -159,7 +176,7 @@ public static class BrowserAgentScripts
     public const string CheckCartUpdatedScript = """
     (() => {
         try {
-            const modal = document.querySelector('[class*="cart-modal"], [class*="basket-modal"], [class*="cart-popup"], .modal-dialog, [role="dialog"]');
+            const modal = document.querySelector('[class*="cart-modal"], [class*="basket-modal"], [class*="cart-popup"], .modal-dialog, [role="dialog"], rz-cart');
             const cartBadge = document.querySelector('[class*="cart-badge"], [class*="basket-count"], [class*="counter"]');
             const textFound = document.body.textContent.includes('Товар добавлен в корзину') || document.body.textContent.includes('Товар додано до кошика') || document.body.textContent.includes('В корзине') || document.body.textContent.includes('У кошику');
             return JSON.stringify({ inCart: !!(modal || textFound || (cartBadge && parseInt(cartBadge.textContent || '0', 10) > 0)) });

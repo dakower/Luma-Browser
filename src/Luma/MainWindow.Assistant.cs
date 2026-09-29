@@ -515,9 +515,18 @@ public partial class MainWindow
         {
             try
             {
+                var agentLabel = _state.Language switch
+                {
+                    "uk" => "Агент: увімкнено",
+                    "en" => "Agent: active",
+                    _ => "Агент: включен"
+                };
+                PostAssistant(new { kind = "context", text = "Luma Agent", meta = agentLabel });
+
                 await BrowserAgent.BrowserAgentRunner.ExecuteAgentTaskAsync(
                     question,
                     this,
+                    _state.Language,
                     async delta =>
                     {
                         await Dispatcher.InvokeAsync(() => PostAssistant(new { kind = "delta", text = delta }));
