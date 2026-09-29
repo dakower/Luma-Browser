@@ -510,6 +510,34 @@ public partial class MainWindow
             return;
         }
 
+        // Autonomous Browser Agent: handles multi-tab research, price/quality comparison, and auto-carting
+        if (BrowserAgent.BrowserAgentRunner.IsAgentGoal(question))
+        {
+            try
+            {
+                await BrowserAgent.BrowserAgentRunner.ExecuteAgentTaskAsync(
+                    question,
+                    this,
+                    async delta =>
+                    {
+                        await Dispatcher.InvokeAsync(() => PostAssistant(new { kind = "delta", text = delta }));
+                    },
+                    run.Token);
+                PostAssistant(new { kind = "done" });
+            }
+            catch (OperationCanceledException) { PostAssistant(new { kind = "done" }); }
+            catch (Exception ex)
+            {
+                App.Log(ex);
+                PostAssistant(new { kind = "error", text = ex.Message });
+            }
+            finally
+            {
+                if (ReferenceEquals(_assistantRun, run)) _assistantRun = null;
+            }
+            return;
+        }
+
         var page = await ReadPageContextAsync();
         // Fix: respect the user's AssistantScreenshot preference before capturing.
         var pageImage = _state.AssistantScreenshot ? await CaptureTabAsync() : null;

@@ -76,7 +76,7 @@ public partial class MainWindow
         or CoreWebView2WebErrorStatus.Unknown
         or CoreWebView2WebErrorStatus.ErrorHttpInvalidServerResponse;
 
-    private async Task<BrowserTab> AddTabAsync(string input, bool activate = true, string? folderId = null, bool pinned = false)
+    internal async Task<BrowserTab> AddTabAsync(string input, bool activate = true, string? folderId = null, bool pinned = false)
     {
         var url = Normalize(input);
         if (TryParseLumaSearchUrl(url, out var searchQuery, out var searchMode))
