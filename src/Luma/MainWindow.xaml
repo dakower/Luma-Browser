@@ -452,41 +452,33 @@
         </StackPanel>
 
         <!-- address pill -->
-        <Border Width="460" Height="34" CornerRadius="17" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="6,0,6,0" HorizontalAlignment="Center" VerticalAlignment="Center">
-          <Grid VerticalAlignment="Center">
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="Auto"/>
-              <ColumnDefinition Width="*"/>
-              <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-
+        <Border Height="34" CornerRadius="17" MaxWidth="480" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="7,0,8,0" HorizontalAlignment="Center" VerticalAlignment="Center">
+          <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
             <!-- Left: Copy URL button -->
-            <Button x:Name="CopyUrlButton" Grid.Column="0" Style="{StaticResource BareIconButton}" Width="24" Height="24" Click="CopyUrl_Click" Foreground="{DynamicResource ChromeIconMuted}" ToolTip="Скопировать адрес">
+            <Button x:Name="CopyUrlButton" Style="{StaticResource BareIconButton}" Width="22" Height="22" Margin="1,0,8,0" Click="CopyUrl_Click" Foreground="{DynamicResource ChromeIconMuted}" ToolTip="Скопировать адрес">
               <Path Width="13" Height="13" Stretch="Uniform" Data="{StaticResource IconCopy}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
             </Button>
 
             <!-- Center: Domain/Title Pill -->
-            <Border x:Name="DomainPill" Grid.Column="1" Background="Transparent" Margin="8,0" Cursor="Hand" MouseLeftButtonUp="DomainPill_Click" HorizontalAlignment="Center" VerticalAlignment="Center">
-              <TextBlock x:Name="DomainText" Text="Новая вкладка" Foreground="{DynamicResource ChromeText}" FontFamily="Segoe UI Variable Display, Segoe UI" FontSize="13" FontWeight="SemiBold" MaxWidth="310" TextTrimming="CharacterEllipsis" TextAlignment="Center" VerticalAlignment="Center"/>
+            <Border x:Name="DomainPill" Background="Transparent" Margin="0,0,10,0" Cursor="Hand" MouseLeftButtonUp="DomainPill_Click" VerticalAlignment="Center">
+              <TextBlock x:Name="DomainText" Text="Новая вкладка" Foreground="{DynamicResource ChromeText}" FontFamily="Segoe UI Variable Display, Segoe UI" FontSize="13" FontWeight="SemiBold" MaxWidth="320" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
             </Border>
 
             <!-- Right: Action tools cluster -->
-            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-              <Button x:Name="TranslateButton" Style="{StaticResource BareIconButton}" Width="24" Height="24" Margin="0,0,3,0" Click="TranslateButton_Click" Foreground="{DynamicResource ChromeIconMuted}" ToolTip="Перевести страницу">
-                <Path x:Name="TranslateIcon" Width="13" Height="13" Stretch="Uniform" Data="{StaticResource IconGlobe}" Fill="Transparent" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round" RenderTransformOrigin="0.5,0.5">
-                  <Path.RenderTransform>
-                    <RotateTransform Angle="0"/>
-                  </Path.RenderTransform>
-                </Path>
-              </Button>
-              <Button x:Name="SplitButton" Style="{StaticResource BareIconButton}" Width="24" Height="24" Margin="0,0,3,0" Click="SplitButton_Click" Foreground="{DynamicResource ChromeIconMuted}" ToolTip="Split View">
-                <Path Width="13" Height="13" Stretch="Uniform" Data="{StaticResource IconSplit}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeLineJoin="Round"/>
-              </Button>
-              <Button x:Name="SiteSettingsButton" Style="{StaticResource BareIconButton}" Width="24" Height="24" Click="SiteSettings_Click" Foreground="{DynamicResource ChromeIconMuted}" ToolTip="Параметры сайта">
-                <Path Width="13" Height="13" Stretch="Uniform" Data="{StaticResource IconSlidersHorizontal}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-              </Button>
-            </StackPanel>
-          </Grid>
+            <Button x:Name="TranslateButton" Style="{StaticResource BareIconButton}" Width="22" Height="22" Margin="0,0,4,0" Click="TranslateButton_Click" Foreground="{DynamicResource ChromeIconMuted}" ToolTip="Перевести страницу">
+              <Path x:Name="TranslateIcon" Width="13" Height="13" Stretch="Uniform" Data="{StaticResource IconGlobe}" Fill="Transparent" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round" RenderTransformOrigin="0.5,0.5">
+                <Path.RenderTransform>
+                  <RotateTransform Angle="0"/>
+                </Path.RenderTransform>
+              </Path>
+            </Button>
+            <Button x:Name="SplitButton" Style="{StaticResource BareIconButton}" Width="22" Height="22" Margin="0,0,4,0" Click="SplitButton_Click" Foreground="{DynamicResource ChromeIconMuted}" ToolTip="Split View">
+              <Path Width="13" Height="13" Stretch="Uniform" Data="{StaticResource IconSplit}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeLineJoin="Round"/>
+            </Button>
+            <Button x:Name="SiteSettingsButton" Style="{StaticResource BareIconButton}" Width="22" Height="22" Margin="0,0,1,0" Click="SiteSettings_Click" Foreground="{DynamicResource ChromeIconMuted}" ToolTip="Параметры сайта">
+              <Path Width="13" Height="13" Stretch="Uniform" Data="{StaticResource IconSlidersHorizontal}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+            </Button>
+          </StackPanel>
         </Border>
 
         <!-- window controls -->
