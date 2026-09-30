@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Luma Browser — Official Product Showcase</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    
+    body {
+      background: #07080a;
+      color: #f0f2f5;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* 1920x1080 Stage */
+    #stage-container {
+      position: relative;
+      width: 1920px;
+      height: 1080px;
+      background: radial-gradient(circle at 50% 30%, #151821 0%, #08090c 70%, #040507 100%);
+      overflow: hidden;
+      transform-origin: center center;
+      box-shadow: 0 0 100px rgba(0, 0, 0, 0.9);
+    }
+
+    /* Ambient Background Orbs */
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(140px);
+      opacity: 0.25;
+      pointer-events: none;
+      transition: all 1.5s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    #orb-1 { width: 700px; height: 700px; background: #6366f1; top: -150px; left: -100px; }
+    #orb-2 { width: 800px; height: 800px; background: #ec4899; bottom: -200px; right: -100px; opacity: 0.18; }
+    #orb-3 { width: 500px; height: 500px; background: #38bdf8; top: 40%; left: 60%; opacity: 0.15; }
+
+    /* Scene Overlay Title Cards (Apple/Arc/Google style typography) */
+    #caption-layer {
+      position: absolute;
+      top: 60px;
+      left: 0;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      pointer-events: none;
+      z-index: 500;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 16px;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #a5b4fc;
+      margin-bottom: 12px;
+      opacity: 0;
+      transform: translateY(14px);
+      transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #818cf8;
+      box-shadow: 0 0 10px #818cf8;
+    }
+    .title-h1 {
+      font-size: 46px;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      line-height: 1.15;
+      text-align: center;
+      background: linear-gradient(180deg, #ffffff 30%, rgba(255, 255, 255, 0.65) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      opacity: 0;
+      transform: translateY(18px);
+      transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+      max-width: 900px;
+    }
+    .title-sub {
+      font-size: 20px;
+      font-weight: 400;
+      color: #94a3b8;
+      letter-spacing: -0.01em;
+      margin-top: 8px;
+      text-align: center;
+      opacity: 0;
+      transform: translateY(18px);
+      transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    /* 3D Camera Rig */
+    #viewport-3d {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      perspective: 1400px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #camera {
+      position: absolute;
+      width: 1480px;
+      height: 880px;
+      transform-style: preserve-3d;
+      transition: transform 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+      will-change: transform;
+    }
+
+    /* Browser Window Mockup */
+    .browser-window {
+      position: absolute;
+      inset: 0;
+      background: #0f1015;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 35px 90px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.05);
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      grid-template-rows: 52px 1fr;
+      overflow: hidden;
+      transform-style: preserve-3d;
+    }
+
+    /* Header / Window Chrome */
+    .window-header {
+      grid-column: 1 / 3;
+      display: flex;
+      align-items: center;
+      padding: 0 18px;
+      background: rgba(18, 19, 26, 0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      gap: 16px;
+      z-index: 10;
+    }
+    .traffic-lights {
+      display: flex;
+      gap: 8px;
+    }
+    .light {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+    .light.red { background: #ff5f57; }
+    .light.yellow { background: #febc2e; }
+    .light.green { background: #28c840; }
+
+    .nav-buttons {
+      display: flex;
+      gap: 6px;
+      color: #64748b;
+    }
+    .nav-btn {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 7px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      cursor: pointer;
+    }
+
+    .address-bar {
+      flex: 1;
+      height: 34px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 9px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      gap: 10px;
+      font-size: 13px;
+      color: #94a3b8;
+      max-width: 680px;
+      margin: 0 auto;
+      transition: all 0.3s ease;
+    }
+    .address-bar.focused {
+      background: rgba(255, 255, 255, 0.09);
+      border-color: rgba(99, 102, 241, 0.5);
+      box-shadow: 0 0 20px rgba(99, 102, 241, 0.2);
+      color: #f1f5f9;
+    }
+    .address-icon { opacity: 0.6; }
+    .address-text { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .ai-pill-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(236, 72, 153, 0.2));
+      border: 1px solid rgba(99, 102, 241, 0.35);
+      color: #c7d2fe;
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .ai-pill-btn.glow {
+      box-shadow: 0 0 20px rgba(99, 102, 241, 0.5);
+      border-color: #818cf8;
+      color: #ffffff;
+    }
+
+    /* Left Sidebar: Spaces & Vertical Tabs */
+    .sidebar {
+      background: rgba(14, 15, 21, 0.95);
+      border-right: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      flex-direction: column;
+      padding: 16px 12px;
+      gap: 18px;
+    }
+
+    /* Spaces Selector */
+    .spaces-bar {
+      display: flex;
+      gap: 4px;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 3px;
+      border-radius: 9px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .space-item {
+      flex: 1;
+      padding: 6px 0;
+      text-align: center;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #64748b;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .space-item.active {
+      background: rgba(255, 255, 255, 0.1);
+      color: #f1f5f9;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    }
+
+    /* Tab List */
+    .tab-section-label {
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #475569;
+      padding-left: 6px;
+      margin-bottom: 6px;
+    }
+    .tab-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex: 1;
+    }
+    .v-tab {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #94a3b8;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      position: relative;
+    }
+    .v-tab:hover {
+      background: rgba(255, 255, 255, 0.04);
+      color: #cbd5e1;
+    }
+    .v-tab.active {
+      background: rgba(255, 255, 255, 0.09);
+      color: #ffffff;
+      font-weight: 600;
+    }
+    .v-tab.active::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 6px;
+      bottom: 6px;
+      width: 3px;
+      border-radius: 3px;
+      background: #6366f1;
+      box-shadow: 0 0 10px #6366f1;
+    }
+    .tab-icon {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+    }
+    .tab-badge-sleep {
+      margin-left: auto;
+      font-size: 9px;
+      background: rgba(148, 163, 184, 0.15);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #64748b;
+      display: none;
+    }
+    .v-tab.sleeping .tab-badge-sleep { display: block; }
+    .v-tab.sleeping { opacity: 0.6; }
+
+    /* Floating Music Widget in Sidebar */
+    .mini-music-widget {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 12px;
+      padding: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .music-art {
+      width: 34px;
+      height: 34px;
+      border-radius: 7px;
+      background: linear-gradient(135deg, #f43f5e, #fb923c);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+    .music-meta { flex: 1; overflow: hidden; }
+    .music-title { font-size: 12px; font-weight: 600; color: #f1f5f9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .music-artist { font-size: 10.5px; color: #64748b; }
+
+    /* Main Content Area */
+    .main-workspace {
+      position: relative;
+      background: #090a0d;
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: 1fr;
+      grid-template-rows: 1fr;
+    }
+
+    /* Views Container */
+    .panes-wrapper {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .pane {
+      flex: 1;
+      height: 100%;
+      position: relative;
+      background: #0d0e12;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .pane-separator {
+      width: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      cursor: col-resize;
+      display: none;
+      position: relative;
+      transition: background 0.2s;
+    }
+    .pane-separator.active { display: block; }
+    .pane-separator:hover { background: #6366f1; }
+
+    /* View: Split Left (Docs/Research) */
+    #view-docs {
+      padding: 30px 40px;
+      overflow-y: auto;
+      display: none;
+    }
+    .doc-tag { font-size: 11px; text-transform: uppercase; color: #6366f1; font-weight: 700; letter-spacing: 0.06em; margin-bottom: 8px; }
+    .doc-h1 { font-size: 28px; font-weight: 700; margin-bottom: 16px; color: #f8fafc; }
+    .doc-p { font-size: 14px; line-height: 1.7; color: #94a3b8; margin-bottom: 18px; }
+    .doc-code {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 14px 18px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12.5px;
+      color: #38bdf8;
+      margin-bottom: 20px;
+    }
+
+    /* View: YouTube Player with Reactive Ambilight Glow */
+    #view-youtube {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background: #000000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* The Ambilight Canvas Glow radiating outside the video player */
+    #ambient-glow-canvas {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 1300px;
+      height: 850px;
+      filter: blur(75px) brightness(1.35) saturate(1.8);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.8s ease;
+      z-index: 1;
+    }
+    #ambient-glow-canvas.active {
+      opacity: 0.85;
+    }
+
+    /* Video Frame */
+    .yt-video-card {
+      position: relative;
+      width: 860px;
+      height: 484px;
+      background: #111;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.1);
+      z-index: 2;
+    }
+    #yt-canvas-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* YouTube UI Overlays */
+    .yt-top-controls {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      display: flex;
+      gap: 10px;
+      z-index: 5;
+    }
+    .yt-btn {
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    /* Ambilight / PiP Settings Popup in YouTube */
+    .site-settings-popup {
+      position: absolute;
+      top: 55px;
+      right: 14px;
+      width: 250px;
+      background: rgba(22, 23, 31, 0.95);
+      backdrop-filter: blur(25px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      padding: 14px;
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6);
+      z-index: 10;
+      opacity: 0;
+      transform: translateY(-8px) scale(0.95);
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: none;
+    }
+    .site-settings-popup.show {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+    .popup-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #64748b;
+      margin-bottom: 12px;
+    }
+    .setting-toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .setting-label { font-size: 12.5px; font-weight: 500; color: #f1f5f9; }
+    .ios-switch {
+      width: 36px;
+      height: 20px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+      position: relative;
+      cursor: pointer;
+      transition: background 0.25s ease;
+    }
+    .ios-switch.on { background: #6366f1; }
+    .ios-switch::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #fff;
+      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .ios-switch.on::after { transform: translateX(16px); }
+
+    /* LumaAI Assistant Drawer (Right Pane) */
+    .ai-drawer {
+      position: absolute;
+      top: 0;
+      right: -360px;
+      width: 360px;
+      height: 100%;
+      background: rgba(18, 19, 26, 0.95);
+      backdrop-filter: blur(30px);
+      border-left: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      flex-direction: column;
+      z-index: 50;
+      transition: right 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: -15px 0 50px rgba(0, 0, 0, 0.5);
+    }
+    .ai-drawer.open { right: 0; }
+    .ai-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .ai-logo-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      background: linear-gradient(135deg, #6366f1, #ec4899);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+    }
+    .ai-title { font-size: 14px; font-weight: 700; color: #fff; }
+    .ai-chat-body {
+      flex: 1;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow-y: auto;
+    }
+    .chat-bubble {
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .chat-bubble.user {
+      align-self: flex-end;
+      background: #6366f1;
+      color: #fff;
+      max-width: 85%;
+    }
+    .chat-bubble.bot {
+      align-self: flex-start;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #e2e8f0;
+      max-width: 95%;
+    }
+    .chat-source-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: #38bdf8;
+      margin-bottom: 6px;
+    }
+
+    /* Virtual Mouse Cursor */
+    #cursor {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 24px;
+      height: 24px;
+      pointer-events: none;
+      z-index: 9999;
+      transform: translate(-100px, -100px);
+      transition: transform 0.08s linear;
+    }
+    #cursor svg {
+      filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.6));
+    }
+    .click-ring {
+      position: absolute;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 2px solid #818cf8;
+      top: -4px;
+      left: -4px;
+      opacity: 0;
+      transform: scale(0.5);
+      pointer-events: none;
+    }
+    .click-ring.animate {
+      animation: ripple 0.5s ease-out forwards;
+    }
+    @keyframes ripple {
+      0% { opacity: 1; transform: scale(0.5); }
+      100% { opacity: 0; transform: scale(1.6); }
+    }
+
+    /* Playback & Recording Controller HUD (Bottom) */
+    #hud-controls {
+      position: absolute;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(18, 19, 26, 0.88);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 9999px;
+      padding: 8px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      z-index: 1000;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+    }
+    .hud-btn {
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      padding: 6px 12px;
+      border-radius: 999px;
+      transition: all 0.2s;
+    }
+    .hud-btn:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
+    .hud-btn.primary {
+      background: #6366f1;
+      color: #fff;
+    }
+    .hud-btn.primary:hover { background: #4f46e5; }
+    .hud-progress-bar {
+      width: 220px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 2px;
+      position: relative;
+      overflow: hidden;
+    }
+    #timeline-fill {
+      position: absolute;
+      left: 0;
+      top: 0;
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #6366f1, #ec4899);
+      transition: width 0.1s linear;
+    }
+    #time-display { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #64748b; }
+  </style>
+</head>
+<body>
+
+<div id="stage-container">
+  <!-- Glowing Ambient Orbs in Background -->
+  <div class="orb" id="orb-1"></div>
+  <div class="orb" id="orb-2"></div>
+  <div class="orb" id="orb-3"></div>
+
+  <!-- Apple / Arc Style Title & Caption Layer -->
+  <div id="caption-layer">
+    <div class="badge" id="scene-badge"><span class="badge-dot"></span><span id="scene-badge-text">Next-Gen Browser</span></div>
+    <h1 class="title-h1" id="scene-title">Luma Browser</h1>
+    <p class="title-sub" id="scene-sub">Designed for deep focus, speed, and elegance.</p>
+  </div>
+
+  <!-- 3D Camera & Window Rig -->
+  <div id="viewport-3d">
+    <div id="camera">
+      <div class="browser-window" id="browser-window">
+        
+        <!-- Header / Window Controls -->
+        <header class="window-header">
+          <div class="traffic-lights">
+            <div class="light red"></div>
+            <div class="light yellow"></div>
+            <div class="light green"></div>
+          </div>
+          <div class="nav-buttons">
+            <div class="nav-btn">‹</div>
+            <div class="nav-btn">›</div>
+            <div class="nav-btn">↻</div>
+          </div>
+          <div class="address-bar" id="address-bar">
+            <span class="address-icon">🔒</span>
+            <span class="address-text" id="address-text">luma://home</span>
+          </div>
+          <div class="header-actions">
+            <button class="ai-pill-btn" id="ai-toggle-btn">
+              <span>✦</span> Ask Luma
+            </button>
+          </div>
+        </header>
+
+        <!-- Sidebar: Spaces, Folders & Vertical Tabs -->
+        <aside class="sidebar">
+          <!-- Spaces -->
+          <div class="spaces-bar">
+            <div class="space-item active" id="space-1">Personal</div>
+            <div class="space-item" id="space-2">Dev & Research</div>
+            <div class="space-item" id="space-3">Media</div>
+          </div>
+
+          <!-- Vertical Tabs -->
+          <div class="tab-list">
+            <div class="tab-section-label">Pinned</div>
+            <div class="v-tab active" id="tab-yt">
+              <span class="tab-icon" style="background:#ef4444;color:#fff">▶</span>
+              <span class="tab-title">YouTube — Synthwave 4K</span>
+            </div>
+            <div class="v-tab" id="tab-github">
+              <span class="tab-icon" style="background:#24292f;color:#fff">🐙</span>
+              <span class="tab-title">GitHub — Luma Repository</span>
+            </div>
+            
+            <div class="tab-section-label" style="margin-top:10px">Workspace</div>
+            <div class="v-tab" id="tab-docs">
+              <span class="tab-icon" style="background:#0ea5e9;color:#fff">📄</span>
+              <span class="tab-title">Architecture Docs</span>
+            </div>
+            <div class="v-tab" id="tab-reddit">
+              <span class="tab-icon" style="background:#f97316;color:#fff">💬</span>
+              <span class="tab-title">r/browsers — Discussion</span>
+              <span class="tab-badge-sleep">ASLEEP</span>
+            </div>
+          </div>
+
+          <!-- Mini Music Player -->
+          <div class="mini-music-widget">
+            <div class="music-art">♫</div>
+            <div class="music-meta">
+              <div class="music-title">Resonance</div>
+              <div class="music-artist">HOME — Chillwave</div>
+            </div>
+          </div>
+        </aside>
+
+        <!-- Main Workspace Area -->
+        <main class="main-workspace">
+          <div class="panes-wrapper" id="panes-wrapper">
+            
+            <!-- Left Pane: Split View Docs -->
+            <div class="pane" id="view-docs">
+              <div class="doc-tag">Design Principles</div>
+              <h2 class="doc-h1">Focus by default. Zero clutter.</h2>
+              <p class="doc-p">Luma re-imagines browsing with unified workspaces, persistent sidebars, and native ambient color syncing that extends your content into the desktop experience.</p>
+              <div class="doc-code">// Ultra-low memory suspended tab state<br>tab.MemoryUsageTargetLevel = MemoryTargetLevel.Low;<br>await tab.CoreWebView2.TrySuspendAsync();</div>
+              <p class="doc-p">Automatic process pooling guarantees near-zero RAM footprint while keeping 50+ tabs ready to wake instantly.</p>
+            </div>
+
+            <!-- Pane Splitter Divider -->
+            <div class="pane-separator" id="pane-split-handle"></div>
+
+            <!-- Primary Pane: YouTube with Reactive Ambilight Glow -->
+            <div class="pane" id="view-youtube" style="display:flex;">
+              <!-- Radial Glow Canvas Behind the Video Card -->
+              <canvas id="ambient-glow-canvas" width="640" height="360" class="active"></canvas>
+
+              <!-- Video Card -->
+              <div class="yt-video-card">
+                <canvas id="yt-canvas-video" width="860" height="484"></canvas>
+
+                <!-- YouTube Controls & Ambilight Toggle -->
+                <div class="yt-top-controls">
+                  <div class="yt-btn" id="yt-settings-btn">
+                    <span>⚙</span> Settings
+                  </div>
+                </div>
+
+                <!-- Ambilight & Auto-PiP Settings Popup -->
+                <div class="site-settings-popup" id="site-popup">
+                  <div class="popup-title">YouTube Enhancements</div>
+                  <div class="setting-toggle-row">
+                    <span class="setting-label">Ambient Light Glow</span>
+                    <div class="ios-switch on" id="sw-ambient"></div>
+                  </div>
+                  <div class="setting-toggle-row">
+                    <span class="setting-label">Auto Picture-in-Picture</span>
+                    <div class="ios-switch on" id="sw-pip"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- LumaAI Assistant Drawer -->
+          <div class="ai-drawer" id="ai-drawer">
+            <div class="ai-header">
+              <div class="ai-logo-icon">✦</div>
+              <div class="ai-title">LumaAI Assistant</div>
+            </div>
+            <div class="ai-chat-body" id="ai-chat">
+              <div class="chat-bubble user">Summarize the performance advantages of Luma Browser.</div>
+              <div class="chat-bubble bot" id="ai-response">
+                <div class="chat-source-badge">⚡ Page context analyzed</div>
+                <div id="ai-stream-text"></div>
+              </div>
+            </div>
+          </div>
+        </main>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Virtual Animated Mouse Cursor -->
+  <div id="cursor">
+    <div class="click-ring" id="click-ring"></div>
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <path d="M4 2L20 10L12 13L9 21L4 2Z" fill="#ffffff" stroke="#000000" stroke-width="1.8" stroke-linejoin="round"/>
+    </svg>
+  </div>
+
+  <!-- HUD Video Player Controls -->
+  <div id="hud-controls">
+    <button class="hud-btn" id="btn-play-pause">❚❚ Pause</button>
+    <button class="hud-btn" id="btn-restart">↻ Restart</button>
+    <div class="hud-progress-bar">
+      <div id="timeline-fill"></div>
+    </div>
+    <span id="time-display">00:00 / 00:36</span>
+    <button class="hud-btn primary" id="btn-export-video">🎥 Export Video (.webm)</button>
+  </div>
+</div>
+
+<script>
+  /* ============================================================
+     CINEMATIC SYNTHWAVE / NATURE VIDEO GENERATOR (CANVAS)
+     ============================================================ */
+  const ytCanvas = document.getElementById('yt-canvas-video');
+  const ytCtx = ytCanvas.getContext('2d');
+  const glowCanvas = document.getElementById('ambient-glow-canvas');
+  const glowCtx = glowCanvas.getContext('2d');
+
+  let animTime = 0;
+  function renderSynthwaveFrame() {
+    animTime += 0.025;
+    const w = ytCanvas.width, h = ytCanvas.height;
+
+    // Dynamic Horizon Sky
+    const skyGrad = ytCtx.createLinearGradient(0, 0, 0, h * 0.65);
+    const r1 = Math.sin(animTime * 0.5) * 40 + 80;
+    const g1 = Math.cos(animTime * 0.4) * 30 + 30;
+    const b1 = Math.sin(animTime * 0.7) * 50 + 160;
+    skyGrad.addColorStop(0, `rgb(${Math.floor(r1)}, ${Math.floor(g1)}, ${Math.floor(b1)})`);
+    skyGrad.addColorStop(1, '#ff3366');
+    ytCtx.fillStyle = skyGrad;
+    ytCtx.fillRect(0, 0, w, h);
+
+    // Glowing Cyber Sun
+    const sunX = w / 2;
+    const sunY = h * 0.45;
+    const sunRad = 110;
+    const sunGrad = ytCtx.createRadialGradient(sunX, sunY, 10, sunX, sunY, sunRad);
+    sunGrad.addColorStop(0, '#fff5a0');
+    sunGrad.addColorStop(0.5, '#ff4071');
+    sunGrad.addColorStop(1, 'rgba(255, 64, 113, 0)');
+    ytCtx.fillStyle = sunGrad;
+    ytCtx.beginPath();
+    ytCtx.arc(sunX, sunY, sunRad, 0, Math.PI * 2);
+    ytCtx.fill();
+
+    // Horizontal Sun Blinds
+    ytCtx.fillStyle = 'rgba(15, 16, 21, 0.85)';
+    for (let i = 0; i < 9; i++) {
+      const barY = sunY - 20 + i * 16;
+      if (barY < sunY + sunRad) {
+        ytCtx.fillRect(sunX - sunRad, barY, sunRad * 2, 4 + i * 0.8);
+      }
+    }
+
+    // Grid Floor
+    const floorY = h * 0.62;
+    const floorGrad = ytCtx.createLinearGradient(0, floorY, 0, h);
+    floorGrad.addColorStop(0, '#0a0a14');
+    floorGrad.addColorStop(1, '#1b0d2e');
+    ytCtx.fillStyle = floorGrad;
+    ytCtx.fillRect(0, 0 + floorY, w, h - floorY);
+
+    // Perspective Lines
+    ytCtx.strokeStyle = 'rgba(0, 229, 255, 0.45)';
+    ytCtx.lineWidth = 1.5;
+    for (let x = -w * 0.5; x <= w * 1.5; x += 110) {
+      ytCtx.beginPath();
+      ytCtx.moveTo(w / 2, floorY);
+      ytCtx.lineTo(x, h);
+      ytCtx.stroke();
+    }
+
+    // Moving horizontal grid lines
+    const offset = (animTime * 60) % 35;
+    for (let y = floorY; y < h; y += 10 + Math.pow((y - floorY) / 12, 1.4)) {
+      const drawY = y + offset;
+      if (drawY > floorY && drawY < h) {
+        ytCtx.strokeStyle = `rgba(236, 72, 153, ${Math.min(0.8, (drawY - floorY) / (h - floorY))})`;
+        ytCtx.beginPath();
+        ytCtx.moveTo(0, drawY);
+        ytCtx.lineTo(w, drawY);
+        ytCtx.stroke();
+      }
+    }
+
+    // Ambilight Canvas copy (smooth real-time downscale)
+    glowCtx.drawImage(ytCanvas, 0, 0, glowCanvas.width, glowCanvas.height);
+  }
+
+  /* ============================================================
+     3D CAMERA, CURSOR, AND SCENE TIMELINE SYSTEM
+     ============================================================ */
+  const camera = document.getElementById('camera');
+  const cursor = document.getElementById('cursor');
+  const clickRing = document.getElementById('click-ring');
+  const badge = document.getElementById('scene-badge');
+  const badgeText = document.getElementById('scene-badge-text');
+  const title = document.getElementById('scene-title');
+  const sub = document.getElementById('scene-sub');
+  const addressText = document.getElementById('address-text');
+  const addressBar = document.getElementById('address-bar');
+  const aiDrawer = document.getElementById('ai-drawer');
+  const aiStreamText = document.getElementById('ai-stream-text');
+  const sitePopup = document.getElementById('site-popup');
+  const swAmbient = document.getElementById('sw-ambient');
+  const glowCanvasEl = document.getElementById('ambient-glow-canvas');
+  const viewDocs = document.getElementById('view-docs');
+  const paneSplit = document.getElementById('pane-split-handle');
+  const spaceDev = document.getElementById('space-2');
+  const spacePers = document.getElementById('space-1');
+
+  function setCursor(x, y) {
+    cursor.style.transform = `translate(${x}px, ${y}px)`;
+  }
+
+  function clickAt(x, y) {
+    setCursor(x, y);
+    clickRing.classList.remove('animate');
+    void clickRing.offsetWidth;
+    clickRing.classList.add('animate');
+  }
+
+  function setCaption(badgeStr, titleStr, subStr) {
+    badge.style.opacity = '0';
+    title.style.opacity = '0';
+    sub.style.opacity = '0';
+    setTimeout(() => {
+      badgeText.textContent = badgeStr;
+      title.textContent = titleStr;
+      sub.textContent = subStr;
+      badge.style.opacity = '1';
+      badge.style.transform = 'translateY(0)';
+      title.style.opacity = '1';
+      title.style.transform = 'translateY(0)';
+      sub.style.opacity = '1';
+      sub.style.transform = 'translateY(0)';
+    }, 350);
+  }
+
+  // Camera transforms
+  function camDefault() {
+    camera.style.transform = 'rotateX(0deg) rotateY(0deg) translateZ(0px) scale(1)';
+  }
+  function camZoomSidebar() {
+    camera.style.transform = 'rotateX(3deg) rotateY(7deg) translate3d(260px, -40px, 320px)';
+  }
+  function camZoomYouTube() {
+    camera.style.transform = 'rotateX(-2deg) rotateY(-4deg) translate3d(-120px, -20px, 280px)';
+  }
+  function camZoomSplit() {
+    camera.style.transform = 'rotateX(1deg) rotateY(0deg) translate3d(0px, 0px, 180px)';
+  }
+  function camZoomAI() {
+    camera.style.transform = 'rotateX(2deg) rotateY(-8deg) translate3d(-280px, -20px, 360px)';
+  }
+  function camOutro() {
+    camera.style.transform = 'rotateX(10deg) rotateY(-12deg) translateZ(-150px) scale(0.85)';
+  }
+
+  /* Typewriter helper */
+  function typeText(el, text, speed = 25) {
+    el.textContent = '';
+    let i = 0;
+    const timer = setInterval(() => {
+      if (i < text.length) {
+        el.textContent += text.charAt(i);
+        i++;
+      } else {
+        clearInterval(timer);
+      }
+    }, speed);
+  }
+
+  /* Master Keyframe Cue Timeline (36 Seconds Total) */
+  const timeline = [
+    {
+      time: 0,
+      run: () => {
+        camDefault();
+        setCursor(300, 300);
+        setCaption("Next-Generation Browser", "Meet Luma", "Crafted for speed, calm, and pure focus.");
+        viewDocs.style.display = 'none';
+        paneSplit.classList.remove('active');
+        aiDrawer.classList.remove('open');
+        sitePopup.classList.remove('show');
+        glowCanvasEl.classList.add('active');
+      }
+    },
+    {
+      time: 3.5,
+      run: () => {
+        camZoomSidebar();
+        setCaption("Spaces & Vertical Tabs", "Organized by Context", "Switch seamlessly between Work, Dev, and Personal spaces.");
+        setCursor(380, 260);
+      }
+    },
+    {
+      time: 5.5,
+      run: () => {
+        clickAt(430, 262); // Click Dev Space
+        spacePers.classList.remove('active');
+        spaceDev.classList.add('active');
+      }
+    },
+    {
+      time: 7.5,
+      run: () => {
+        camZoomSplit();
+        setCaption("Dual-Pane Split View", "Multitasking Without Friction", "View documentation and live media side-by-side with zero clutter.");
+        clickAt(360, 420); // Click Docs Tab
+        viewDocs.style.display = 'block';
+        paneSplit.classList.add('active');
+      }
+    },
+    {
+      time: 12.0,
+      run: () => {
+        camZoomYouTube();
+        setCaption("YouTube Ambient Glow", "Immersive Reactive Ambilight", "Real-time edge color sampling that bleeds naturally beyond your screen.");
+        viewDocs.style.display = 'none';
+        paneSplit.classList.remove('active');
+        addressText.textContent = 'https://youtube.com/watch?v=synthwave-4k';
+        addressBar.classList.add('focused');
+        setTimeout(() => addressBar.classList.remove('focused'), 1500);
+        setCursor(1200, 480);
+      }
+    },
+    {
+      time: 15.5,
+      run: () => {
+        // Open YouTube Site Settings Popup
+        clickAt(1380, 335);
+        sitePopup.classList.add('show');
+      }
+    },
+    {
+      time: 18.0,
+      run: () => {
+        // Toggle Ambilight Switch
+        clickAt(1450, 410);
+        swAmbient.classList.remove('on');
+        glowCanvasEl.classList.remove('active');
+      }
+    },
+    {
+      time: 20.0,
+      run: () => {
+        // Turn Ambilight Back On
+        clickAt(1450, 410);
+        swAmbient.classList.add('on');
+        glowCanvasEl.classList.add('active');
+        setTimeout(() => sitePopup.classList.remove('show'), 900);
+      }
+    },
+    {
+      time: 22.5,
+      run: () => {
+        camZoomAI();
+        setCaption("LumaAI Built-In", "Context-Aware Intelligence", "Ask questions, analyze pages, and execute browser actions instantly.");
+        clickAt(1400, 180); // Click Ask Luma button
+        aiDrawer.classList.add('open');
+        typeText(aiStreamText, "1. Process-level pooling: Renderers are shared across tabs.\n2. Automatic sleep mode: Inactive tabs suspend after 5 minutes.\n3. Native working set trimming drops RAM down to under 120MB.");
+      }
+    },
+    {
+      time: 28.0,
+      run: () => {
+        camDefault();
+        setCaption("Ultra-Efficient Architecture", "Up to 70% Less Memory", "Chromium power with Edge sleeping technology and native WPF speed.");
+        aiDrawer.classList.remove('open');
+      }
+    },
+    {
+      time: 31.5,
+      run: () => {
+        camOutro();
+        setCaption("Luma Browser 2.1.2", "Fast. Minimal. Yours.", "Available now for Windows 10 & 11.");
+        setCursor(960, 540);
+      }
+    }
+  ];
+
+  /* Timeline Playback Loop */
+  let isPlaying = true;
+  let currentTime = 0;
+  const maxTime = 36;
+  const timeFill = document.getElementById('timeline-fill');
+  const timeDisplay = document.getElementById('time-display');
+
+  let executedCues = new Set();
+
+  function restartTimeline() {
+    currentTime = 0;
+    executedCues.clear();
+    spaceDev.classList.remove('active');
+    spacePers.classList.add('active');
+  }
+
+  let lastFrameTime = performance.now();
+  function tick(now) {
+    const delta = (now - lastFrameTime) / 1000;
+    lastFrameTime = now;
+
+    renderSynthwaveFrame();
+
+    if (isPlaying) {
+      currentTime += delta;
+      if (currentTime > maxTime) {
+        restartTimeline();
+      }
+
+      // Check cue triggers
+      for (const cue of timeline) {
+        if (currentTime >= cue.time && !executedCues.has(cue)) {
+          cue.run();
+          executedCues.add(cue);
+        }
+      }
+
+      // Update HUD
+      const pct = (currentTime / maxTime) * 100;
+      timeFill.style.width = pct + '%';
+      const cM = Math.floor(currentTime / 60).toString().padStart(2, '0');
+      const cS = Math.floor(currentTime % 60).toString().padStart(2, '0');
+      const mM = Math.floor(maxTime / 60).toString().padStart(2, '0');
+      const mS = Math.floor(maxTime % 60).toString().padStart(2, '0');
+      timeDisplay.textContent = `${cM}:${cS} / ${mM}:${mS}`;
+    }
+
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+
+  /* Play / Pause / Restart Handlers */
+  const playBtn = document.getElementById('btn-play-pause');
+  playBtn.onclick = () => {
+    isPlaying = !isPlaying;
+    playBtn.textContent = isPlaying ? '❚❚ Pause' : '▶ Play';
+  };
+  document.getElementById('btn-restart').onclick = () => {
+    restartTimeline();
+  };
+
+  /* ============================================================
+     AUTO VIDEO RECORDER (MediaRecorder 60fps WebM/MP4)
+     ============================================================ */
+  const exportBtn = document.getElementById('btn-export-video');
+  let isRecording = false;
+  let mediaRecorder = null;
+  let recordedChunks = [];
+
+  exportBtn.onclick = async () => {
+    if (isRecording) {
+      stopRecording();
+      return;
+    }
+    startRecording();
+  };
+
+  async function startRecording() {
+    exportBtn.textContent = '🔴 Recording (36s)...';
+    exportBtn.style.background = '#ef4444';
+    restartTimeline();
+    isPlaying = true;
+
+    try {
+      // Capture the 1920x1080 stage using html2canvas / MediaStream or direct canvas capture
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: { width: 1920, height: 1080, frameRate: 60 },
+        audio: false
+      });
+
+      recordedChunks = [];
+      const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm';
+      mediaRecorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 18000000 });
+
+      mediaRecorder.ondataavailable = e => {
+        if (e.data.size > 0) recordedChunks.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'luma-browser-promo.webm';
+        document.body.appendChild(a);
+        a.click();
+        exportBtn.textContent = '✓ Downloaded!';
+        setTimeout(() => {
+          exportBtn.textContent = '🎥 Export Video (.webm)';
+          exportBtn.style.background = '#6366f1';
+        }, 3000);
+      };
+
+      mediaRecorder.start();
+      isRecording = true;
+
+      // Auto-stop after timeline completes
+      setTimeout(() => {
+        if (isRecording) stopRecording();
+      }, (maxTime + 1) * 1000);
+
+    } catch (err) {
+      console.warn("Screen capture cancelled or unavailable:", err);
+      exportBtn.textContent = '🎥 Export Video (.webm)';
+      exportBtn.style.background = '#6366f1';
+    }
+  }
+
+  function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+      mediaRecorder.stream.getTracks().forEach(t => t.stop());
+    }
+    isRecording = false;
+  }
+</script>
+</body>
+</html>

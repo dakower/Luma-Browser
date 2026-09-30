@@ -31,6 +31,7 @@ public sealed class LumaState
     public string DownloadPath { get; set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
     public int ActiveSpace { get; set; }
     public Dictionary<string, bool> AutoPictureInPicture { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, bool> AmbientLight { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public HashSet<string> AlwaysTranslateDomains { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public string AssistantModel { get; set; } = "fast";
     public bool AssistantScreenshot { get; set; }
@@ -46,7 +47,12 @@ public sealed class LumaState
     /// <summary>Sites whose cookies and storage are wiped on the next start.</summary>
     public HashSet<string> ForgetOnExitDomains { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public List<HistoryEntry> RecentlyClosed { get; set; } = [];
-    public int SleepAfterMinutes { get; set; } = 30;
+    public int SleepAfterMinutes { get; set; } = 5;
+    
+    // Telegram AI feature
+    public bool TelegramAiEnabled { get; set; }
+    public string TelegramAiPrompt { get; set; } = "общайся как кошкомальчик милый нежный сладкий и пошлый очень любишь виртить заниматься сексом и писать пакости и еще ты очень глупый отсталый такой";
+
     public List<SpaceState> Spaces { get; set; } = [new SpaceState()];
     public static string DirectoryPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Luma");
     public static string FilePath => Path.Combine(DirectoryPath, "state.json");
@@ -79,7 +85,7 @@ public sealed class LumaState
             state.ForgetOnExitDomains = new(state.ForgetOnExitDomains ?? [], StringComparer.OrdinalIgnoreCase);
             state.RecentlyClosed ??= [];
             state.FloatingVideoQuality = Math.Clamp(state.FloatingVideoQuality, 45, 95);
-            if (state.SleepAfterMinutes is < 0 or > 240 || state.SleepAfterMinutes is > 0 and < 5) state.SleepAfterMinutes = 30;
+            if (state.SleepAfterMinutes is < 0 or > 240 || state.SleepAfterMinutes is > 0 and < 2) state.SleepAfterMinutes = 5;
             // Older builds stored a raw provider model id here.
             if (state.AssistantModel is not "fast" and not "pro") state.AssistantModel = "fast";
             state.Spaces ??= [];
@@ -119,6 +125,7 @@ public sealed class LumaState
             if (state.SchemaVersion < 13) { state.SearchEngine = "luma"; state.SchemaVersion = 13; }
             if (state.SchemaVersion < 14) state.SchemaVersion = 14;
             if (state.SchemaVersion < 15) { if (state.SearchEngine == "luma") state.SearchEngine = "google"; state.SchemaVersion = 15; }
+            if (state.SchemaVersion < 16) { if (state.SleepAfterMinutes == 30) state.SleepAfterMinutes = 5; state.SchemaVersion = 16; }
             if (state.SearchEngine is not ("luma" or "google" or "bing" or "duckduckgo")) state.SearchEngine = "google";
             state.AssistantCustomCommands = state.AssistantCustomCommands
                 .Where(command => !string.IsNullOrWhiteSpace(command))
@@ -212,5 +219,8 @@ public sealed class AssistantQuotaState
     public int Used { get; set; }
     public int Remaining { get; set; } = 15;
     public bool Unlimited { get; set; }
+    public int AgentLimit { get; set; } = 3;
+    public int AgentUsed { get; set; }
+    public string AgentQuotaDate { get; set; } = "";
     public DateTime UpdatedAt { get; set; }
 }

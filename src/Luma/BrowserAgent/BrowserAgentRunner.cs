@@ -7,26 +7,23 @@ namespace Luma.BrowserAgent;
 public static class BrowserAgentRunner
 {
     private static readonly Regex AgentIntentRegex = new(
-        @"(?:купи(?:ть)?|закажи|заказать|найди|поищи|положи\s+в\s+корзину|добавь\s+в\s+корзину|выбери|лучш(?:ий|ая|ее)\s+(?:вариант|ноутбук|товар|пк|телефон)|цена[\s-]качество|сравни\s+(?:цены|товары|варианты)|открой\s+\d+\s+вкладок)",
+        @"(?:купи(?:ть)?|закажи|заказать|найди|поищи|положи\s+в\s+корзину|добавь\s+в\s+корзину|выбери|лучш(?:ий|ая|ее)\s+(?:вариант|товар|квартир|машин)|цена[\s-]качество|сравни|открой\s+\d+\s+вкладок|аренд)",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     public static bool IsAgentGoal(string prompt)
     {
         if (string.IsNullOrWhiteSpace(prompt)) return false;
-        var p = prompt.Trim();
-        return AgentIntentRegex.IsMatch(p) && (p.Contains("ноутбук") || p.Contains("корзин") || p.Contains("купит") || p.Contains("сайт") || p.Contains("магазин") || p.Contains("бюджет") || p.Contains("гривен") || p.Contains("грн") || p.Contains("тысяч") || p.Contains("вкладок"));
+        return AgentIntentRegex.IsMatch(prompt);
     }
 
     public static async Task ExecuteAgentTaskAsync(
         string goal,
         MainWindow window,
+        string accessToken,
         string language,
         Func<string, Task> onDelta,
         CancellationToken token)
     {
-        var budget = HardwareScorer.ExtractBudget(goal, 50000m);
-        var isGaming = goal.Contains("игров", StringComparison.OrdinalIgnoreCase) || goal.Contains("гейм", StringComparison.OrdinalIgnoreCase);
-
         var lang = (language ?? "ru").ToLowerInvariant();
         var badge = lang switch
         {
@@ -35,31 +32,94 @@ public static class BrowserAgentRunner
             _ => "Агент: включен"
         };
 
+        // LLM Plan
+        var planPrompt = $@"Пользователь просит: '{goal}'.
+Твоя задача — извлечь параметры поиска для интернет-магазинов или сайтов.
+Ключевые слова (keywords) ДОЛЖНЫ содержать ТОЛЬКО наименование товара/услуги (например: ""ноутбук игровой"" или ""аренда квартиры Черноморск"").
+КАТЕГОРИЧЕСКИ НЕ ИСПОЛЬЗУЙ слова ""найди"", ""купи"", ""до 50к"", ""грн"", ""бюджет"" в keywords!
+
+Ответь СТРОГО в формате JSON:
+{{
+  ""category"": ""electronics"", // или ""real_estate"", ""general""
+  ""budget"": 50000, // число в грн или 0 если не указан
+  ""sites"": [""rozetka.com.ua"", ""comfy.ua"", ""moyo.ua"", ""foxtrot.com.ua""],
+  ""keywords"": ""ноутбук игровой""
+}}";
+
+        string llmResponse = "";
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(accessToken))
+            {
+                var planMessages = new List<AssistantMessage> { new() { Role = "user", Text = planPrompt } };
+                await AssistantClient.StreamAsync(accessToken, "fast", planMessages, delta => { llmResponse += delta; return Task.CompletedTask; }, token);
+            }
+        }
+        catch { }
+
+        llmResponse = llmResponse.Trim();
+        if (llmResponse.StartsWith("```json")) llmResponse = llmResponse.Substring(7).TrimEnd('`').Trim();
+        else if (llmResponse.StartsWith("```")) llmResponse = llmResponse.Substring(3).TrimEnd('`').Trim();
+
+        string category = "general";
+        decimal budget = 0;
+        string[] sites = Array.Empty<string>();
+        string keywords = "";
+
+        try
+        {
+            using var doc = JsonDocument.Parse(llmResponse);
+            if (doc.RootElement.TryGetProperty("category", out var catProp)) category = catProp.GetString() ?? category;
+            if (doc.RootElement.TryGetProperty("budget", out var budProp)) budget = budProp.GetDecimal();
+            if (doc.RootElement.TryGetProperty("sites", out var sitesProp)) sites = sitesProp.EnumerateArray().Select(x => x.GetString() ?? "").Where(x => x != "").ToArray();
+            if (doc.RootElement.TryGetProperty("keywords", out var kwProp)) keywords = kwProp.GetString() ?? keywords;
+        }
+        catch { }
+
+        if (budget <= 0) budget = HardwareScorer.ExtractBudget(goal, 0);
+        keywords = CleanKeywords(keywords, goal);
+
+        var isLaptop = goal.Contains("ноут", StringComparison.OrdinalIgnoreCase) || goal.Contains("laptop", StringComparison.OrdinalIgnoreCase);
+        if (sites.Length == 0 || isLaptop || category == "electronics")
+        {
+            sites = new[] { "rozetka.com.ua", "comfy.ua", "moyo.ua", "foxtrot.com.ua" };
+        }
+
         var goalText = lang switch
         {
-            "uk" => $"Мета: {(isGaming ? "ігровий " : "")}ноутбук до {budget:N0} ₴, оптимальне співвідношення Ціна-Якість.",
-            "en" => $"Goal: {(isGaming ? "gaming " : "")}laptop up to {budget:N0} UAH, best Price-to-Performance ratio.",
-            _ => $"Цель: {(isGaming ? "игровой " : "")}ноутбук до {budget:N0} ₴, оптимальное соотношение Цена-Качество."
+            "uk" => $"Мета: {goal} (Бюджет: {(budget > 0 ? budget.ToString("N0") + " ₴" : "не обмежений")}).",
+            "en" => $"Goal: {goal} (Budget: {(budget > 0 ? budget.ToString("N0") + " UAH" : "unlimited")}).",
+            _ => $"Цель: {goal} (Бюджет: {(budget > 0 ? budget.ToString("N0") + " ₴" : "не ограничен")})."
         };
 
         var searchHeading = lang switch
         {
-            "uk" => "Пошук у магазинах:",
-            "en" => "Searching stores:",
-            _ => "Поиск в магазинах:"
+            "uk" => "Пошук на сайтах:",
+            "en" => "Searching sites:",
+            _ => "Поиск на сайтах:"
         };
 
-        // 1. Initial concise notice
+        // 1. Initial notice
         await onDelta($"**[{badge}]**\n{goalText}\n\n{searchHeading}\n");
 
-        var searchTerm = isGaming ? (budget >= 42000m ? "ноутбук+rtx+4060" : "ноутбук+rtx") : "ноутбук";
-        var storeQueries = new (string StoreName, string SearchUrl)[]
+        var storeQueries = sites.Select(s => 
         {
-            ("Rozetka", $"https://rozetka.com.ua/search/?text={searchTerm}"),
-            ("Comfy", $"https://comfy.ua/search/?q={searchTerm}"),
-            ("Moyo", $"https://www.moyo.ua/search/?q={searchTerm}"),
-            ("Foxtrot", $"https://www.foxtrot.com.ua/search?query={searchTerm}")
-        };
+            var cleanSite = s.Replace("www.", "");
+            var q = Uri.EscapeDataString(keywords);
+            var searchUrl = cleanSite switch
+            {
+                "rozetka.com.ua" => $"https://rozetka.com.ua/search/?text={q}",
+                "comfy.ua" => $"https://comfy.ua/search/?q={q}",
+                "moyo.ua" => $"https://moyo.ua/search/?q={q}",
+                "foxtrot.com.ua" => $"https://foxtrot.com.ua/search?query={q}",
+                "hotline.ua" => $"https://hotline.ua/sr/?q={q}",
+                "brain.com.ua" => $"https://brain.com.ua/search/?q={q}",
+                "olx.ua" => $"https://www.olx.ua/uk/list/q-{q}/",
+                "dim.ria.com" => $"https://dim.ria.com/uk/search/?keyword={q}",
+                _ => $"https://www.google.com/search?q=site:{cleanSite}+{q}"
+            };
+            return (cleanSite, searchUrl);
+        }).ToArray();
 
         var tabs = new List<(string Store, BrowserTab Tab)>();
         var candidates = new List<ProductCandidate>();
@@ -71,14 +131,14 @@ public static class BrowserAgentRunner
             {
                 token.ThrowIfCancellationRequested();
 
-                // Open and automatically activate tab so WebView2 initializes and mounts in visual tree
+                // Open and activate tab so WebView2 is mounted and starts loading
                 var tab = await window.Dispatcher.Invoke(() => window.AddTabAsync(url, activate: true));
                 tabs.Add((store, tab));
 
-                // Wait for page to finish loading DOM
+                // Wait for DOM readiness
                 await WaitForPageReadyAsync(tab, 4000, token);
 
-                // Check if page resulted in a network/connection error
+                // Check for connection/error page
                 if (await IsPageErrorAsync(tab))
                 {
                     var errText = lang switch
@@ -88,13 +148,11 @@ public static class BrowserAgentRunner
                         _ => $"- {store}: ошибка подключения, переход дальше\n"
                     };
                     await onDelta(errText);
-
-                    // Close failed tab cleanly
                     await window.Dispatcher.InvokeAsync(() => window.CloseTab(tab));
                     continue;
                 }
 
-                // Execute scanner script
+                // Scrape product cards from page
                 var storeItems = new List<ProductCandidate>();
                 var view = tab.ActiveView;
                 if (view?.CoreWebView2 is not null)
@@ -113,7 +171,8 @@ public static class BrowserAgentRunner
                                 var itemUrl = el.GetProperty("url").GetString() ?? "";
                                 var specs = el.GetProperty("specs").GetString() ?? "";
 
-                                if (price <= budget && price >= 20000m)
+                                bool isWithinBudget = budget <= 0 || price <= budget * 1.05m;
+                                if (isWithinBudget && title.Length >= 4)
                                 {
                                     var cand = new ProductCandidate
                                     {
@@ -124,18 +183,13 @@ public static class BrowserAgentRunner
                                         Specs = specs
                                     };
                                     HardwareScorer.ParseSpecs(cand);
-                                    HardwareScorer.CalculateValueScore(cand, budget);
+                                    HardwareScorer.CalculateValueScore(cand, budget > 0 ? budget : 50000m);
                                     storeItems.Add(cand);
                                 }
                             }
                         }
                     }
                     catch { }
-                }
-
-                if (storeItems.Count == 0)
-                {
-                    storeItems.AddRange(GetMarketLeaderFallbacks(store, budget, isGaming));
                 }
 
                 candidates.AddRange(storeItems);
@@ -151,17 +205,45 @@ public static class BrowserAgentRunner
                 await Task.Delay(400, token);
             }
 
-            // 3. Rank candidates
-            var ranked = candidates.OrderByDescending(c => c.Score).ThenBy(c => c.Price).ToList();
-            var winner = ranked.FirstOrDefault();
+            // Rank candidates via LLM if general intent
+            var candidatesJson = JsonSerializer.Serialize(candidates.Select((c, i) => new { Index = i, c.Title, c.Price, c.Store, c.Url }).Take(40));
+            var rankPrompt = $@"Пользователь ищет: '{goal}'.
+Бюджет: {budget}.
+Список найденных вариантов (в JSON):
+{candidatesJson}
+
+Выбери топ 1 вариант, который лучше всего подходит по соотношению цена-качество и удовлетворяет бюджету. 
+Ответь ТОЛЬКО в формате JSON:
+{{
+  ""best_index"": 0 // индекс в массиве
+}}";
+            
+            int bestIndex = 0;
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(accessToken))
+                {
+                    string rankResponse = "";
+                    var rankMessages = new List<AssistantMessage> { new() { Role = "user", Text = rankPrompt } };
+                    await AssistantClient.StreamAsync(accessToken, "fast", rankMessages, delta => { rankResponse += delta; return Task.CompletedTask; }, token);
+                    rankResponse = rankResponse.Trim();
+                    if (rankResponse.StartsWith("```json")) rankResponse = rankResponse.Substring(7).TrimEnd('`').Trim();
+                    else if (rankResponse.StartsWith("```")) rankResponse = rankResponse.Substring(3).TrimEnd('`').Trim();
+                    using var doc = JsonDocument.Parse(rankResponse);
+                    if (doc.RootElement.TryGetProperty("best_index", out var bIndex)) bestIndex = bIndex.GetInt32();
+                }
+            }
+            catch { }
+
+            var winner = candidates.Count > bestIndex && bestIndex >= 0 ? candidates[bestIndex] : candidates.FirstOrDefault();
 
             if (winner is null)
             {
                 var noItems = lang switch
                 {
-                    "uk" => "\nНе вдалося знайти відповідні моделі за вказаними критеріями.\n",
-                    "en" => "\nNo suitable models found for the specified criteria.\n",
-                    _ => "\nНе удалось подобрать подходящие модели по указанным критериям.\n"
+                    "uk" => "\nНе вдалося знайти відповідні варіанти за вказаними критеріями.\n",
+                    "en" => "\nNo suitable options found for the specified criteria.\n",
+                    _ => "\nНе удалось подобрать подходящие варианты по указанным критериям.\n"
                 };
                 await onDelta(noItems);
                 return;
@@ -169,31 +251,20 @@ public static class BrowserAgentRunner
 
             var compHeading = lang switch
             {
-                "uk" => "\nПорівняння конфігурацій (Ціна-Якість):\n",
-                "en" => "\nConfiguration comparison (Price-to-Performance):\n",
-                _ => "\nСравнение конфигураций (Цена-Качество):\n"
+                "uk" => "\nНайкращий варіант (Ціна-Якість):\n",
+                "en" => "\nBest option (Price-to-Performance):\n",
+                _ => "\nЛучший вариант (Цена-Качество):\n"
             };
             await onDelta(compHeading);
 
-            int rankNum = 1;
-            foreach (var top in ranked.Take(3))
-            {
-                var ramLabel = lang switch { "uk" => "ГБ ОЗП", "en" => "GB RAM", _ => "ГБ RAM" };
-                var indexLabel = lang switch { "uk" => "Індекс", "en" => "Index", _ => "Индекс" };
-                var configLabel = lang switch { "uk" => "Конфігурація", "en" => "Specs", _ => "Конфигурация" };
+            await onDelta($"**{winner.Title}** — {winner.Price:N0} {winner.Currency} ({winner.Store})\n\n");
 
-                await onDelta($"{rankNum}. **{top.Title}** — {top.Price:N0} {top.Currency} ({top.Store})\n");
-                await onDelta($"   {configLabel}: {top.Gpu} / {top.Cpu} / {top.RamGb} {ramLabel} / {top.SsdGb} GB SSD\n");
-                await onDelta($"   {indexLabel}: {top.Score:F1}/10\n\n");
-                rankNum++;
-            }
-
-            // 4. Navigate to Winner & Put into Cart
+            // 4. Navigate to Winner
             var actionHeading = lang switch
             {
-                "uk" => $"Дія:\nПерехід до найкращої моделі: {winner.Title} ({winner.Store}).\n",
-                "en" => $"Action:\nNavigating to top model: {winner.Title} ({winner.Store}).\n",
-                _ => $"Действие:\nПереход к лучшей модели: {winner.Title} ({winner.Store}).\n"
+                "uk" => $"Дія:\nПерехід до найкращого варіанту: {winner.Title} ({winner.Store}).\n",
+                "en" => $"Action:\nNavigating to best option: {winner.Title} ({winner.Store}).\n",
+                _ => $"Действие:\nПереход к лучшему варианту: {winner.Title} ({winner.Store}).\n"
             };
             await onDelta(actionHeading);
 
@@ -206,29 +277,32 @@ public static class BrowserAgentRunner
                 await window.Dispatcher.InvokeAsync(() => window.CurrentTab = actionTab);
 
                 // If winner has a direct URL, navigate to product page
-                if (!string.IsNullOrWhiteSpace(winner.Url) && Uri.IsWellFormedUriString(winner.Url, UriKind.Absolute) && winner.Url.Contains("/p"))
+                if (!string.IsNullOrWhiteSpace(winner.Url) && Uri.IsWellFormedUriString(winner.Url, UriKind.Absolute))
                 {
                     await window.Dispatcher.InvokeAsync(() => actionTab.ActiveView.CoreWebView2?.Navigate(winner.Url));
                     await WaitForPageReadyAsync(actionTab, 4000, token);
                 }
 
-                // Click buy button targeted to the winning model
-                try
+                // If the goal implies buying or carting, try to click buy
+                if (goal.Contains("купи", StringComparison.OrdinalIgnoreCase) || goal.Contains("корзин", StringComparison.OrdinalIgnoreCase) || goal.Contains("закаж", StringComparison.OrdinalIgnoreCase))
                 {
-                    var clickScript = BrowserAgentScripts.BuildClickBuyButtonScript(winner.Title);
-                    await actionTab.ActiveView.CoreWebView2.ExecuteScriptAsync(clickScript);
-                    await Task.Delay(1400, token);
-                    await actionTab.ActiveView.CoreWebView2.ExecuteScriptAsync(BrowserAgentScripts.OpenCartAndCleanAccidentalItemsScript);
+                    try
+                    {
+                        var clickScript = BrowserAgentScripts.BuildClickBuyButtonScript(winner.Title);
+                        await actionTab.ActiveView.CoreWebView2.ExecuteScriptAsync(clickScript);
+                        await Task.Delay(1400, token);
+                        await actionTab.ActiveView.CoreWebView2.ExecuteScriptAsync(BrowserAgentScripts.ProceedToCheckoutAndPurgePowderScript);
+                    }
+                    catch { }
                 }
-                catch { }
             }
 
-            // 5. Final Victory Report (Strict, serious, no emojis, exact phrase)
+            // 5. Final Victory Report
             var finalMsg = lang switch
             {
-                "uk" => $"\nТовар додано до кошика.\n\n**Готово, ось найкращий варіант Ціна-Якість:**\n{winner.Title} — {winner.Price:N0} {winner.Currency}.\nВкладка магазину з оформленням замовлення відкрита перед вами.",
-                "en" => $"\nProduct added to cart.\n\n**Ready, here is the best Price-to-Performance option:**\n{winner.Title} — {winner.Price:N0} {winner.Currency}.\nThe store checkout tab is open.",
-                _ => $"\nТовар добавлен в корзину.\n\n**Готово, вот лучший вариант Цена-Качество:**\n{winner.Title} — {winner.Price:N0} {winner.Currency}.\nВкладка магазина с оформлением заказа открыта перед вами."
+                "uk" => $"\n**Готово, ось найкращий варіант:**\n{winner.Title} — {winner.Price:N0} {winner.Currency}.\nВкладка з результатом відкрита перед вами.",
+                "en" => $"\n**Ready, here is the best option:**\n{winner.Title} — {winner.Price:N0} {winner.Currency}.\nThe result tab is open.",
+                _ => $"\n**Готово, вот лучший вариант:**\n{winner.Title} — {winner.Price:N0} {winner.Currency}.\nВкладка с результатом открыта перед вами."
             };
             await onDelta(finalMsg);
         }
@@ -288,7 +362,7 @@ public static class BrowserAgentRunner
         catch { return false; }
     }
 
-    private static List<ProductCandidate> GetMarketLeaderFallbacks(string store, decimal budget, bool isGaming)
+    private static List<ProductCandidate> GetMarketLeaderFallbacks(decimal budget)
     {
         var list = new List<ProductCandidate>();
         if (budget >= 45000)
@@ -297,58 +371,84 @@ public static class BrowserAgentRunner
             {
                 Title = "Lenovo LOQ 15IRX9 (Core i5-13450HX / 16GB / 512GB SSD / RTX 4060 8GB 115W)",
                 Price = 48499m,
-                Store = store,
+                Store = "Comfy",
                 Gpu = "RTX 4060",
                 Cpu = "Intel Core i5-13450HX",
                 RamGb = 16,
                 SsdGb = 512,
                 Display = "144Hz IPS FHD G-Sync",
                 Score = 9.4,
-                Url = "https://rozetka.com.ua/search/?text=lenovo+loq+15irx9"
+                Url = "https://comfy.ua/search/?q=lenovo+loq+15irx9"
             });
             list.Add(new ProductCandidate
             {
                 Title = "ASUS TUF Gaming A15 (AMD Ryzen 5 7535HS / 16GB / 512GB SSD / RTX 4060 8GB 140W)",
                 Price = 49999m,
-                Store = store,
+                Store = "Rozetka",
                 Gpu = "RTX 4060",
                 Cpu = "AMD Ryzen 5 7535HS",
                 RamGb = 16,
                 SsdGb = 512,
                 Display = "144Hz IPS 100% sRGB",
                 Score = 9.2,
-                Url = "https://comfy.ua/search/?q=asus+tuf+gaming+a15"
+                Url = "https://rozetka.com.ua/search/?text=asus+tuf+gaming+a15"
             });
             list.Add(new ProductCandidate
             {
                 Title = "Acer Nitro V 15 (Core i5-13420H / 16GB / 512GB SSD / RTX 4050 6GB)",
                 Price = 43999m,
-                Store = store,
+                Store = "Moyo",
                 Gpu = "RTX 4050",
                 Cpu = "Intel Core i5-13420H",
                 RamGb = 16,
                 SsdGb = 512,
                 Display = "144Hz IPS",
                 Score = 8.1,
-                Url = "https://www.moyo.ua/search/?q=acer+nitro+v+15"
+                Url = "https://moyo.ua/search/?q=acer+nitro+v+15"
             });
         }
         else
         {
             list.Add(new ProductCandidate
             {
-                Title = "Lenovo IdeaPad Gaming 3 (AMD Ryzen 5 5600H / 16GB / 512GB / RTX 3050 4GB)",
-                Price = 33999m,
-                Store = store,
+                Title = "MSI Thin 15 B13UC (Intel Core i5-13420H / 16GB / 512GB / RTX 3050 4GB)",
+                Price = 39999m,
+                Store = "Rozetka",
                 Gpu = "RTX 3050",
-                Cpu = "AMD Ryzen 5 5600H",
+                Cpu = "Intel Core i5-13420H",
                 RamGb = 16,
                 SsdGb = 512,
-                Display = "120Hz IPS",
-                Score = 8.3,
-                Url = "https://rozetka.com.ua/search/?text=ideapad+gaming+3"
+                Display = "144Hz IPS",
+                Score = 8.4,
+                Url = "https://rozetka.com.ua/search/?text=msi+thin+15"
             });
         }
         return list;
+    }
+
+    private static string CleanKeywords(string raw, string goal)
+    {
+        var text = string.IsNullOrWhiteSpace(raw) ? goal : raw;
+        var isLaptop = goal.Contains("ноут", StringComparison.OrdinalIgnoreCase) || text.Contains("ноут", StringComparison.OrdinalIgnoreCase) || goal.Contains("laptop", StringComparison.OrdinalIgnoreCase);
+        var isGaming = goal.Contains("игров", StringComparison.OrdinalIgnoreCase) || text.Contains("игров", StringComparison.OrdinalIgnoreCase) || goal.Contains("гейм", StringComparison.OrdinalIgnoreCase);
+
+        var terms = Regex.Matches(text, @"[a-zA-Zа-яА-Я0-9]{3,}")
+            .Cast<Match>()
+            .Select(m => m.Value.ToLowerInvariant())
+            .Where(w => w is not ("найди" or "поищи" or "купи" or "купить" or "закажи" or "заказать" or "хочу" or "выбери" or "лучший" or "вариант" or "гривен" or "грн" or "тысяч" or "тыс"))
+            .ToList();
+
+        if (isLaptop)
+        {
+            terms.RemoveAll(w => w is "ноут" or "ноуты" or "ноутбук" or "ноутбука");
+            terms.Insert(0, "ноутбук");
+        }
+        if (isGaming && !terms.Contains("игровой"))
+        {
+            terms.Add("игровой");
+        }
+
+        var result = string.Join(" ", terms.Distinct());
+        return string.IsNullOrWhiteSpace(result) ? (isLaptop ? "ноутбук игровой" : goal) : result;
     }
 }

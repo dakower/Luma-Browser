@@ -936,10 +936,11 @@ public partial class MainWindow
             _state.SleepAfterMinutes = Math.Clamp(I("sleepMinutes", _state.SleepAfterMinutes), 0, 240);
         else if (oldProfile != _state.PerformanceProfile)
         {
-            if (_state.PerformanceProfile == "memory") _state.SleepAfterMinutes = 5;
+            if (_state.PerformanceProfile == "memory") _state.SleepAfterMinutes = 2;
             else if (_state.PerformanceProfile == "speed") _state.SleepAfterMinutes = 0;
+            else _state.SleepAfterMinutes = 5;
         }
-        using (var key = Registry.CurrentUser.CreateSubKey(@"Software\Luma")) key.SetValue("Theme", S("theme", "dark")); CommitThemePreview(); Save(); ApplyTheme(); ApplyInterfaceLanguage(); ApplyPageScaleToOpenTabs(); ApplyPrivacySettings(); SetSidebar(_state.SidebarVisible, true); ShowToast(L("Настройки сохранены", "Settings saved", "Налаштування збережено"));
+        using (var key = Registry.CurrentUser.CreateSubKey(@"Software\Luma")) key.SetValue("Theme", S("theme", "dark")); CommitThemePreview(); Save(); ApplyTheme(); ApplyInterfaceLanguage(); ApplyPageScaleToOpenTabs(); ApplyPrivacySettings(); SetSidebar(_state.SidebarVisible, true); TrimProcessMemory(); ShowToast(L("Настройки сохранены", "Settings saved", "Налаштування збережено"));
     }
 
     /// <summary>Animates the sidebar column width. A grid column width cannot be animated

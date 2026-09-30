@@ -426,5 +426,13 @@ public partial class MainWindow
     }
 
     private async Task ApplyPipAsync(WebView2 view) { var domain = BrowserTab.DomainOf(view.Source?.ToString() ?? ""); if (!_state.AutoPictureInPicture.TryGetValue(domain, out var on) || !on) return; await Script(view, "document.querySelectorAll('video').forEach(v=>v.addEventListener('play',()=>v.requestPictureInPicture?.().catch(()=>{}),{once:true}))"); }
+    private async Task ApplyAmbientLightAsync(WebView2 view, bool? forceState = null)
+    {
+        var domain = BrowserTab.DomainOf(view.Source?.ToString() ?? "");
+        var isYt = domain.Contains("youtube.com", StringComparison.OrdinalIgnoreCase) || domain.Contains("youtu.be", StringComparison.OrdinalIgnoreCase);
+        if (!isYt) return;
+        var enabled = forceState ?? (_state.AmbientLight.TryGetValue(domain, out var on) ? on : true);
+        await Script(view, BrowserScripts.AmbientLight(enabled));
+    }
     private static string? TranslateDomain(string url) { if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https")) return null; return uri.Host.StartsWith("www.") ? uri.Host[4..] : uri.Host; }
 }

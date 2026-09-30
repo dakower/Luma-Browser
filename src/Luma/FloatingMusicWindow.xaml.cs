@@ -19,7 +19,6 @@ public partial class FloatingMusicWindow : Window
     private bool _expanded;
     private bool _seeking;
     private bool _repeat;
-    private bool _syncingVolume;
     private bool _volumeDragging;
     private long _lastVolumeCommandTicks;
     private double _duration;
@@ -94,10 +93,8 @@ public partial class FloatingMusicWindow : Window
         if (!_seeking) SeekSlider.Value = tab.MediaProgress;
         if (!_volumeDragging)
         {
-            _syncingVolume = true;
             VolumeSlider.Value = Math.Clamp(tab.MediaVolume, 0, 1);
             VolumeText.Text = $"{Math.Round(VolumeSlider.Value * 100):0}%";
-            _syncingVolume = false;
         }
         var icon = (Geometry)FindResource(tab.MediaPlaying ? "IconPause" : "IconPlay");
         ToggleIcon.Data = icon;
@@ -256,10 +253,8 @@ public partial class FloatingMusicWindow : Window
     private void SetVolumeFromPointer(MouseEventArgs e, bool force)
     {
         var ratio = Math.Clamp(e.GetPosition(VolumeSlider).X / Math.Max(1, VolumeSlider.ActualWidth), 0, 1);
-        _syncingVolume = true;
         VolumeSlider.Value = ratio;
         VolumeText.Text = $"{Math.Round(ratio * 100):0}%";
-        _syncingVolume = false;
         var now = Environment.TickCount64;
         if (force || now - _lastVolumeCommandTicks >= 45)
         {

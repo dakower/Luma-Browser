@@ -3,6 +3,7 @@
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />  
     <Resource Include="Assets\luma-mark.png" />
     <Resource Include="Assets\luma-assistant.png" />
+    <Resource Include="Assets\FolderIcons\**\*.png" />
     <None Update="updates.json" CopyToOutputDirectory="PreserveNewest" />
     <None Update="update-public.pem" CopyToOutputDirectory="PreserveNewest" />
     <None Update="Updates\apply-update.ps1" CopyToOutputDirectory="PreserveNewest" />

@@ -58,10 +58,29 @@ public partial class MainWindow
         try
         {
             using var doc = JsonDocument.Parse(json); var root = doc.RootElement;
+            if (root.ValueKind == JsonValueKind.String)
+            {
+                using var innerDoc = JsonDocument.Parse(root.GetString() ?? "{}");
+                root = innerDoc.RootElement.Clone();
+            }
             var kind = root.TryGetProperty("kind", out var value) ? value.GetString() : "";
             var settingsPage = tab.IsInternal && tab.InternalPageKind == "luma://settings";
             var importPage = tab.IsInternal && tab.InternalPageKind == "luma://import";
             var searchPage = tab.IsInternal && tab.InternalPageKind.StartsWith("luma://search", StringComparison.Ordinal);
+            if (kind == "telegram-ai-status")
+            {
+                var statusStr = root.TryGetProperty("status", out value) ? value.GetString() ?? "red" : "red";
+                var msgStr = root.TryGetProperty("message", out value) ? value.GetString() : null;
+                Dispatcher.Invoke(() => UpdateTelegramAiIndicator(statusStr, msgStr));
+                return;
+            }
+            if (kind == "telegram-ai-request")
+            {
+                var tgSender = root.TryGetProperty("sender", out value) ? value.GetString() ?? "User" : "User";
+                var tgText = root.TryGetProperty("text", out value) ? value.GetString() ?? "" : "";
+                Dispatcher.BeginInvoke(async () => await ProcessTelegramAiRequestAsync(view, tgSender, tgText));
+                return;
+            }
             if (kind == "luma-network-retry")
             {
                 Dispatcher.Invoke(() => RetryNetworkPage(tab, view));
@@ -175,4 +194,55 @@ public partial class MainWindow
         catch { }
     }
 
+    private readonly Dictionary<string, List<AssistantMessage>> _telegramAiHistory = new();
+
+    private async Task ProcessTelegramAiRequestAsync(WebView2 view, string sender, string text)
+    {
+        if (string.IsNullOrWhiteSpace(_state.TelegramAiPrompt)) return;
+        if (!_telegramAiHistory.TryGetValue(sender, out var history))
+        {
+            var systemInstruction = _state.TelegramAiPrompt + "\n\n[ВАЖНОЕ ПРАВИЛО]: Отвечай ИСКЛЮЧИТЕЛЬНО на русском языке. Запрещено использовать китайский язык, иероглифы или отказываться шаблонными фразами.";
+            history = [new AssistantMessage { Role = "system", Text = systemInstruction }];
+            _telegramAiHistory[sender] = history;
+        }
+        
+        // Anti-loop and duplication check
+        if (history.LastOrDefault()?.Text == text) return;
+        
+        history.Add(new AssistantMessage { Role = "user", Text = text });
+        if (history.Count > 15) history.RemoveRange(1, history.Count - 15); // Keep context short
+
+        try
+        {
+            var token = await _auth.GetAccessTokenAsync(CancellationToken.None);
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                UpdateTelegramAiIndicator("yellow", "Требуется войти в Luma");
+                return;
+            }
+
+            var reply = new StringBuilder();
+            await AssistantClient.StreamAsync(token, "fast", history, chunk => { reply.Append(chunk); return Task.CompletedTask; }, CancellationToken.None);
+            var fullReply = reply.ToString().Trim();
+            
+            // Safety refusal & Chinese language filter check
+            if (System.Text.RegularExpressions.Regex.IsMatch(fullReply, @"[\u4e00-\u9fa5]") || fullReply.Contains("не могу общаться в таком стиле", StringComparison.OrdinalIgnoreCase))
+            {
+                UpdateTelegramAiIndicator("error", "Цензура ИИ (отказ)");
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(fullReply))
+            {
+                history.Add(new AssistantMessage { Role = "assistant", Text = fullReply });
+                var safeReply = JsonSerializer.Serialize(fullReply);
+                await view.CoreWebView2.ExecuteScriptAsync($"if (window.__lumaTgReply) window.__lumaTgReply({safeReply});");
+            }
+        }
+        catch (Exception ex)
+        {
+            App.Log(ex);
+            UpdateTelegramAiIndicator("error", "Ошибка генерации ИИ");
+        }
+    }
 }

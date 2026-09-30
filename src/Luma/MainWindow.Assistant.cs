@@ -220,11 +220,12 @@ public partial class MainWindow
                 case "luma-assistant-ask":
                     SaveAssistantPrefs(root);
                     var text = root.TryGetProperty("text", out value) ? value.GetString() ?? "" : "";
+                    var isAgentExplicit = root.TryGetProperty("isAgent", out value) && value.GetBoolean();
                     var imageBase64 = root.TryGetProperty("imageBase64", out value) ? value.GetString() : null;
                     var imageMime = root.TryGetProperty("imageMime", out value) ? value.GetString() : null;
                     var imageName = root.TryGetProperty("imageName", out value) ? value.GetString() : null;
                     if (!string.IsNullOrWhiteSpace(text))
-                        Dispatcher.BeginInvoke(async () => await AskAssistantAsync(text, imageBase64, imageMime, imageName));
+                        Dispatcher.BeginInvoke(async () => await AskAssistantAsync(text, imageBase64, imageMime, imageName, isAgentExplicit));
                     return;
             }
         }
@@ -269,11 +270,29 @@ public partial class MainWindow
         _stateStore.Save();
     }
 
-    private void PostQuota(AssistantQuotaState quota) => PostAssistant(new
+    private void PostQuota(AssistantQuotaState quota)
     {
-        kind = "quota", limit = Math.Max(1, quota.Limit), used = Math.Max(0, quota.Used),
-        remaining = Math.Max(0, quota.Remaining), unlimited = quota.Unlimited
-    });
+        var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
+        if (quota.AgentQuotaDate != today)
+        {
+            quota.AgentQuotaDate = today;
+            quota.AgentUsed = 0;
+            _stateStore.Save();
+        }
+        var agentRemaining = quota.Unlimited ? 999 : Math.Max(0, quota.AgentLimit - quota.AgentUsed);
+
+        PostAssistant(new
+        {
+            kind = "quota",
+            limit = Math.Max(1, quota.Limit),
+            used = Math.Max(0, quota.Used),
+            remaining = Math.Max(0, quota.Remaining),
+            unlimited = quota.Unlimited,
+            agentLimit = quota.AgentLimit,
+            agentUsed = quota.AgentUsed,
+            agentRemaining = agentRemaining
+        });
+    }
 
     private async Task RefreshAssistantQuotaAsync()
     {
@@ -283,8 +302,19 @@ public partial class MainWindow
             if (string.IsNullOrWhiteSpace(token)) return;
             var quota = await AssistantClient.GetQuotaAsync(token, CancellationToken.None);
             if (quota is null) return;
-            _state.AssistantQuota = new AssistantQuotaState { Limit = quota.Limit, Used = quota.Used,
-                Remaining = quota.Remaining, Unlimited = quota.Unlimited, UpdatedAt = _clock.UtcNow };
+            var prevAgentUsed = _state.AssistantQuota.AgentUsed;
+            var prevAgentDate = _state.AssistantQuota.AgentQuotaDate;
+            _state.AssistantQuota = new AssistantQuotaState
+            {
+                Limit = quota.Limit,
+                Used = quota.Used,
+                Remaining = quota.Remaining,
+                Unlimited = quota.Unlimited,
+                AgentLimit = 3,
+                AgentUsed = prevAgentUsed,
+                AgentQuotaDate = prevAgentDate,
+                UpdatedAt = _clock.UtcNow
+            };
             _stateStore.Save();
             PostQuota(_state.AssistantQuota);
         }
@@ -496,7 +526,7 @@ public partial class MainWindow
         ShowToast(opened.Count == 1 ? "Открыто" : $"Открыто вкладок: {opened.Count}", string.Join(", ", opened));
     }
 
-    private async Task AskAssistantAsync(string question, string? attachmentBase64 = null, string? attachmentMime = null, string? attachmentName = null)
+    private async Task AskAssistantAsync(string question, string? attachmentBase64 = null, string? attachmentMime = null, string? attachmentName = null, bool isAgentExplicit = false)
     {
         _assistantRun?.Cancel();
         var run = new CancellationTokenSource();
@@ -511,8 +541,55 @@ public partial class MainWindow
         }
 
         // Autonomous Browser Agent: handles multi-tab research, price/quality comparison, and auto-carting
-        if (BrowserAgent.BrowserAgentRunner.IsAgentGoal(question))
+        var isAgent = isAgentExplicit || BrowserAgent.BrowserAgentRunner.IsAgentGoal(question);
+        if (isAgent)
         {
+            var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
+            if (_state.AssistantQuota.AgentQuotaDate != today)
+            {
+                _state.AssistantQuota.AgentQuotaDate = today;
+                _state.AssistantQuota.AgentUsed = 0;
+                _stateStore.Save();
+            }
+
+            // Check overall daily 15-request quota
+            if (!_state.AssistantQuota.Unlimited && _state.AssistantQuota.Remaining <= 0)
+            {
+                var noQuotaMsg = _state.Language switch
+                {
+                    "uk" => "Денний ліміт запитів LumaAI вичерпано (15 на день). Квота оновиться завтра.",
+                    "en" => "Daily LumaAI request limit reached (15 per day). Quota resets tomorrow.",
+                    _ => "Дневной лимит запросов LumaAI исчерпан (15 в день). Квота обновится завтра."
+                };
+                PostAssistant(new { kind = "error", text = noQuotaMsg });
+                _assistantRun = null;
+                return;
+            }
+
+            // Check agent daily 3-request quota
+            if (!_state.AssistantQuota.Unlimited && _state.AssistantQuota.AgentUsed >= _state.AssistantQuota.AgentLimit)
+            {
+                var agentLimitMsg = _state.Language switch
+                {
+                    "uk" => "Денний ліміт агента вичерпано (3 з 3 на день). Звичайний асистент LumaAI залишається доступним.",
+                    "en" => "Daily agent limit reached (3 of 3 today). Regular LumaAI assistant remains available.",
+                    _ => "Дневной лимит агента исчерпан (3 из 3 в день). Обычный ассистент LumaAI остаётся доступен."
+                };
+                PostAssistant(new { kind = "error", text = agentLimitMsg });
+                _assistantRun = null;
+                return;
+            }
+
+            // Deduct quota: 1 from agent quota AND 1 from general 15-request quota
+            if (!_state.AssistantQuota.Unlimited)
+            {
+                _state.AssistantQuota.AgentUsed++;
+                _state.AssistantQuota.Used++;
+                _state.AssistantQuota.Remaining = Math.Max(0, _state.AssistantQuota.Remaining - 1);
+                _stateStore.Save();
+                PostQuota(_state.AssistantQuota);
+            }
+
             try
             {
                 var agentLabel = _state.Language switch
@@ -526,6 +603,7 @@ public partial class MainWindow
                 await BrowserAgent.BrowserAgentRunner.ExecuteAgentTaskAsync(
                     question,
                     this,
+                    accessToken,
                     _state.Language,
                     async delta =>
                     {

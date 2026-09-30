@@ -69,12 +69,26 @@ public partial class MainWindow
         _latestNavigationIds.Remove(view); _transientRetries.Remove(view); _lastDownloadStartedUtc.Remove(view);
     }
 
-    private static bool IsTransientNetworkError(CoreWebView2WebErrorStatus status) => status is
-        CoreWebView2WebErrorStatus.ConnectionAborted
-        or CoreWebView2WebErrorStatus.ConnectionReset
+    private static bool IsHardNetworkError(CoreWebView2WebErrorStatus status) => status is
+        CoreWebView2WebErrorStatus.CannotConnect
+        or CoreWebView2WebErrorStatus.HostNameNotResolved
         or CoreWebView2WebErrorStatus.Disconnected
-        or CoreWebView2WebErrorStatus.Unknown
-        or CoreWebView2WebErrorStatus.ErrorHttpInvalidServerResponse;
+        or CoreWebView2WebErrorStatus.Timeout
+        or CoreWebView2WebErrorStatus.ServerUnreachable
+        or CoreWebView2WebErrorStatus.ConnectionReset
+        or CoreWebView2WebErrorStatus.ConnectionAborted;
+
+    private static async Task<bool> PageHasRenderedContentAsync(WebView2 view)
+    {
+        if (view?.CoreWebView2 is null) return false;
+        try
+        {
+            var res = await view.CoreWebView2.ExecuteScriptAsync(
+                "Boolean(document.body && (document.body.innerText.trim().length > 40 || document.querySelectorAll('img, video, iframe, canvas, div, p').length > 5))");
+            return res == "true";
+        }
+        catch { return false; }
+    }
 
     internal async Task<BrowserTab> AddTabAsync(string input, bool activate = true, string? folderId = null, bool pinned = false)
     {
@@ -127,7 +141,7 @@ public partial class MainWindow
         var app = (App)Application.Current;
         var options = new CoreWebView2EnvironmentOptions
         {
-            AdditionalBrowserArguments = "--disable-features=CalculateNativeWinOcclusion --disable-background-timer-throttling --disable-renderer-backgrounding --enable-smooth-scrolling --autoplay-policy=no-user-gesture-required --enable-usermedia-screen-capturing",
+            AdditionalBrowserArguments = "--disable-features=CalculateNativeWinOcclusion --renderer-process-limit=4 --enable-features=TurnOffStreamingMediaWithBackgroundTab,ResourceScheduler,ProcessPerSite --js-flags=\"--max-old-space-size=512\" --disk-cache-size=104857600 --enable-smooth-scrolling --autoplay-policy=no-user-gesture-required --enable-usermedia-screen-capturing",
             Language = ResolveBrowserLanguage(),
         };
         await EnvironmentGate.WaitAsync();
@@ -433,6 +447,7 @@ public partial class MainWindow
             await web.AddScriptToExecuteOnDocumentCreatedAsync(BrowserScripts.DarkAuto(_state.ForceDarkDomains));
             web.WebMessageReceived += (_, e) => ReceiveWebMessage(tab, view, e.WebMessageAsJson);
             web.IsDocumentPlayingAudioChanged += async (_, _) => await SyncDocumentAudioStateAsync(tab, view);
+            if (tab != CurrentTab) web.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Low;
             web.NavigationStarting += (_, args) => Dispatcher.Invoke(() =>
             {
                 tab.IsNavigating = true;
@@ -514,7 +529,7 @@ public partial class MainWindow
                 if (ReferenceEquals(tab.SecondaryView, view)) tab.SecondaryFavicon = icon; else tab.Favicon = icon;
             });
             web.DownloadStarting += (_, e) => Dispatcher.Invoke(() => { _lastDownloadStartedUtc[view] = DateTime.UtcNow; HandleDownloadStarting(e); });
-            web.DOMContentLoaded += async (_, _) => await ApplyTranslationAsync(view, false);
+            web.DOMContentLoaded += async (_, _) => { await ApplyAmbientLightAsync(view); await ApplyTranslationAsync(view, false); };
             web.NavigationCompleted += async (_, args) =>
             {
                 tab.IsNavigating = false;
@@ -536,25 +551,13 @@ public partial class MainWindow
                         ? requestedUrl
                         : ReferenceEquals(tab.SecondaryView, view) ? tab.SecondaryUrl : tab.FullUrl;
 
-                    // 3) Transient connection glitches (aborted/reset connection, HTTP/2 hiccup) are
-                    //    retried silently up to twice before the error page is shown.
-                    if (IsTransientNetworkError(args.WebErrorStatus) && Uri.TryCreate(failedUrl, UriKind.Absolute, out var retryUri) && retryUri.Scheme is "http" or "https")
-                    {
-                        var known = _transientRetries.TryGetValue(view, out var entry) && string.Equals(entry.Url, failedUrl, StringComparison.Ordinal) ? entry.Count : 0;
-                        if (known < 2)
-                        {
-                            _transientRetries[view] = (failedUrl, known + 1);
-                            var expectedId = args.NavigationId;
-                            await Task.Delay(400 * (known + 1));
-                            try
-                            {
-                                if (view.CoreWebView2 is not null && _latestNavigationIds.TryGetValue(view, out var currentId) && currentId == expectedId)
-                                    view.CoreWebView2.Navigate(failedUrl);
-                            }
-                            catch (Exception retryEx) { App.Log(retryEx); } // the tab may have been closed during the delay
-                            return;
-                        }
-                    }
+                    // 3) Only show custom error overlay for HARD connection errors (blocked host, DNS fail, connection refused, offline)
+                    //    Ignore Unknown, OperationCanceled, and minor subresource/HTTP stream errors.
+                    if (!IsHardNetworkError(args.WebErrorStatus) && !engineErrorPage) return;
+
+                    // 4) If the page ALREADY rendered content or site error page, do NOT wipe it out!
+                    if (await PageHasRenderedContentAsync(view)) return;
+
                     _transientRetries.Remove(view);
                     if (Uri.TryCreate(failedUrl, UriKind.Absolute, out var failedUri) && failedUri.Scheme is "http" or "https")
                     {
@@ -571,7 +574,7 @@ public partial class MainWindow
                 }
                 _pendingNavigationUrls.Remove(view);
                 if (args.IsSuccess) _transientRetries.Remove(view);
-                await ApplyPipAsync(view); await ApplyTranslationAsync(view, false); await ApplyDomainPrefsAsync(view);
+                await ApplyPipAsync(view); await ApplyAmbientLightAsync(view); await ApplyTranslationAsync(view, false); await ApplyDomainPrefsAsync(view); await ApplyTelegramAiAsync(tab, view);
                 if (!args.IsSuccess || tab.IsInternal) return;
                 await Dispatcher.InvokeAsync(() =>
                 {
@@ -674,5 +677,134 @@ public partial class MainWindow
             await Dispatcher.InvokeAsync(() => UpdateMediaState(tab, true, S("title"), S("artist"), S("artwork"), D("position"), D("duration"), D("volume", 1), isVideo));
         }
         catch (Exception ex) { App.Log(ex); }
+    }
+
+    private async Task ApplyTelegramAiAsync(BrowserTab tab, WebView2 view)
+    {
+        var isAuthorizedUser = _auth.CurrentUser?.Email == "dakowerr@gmail.com" || Environment.UserName.StartsWith("dakow", StringComparison.OrdinalIgnoreCase);
+        if (!isAuthorizedUser || view.CoreWebView2 is null) return;
+        if (!tab.Domain.Contains("telegram.org", StringComparison.OrdinalIgnoreCase)) return;
+        var enabled = _state.TelegramAiEnabled.ToString().ToLower();
+        var js = $$"""
+        window.lumaTgAiEnabled = {{enabled}};
+        try {
+            window.chrome.webview.postMessage({ kind: 'telegram-ai-status', status: window.lumaTgAiEnabled ? 'green' : 'red' });
+        } catch(e) {}
+
+        if (!window.__lumaTgInitialized) {
+            window.__lumaTgInitialized = true;
+            window.__lumaTgProcessedMsgs = new Set();
+            window.__lumaTgTimer = null;
+
+            window.__lumaTgMarkExisting = () => {
+                const items = document.querySelectorAll('.Message, .bubble, .message-list-item, .text-content, .message');
+                items.forEach(node => {
+                    const text = (node.innerText || node.textContent || '').trim();
+                    if (text) {
+                        window.__lumaTgProcessedMsgs.add(text);
+                        window.__lumaTgProcessedMsgs.add(text + '_' + text.length);
+                    }
+                });
+            };
+
+            window.__lumaTgMarkExisting();
+
+            window.__lumaTgCheckNewMessages = () => {
+                if (!window.lumaTgAiEnabled) return;
+                const items = document.querySelectorAll('.Message, .bubble, .message-list-item');
+                items.forEach(node => {
+                    if (node.classList.contains('own') || node.classList.contains('is-out') || node.querySelector('.is-out')) return;
+                    const textNode = node.querySelector('.text-content') || node.querySelector('.message') || (node.classList.contains('text-content') ? node : null);
+                    if (!textNode) return;
+                    const text = (textNode.innerText || textNode.textContent || '').trim();
+                    if (!text || text.length < 1) return;
+                    
+                    const msgId = text + '_' + text.length;
+                    if (window.__lumaTgProcessedMsgs.has(msgId) || window.__lumaTgProcessedMsgs.has(text)) return;
+                    
+                    window.__lumaTgProcessedMsgs.add(msgId);
+                    window.__lumaTgProcessedMsgs.add(text);
+                    
+                    if (window.__lumaTgProcessedMsgs.size > 500) {
+                        const first = window.__lumaTgProcessedMsgs.values().next().value;
+                        window.__lumaTgProcessedMsgs.delete(first);
+                    }
+                    
+                    const senderNode = document.querySelector('.chat-info .title') || document.querySelector('.ChatInfo .title') || document.querySelector('.header-name') || document.querySelector('.top-name');
+                    const sender = senderNode ? senderNode.innerText.trim() : 'Chat';
+                    try {
+                        window.chrome.webview.postMessage({ kind: 'telegram-ai-status', status: 'yellow' });
+                        window.chrome.webview.postMessage({ kind: 'telegram-ai-request', sender: sender, text: text });
+                    } catch(e) {}
+                });
+            };
+
+            // Debounced mutation observer (runs at most once every 600ms to eliminate CPU lag)
+            window.__lumaTgObserver = new MutationObserver(() => {
+                if (!window.lumaTgAiEnabled) return;
+                if (window.__lumaTgTimer) clearTimeout(window.__lumaTgTimer);
+                window.__lumaTgTimer = setTimeout(() => window.__lumaTgCheckNewMessages(), 600);
+            });
+            window.__lumaTgObserver.observe(document.body, { childList: true, subtree: true });
+
+            window.__lumaTgReply = (text) => {
+                if (!text || !text.trim()) return;
+                const cleanText = text.trim();
+                
+                // Do not send Chinese refusal templates or standard refusal text
+                if (/[\u4e00-\u9fa5]/.test(cleanText) || cleanText.includes("не могу общаться в таком стиле")) {
+                    try { window.chrome.webview.postMessage({ kind: 'telegram-ai-status', status: 'error', message: 'Цензура ИИ (отказ)' }); } catch(e) {}
+                    return;
+                }
+                
+                // Remember this sent message so we never auto-respond to our own output!
+                window.__lumaTgProcessedMsgs.add(cleanText);
+                window.__lumaTgProcessedMsgs.add(cleanText + '_' + cleanText.length);
+                
+                const input = document.querySelector('#editable-message-text') 
+                           || document.querySelector('.input-message-input') 
+                           || document.querySelector('div[contenteditable="true"]') 
+                           || document.querySelector('.composer-message-input');
+                if (input) {
+                    input.focus();
+                    try {
+                        const selection = window.getSelection();
+                        const range = document.createRange();
+                        range.selectNodeContents(input);
+                        selection.removeAllRanges();
+                        selection.addRange(range);
+                        document.execCommand('delete', false, null);
+                        document.execCommand('insertText', false, cleanText);
+                    } catch(e) {
+                        input.innerText = cleanText;
+                    }
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                    setTimeout(() => {
+                        const sendBtn = document.querySelector('button.send') 
+                                     || document.querySelector('button.send-button')
+                                     || document.querySelector('.btn-send') 
+                                     || document.querySelector('.Button.send')
+                                     || document.querySelector('[title="Send Message"]')
+                                     || document.querySelector('.btn-primary.send')
+                                     || document.querySelector('.send-icon');
+                        if (sendBtn) {
+                            sendBtn.click();
+                        } else {
+                            input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+                        }
+                        try {
+                            window.chrome.webview.postMessage({ kind: 'telegram-ai-status', status: 'green' });
+                        } catch(e) {}
+                    }, 350);
+                } else {
+                    try {
+                        window.chrome.webview.postMessage({ kind: 'telegram-ai-status', status: 'error', message: 'Не найден блок ввода' });
+                    } catch(e) {}
+                }
+            };
+        }
+        """;
+        await view.CoreWebView2.ExecuteScriptAsync(js);
     }
 }

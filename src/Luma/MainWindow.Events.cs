@@ -205,7 +205,14 @@ public partial class MainWindow
         MainMenuPopup.IsOpen = !MainMenuPopup.IsOpen;
     }
     private void NewSpaceMenu_Click(object sender, RoutedEventArgs e) { CloseMenusExcept(NewSpacePopup); PaneHost.IsEnabled = false; NewSpaceNameBox.Text = "Пространство " + (_spaces.Count + 1); NewSpacePopup.IsOpen = true; }
-    private void NewFolder_Click(object sender, RoutedEventArgs e) => AskFolderName(null);
+    private void NewFolder_Click(object sender, RoutedEventArgs e)
+    {
+        if (AddFolderIcon is not null)
+        {
+            FolderAnimationHelper.PlayOnce(AddFolderIcon, "add_folder", 23, 20);
+        }
+        AskFolderName(null);
+    }
 
     /// <summary>Asks for a folder name in a proper Luma dialog. Passing a folder renames it.</summary>
     private void AskFolderName(FolderState? folder)
@@ -282,12 +289,20 @@ public partial class MainWindow
 
     private void CreateFolder_Click(object sender, RoutedEventArgs e)
     {
+        var isNew = _folderBeingNamed is null;
         var name = string.IsNullOrWhiteSpace(NewFolderNameBox.Text) ? "Новая папка" : NewFolderNameBox.Text.Trim();
-        if (_folderBeingNamed is null) _spaces[_activeSpace].State.Folders.Add(new FolderState { Name = name });
+        if (isNew) _spaces[_activeSpace].State.Folders.Add(new FolderState { Name = name });
         else _folderBeingNamed.Name = name;
         _folderBeingNamed = null;
         NewFolderPopup.IsOpen = false;
         Save(); RefreshFolders();
+        if (isNew && FoldersHeaderIcon is not null)
+        {
+            FolderAnimationHelper.PlayOnce(FoldersHeaderIcon, "refresh_folder", 22, 22, () =>
+            {
+                FoldersHeaderIcon.Source = FolderAnimationHelper.GetFrame("folder", 0, 22);
+            });
+        }
     }
     private async void SpaceDot_Drop(object sender, DragEventArgs e)
     {
@@ -317,6 +332,15 @@ public partial class MainWindow
     }
     private void Share_Click(object sender, RoutedEventArgs e) { if (CurrentTab is not null) Copy(CurrentTab.ActiveUrl, "Ссылка скопирована"); }
     private void PipToggle_Changed(object sender, RoutedEventArgs e) { if (_suppressPip || CurrentTab is null) return; _state.AutoPictureInPicture[CurrentTab.Domain] = PipToggle.IsChecked == true; _stateStore.Save(); }
+    private async void AmbientLightToggle_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_suppressAmbient || CurrentTab is null) return;
+        var on = AmbientLightToggle.IsChecked == true;
+        _state.AmbientLight[CurrentTab.Domain] = on;
+        _stateStore.Save();
+        if (CurrentTab.ActiveView?.CoreWebView2 is not null)
+            await ApplyAmbientLightAsync(CurrentTab.ActiveView, on);
+    }
     private async void ClearCache_Click(object sender, RoutedEventArgs e) { if (CurrentTab?.ActiveView.CoreWebView2 is null) return; await CurrentTab.ActiveView.CoreWebView2.Profile.ClearBrowsingDataAsync(CoreWebView2BrowsingDataKinds.DiskCache); ShowToast("Кеш очищен"); }
     private async void ClearCookies_Click(object sender, RoutedEventArgs e) { if (CurrentTab?.ActiveView.CoreWebView2 is null) return; var m = CurrentTab.ActiveView.CoreWebView2.CookieManager; foreach (var c in await m.GetCookiesAsync(CurrentTab.ActiveUrl)) m.DeleteCookie(c); ShowToast("Cookie удалены"); }
     private void TranslateButton_Click(object sender, RoutedEventArgs e)
@@ -372,8 +396,8 @@ public partial class MainWindow
     private void Exit_Click(object sender, RoutedEventArgs e) => ((App)Application.Current).ExitCompletely();
     // Kept for the WPF chrome, but the cursor poll above is what actually drives the reveal,
     // because the page area cannot deliver these events at all.
-    private void EdgeReveal_MouseEnter(object sender, MouseEventArgs e) => EdgeWatchTick();
-    private void Sidebar_MouseLeave(object sender, MouseEventArgs e) => EdgeWatchTick();
+    private void EdgeReveal_MouseEnter(object sender, MouseEventArgs e) { }
+    private void Sidebar_MouseLeave(object sender, MouseEventArgs e) { }
     private void Sidebar_MouseEnterOverlay(object sender, MouseEventArgs e) => _hoverHideTimer.Stop();
     private void MinimizeWindow_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
     private void ToggleMaximize()
@@ -404,6 +428,28 @@ public partial class MainWindow
         if (e.ClickCount == 2) { ToggleMaximize(); e.Handled = true; }
         else if (e.ButtonState == MouseButtonState.Pressed && !_manualMaximized) DragMove();
     }
+
+    private void Window_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton == MouseButton.XButton1)
+        {
+            if (CurrentTab is { } tab && (tab.ActiveView.CanGoBack || !string.IsNullOrWhiteSpace(tab.BackFallbackInternalUrl)))
+            {
+                if (!string.IsNullOrWhiteSpace(tab.BackFallbackInternalUrl)) _ = RestoreInternalBackTargetAsync(tab);
+                else tab.ActiveView.GoBack();
+                e.Handled = true;
+            }
+        }
+        else if (e.ChangedButton == MouseButton.XButton2)
+        {
+            if (CurrentTab is { } tab && tab.ActiveView.CanGoForward)
+            {
+                tab.ActiveView.GoForward();
+                e.Handled = true;
+            }
+        }
+    }
+
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e) {
         var ctrl = Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
         var shift = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift);
@@ -428,7 +474,18 @@ public partial class MainWindow
         else if (ctrl && e.Key == Key.D9) { SelectTabByIndex(Tabs.Count - 1); e.Handled = true; }
         else if ((ctrl && e.Key == Key.L) || (alt && e.Key == Key.D) || e.Key == Key.F6) { FocusAddressBar(); e.Handled = true; }
         else if (ctrl && e.Key == Key.H) { History_Click(this, new RoutedEventArgs()); e.Handled = true; }
-        else if (e.Key == Key.F12) { if (CurrentTab is { IsHome: false } tab12) tab12.ActiveView.CoreWebView2?.OpenDevToolsWindow(); e.Handled = true; }
+        else if (e.Key == Key.F10) { 
+            TelegramAiPopup.IsOpen = true;
+            ToggleTelegramAiMode(true);
+            e.Handled = true; 
+        }
+        else if (e.Key == Key.F12) { 
+            if (CurrentTab?.Domain.Contains("telegram.org", StringComparison.OrdinalIgnoreCase) == true) { 
+                ToggleTelegramAiMode(false);
+                e.Handled = true; 
+            }
+            else { if (CurrentTab is { IsHome: false } tab12) tab12.ActiveView.CoreWebView2?.OpenDevToolsWindow(); e.Handled = true; }
+        }
         else if (alt && e.Key == Key.Home) { OpenNewHomeTab(); e.Handled = true; }
         else if (alt && e.Key == Key.Left) { if (CurrentTab is { IsHome: false } tabBack && tabBack.ActiveView.CanGoBack) { tabBack.ActiveView.GoBack(); e.Handled = true; } }
         else if (alt && e.Key == Key.Right) { if (CurrentTab is { IsHome: false } tabFwd && tabFwd.ActiveView.CanGoForward) { tabFwd.ActiveView.GoForward(); e.Handled = true; } }
@@ -485,6 +542,45 @@ public partial class MainWindow
         // clicking the domain pill in the toolbar.
         OpenSearch(SearchPurpose.Navigate, CurrentTab?.ActiveUrl);
     }
+
+    private void TelegramAi_Click(object sender, RoutedEventArgs e) => TelegramAiPopup.IsOpen = !TelegramAiPopup.IsOpen;
+    private void TelegramAiStart_Click(object sender, RoutedEventArgs e) => ToggleTelegramAiMode(true);
+    private void TelegramAiStop_Click(object sender, RoutedEventArgs e) => ToggleTelegramAiMode(false);
+
+    public void ToggleTelegramAiMode(bool enable)
+    {
+        _state.TelegramAiEnabled = enable;
+        Save();
+        UpdateTelegramAiIndicator(enable ? "green" : "red");
+        if (CurrentTab?.Domain.Contains("telegram.org", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            CurrentTab.ActiveView.CoreWebView2?.ExecuteScriptAsync($"window.lumaTgAiEnabled = {enable.ToString().ToLower()};");
+        }
+    }
+
+    public void UpdateTelegramAiIndicator(string status, string? customMessage = null)
+    {
+        if (!Dispatcher.CheckAccess()) { Dispatcher.Invoke(() => UpdateTelegramAiIndicator(status, customMessage)); return; }
+        Color color = status switch
+        {
+            "green" => Color.FromRgb(0x4C, 0xAF, 0x50),  // Working / Active
+            "yellow" => Color.FromRgb(0xFF, 0xC1, 0x07), // Processing / Warning
+            "red" or "error" => Color.FromRgb(0xFF, 0x4D, 0x4D), // Off / Error
+            _ => Color.FromRgb(0xFF, 0x4D, 0x4D)
+        };
+        var brush = new SolidColorBrush(color);
+        TelegramAiStatusDot.Fill = brush;
+        TelegramAiPopupStatusDot.Fill = brush;
+        TelegramAiPopupStatusText.Text = customMessage ?? status switch
+        {
+            "green" => "Статус: Работает",
+            "yellow" => "Статус: Отвечает...",
+            "error" => "Статус: Ошибка API/DOM",
+            _ => "Статус: Отключен"
+        };
+    }
+
+    private void TelegramAiPromptBox_TextChanged(object sender, TextChangedEventArgs e) => Save();
 
     private void OnChanged([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }

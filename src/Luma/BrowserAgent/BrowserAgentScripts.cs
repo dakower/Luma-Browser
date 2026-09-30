@@ -11,48 +11,44 @@ public static class BrowserAgentScripts
         try {
             const results = [];
             const cards = Array.from(document.querySelectorAll(
-                'rz-catalog-tile, .catalog-grid__cell, .goods-tile, app-goods-tile, [data-goods-id], .product-item, .product-card, .catalog-item, article.product, .c-product-card'
+                'rz-catalog-tile, .catalog-grid__cell, .goods-tile, app-goods-tile, [data-goods-id], [data-qa="product-card"], .product-item, .product-card, .catalog-item, article, .c-product-card, .products-list__item, .catalog-grid__item, [data-cy="l-card"], [data-testid="l-card"], .item-tile, .product-tile'
             ));
 
-            for (const card of cards.slice(0, 30)) {
+            for (const card of cards.slice(0, 35)) {
                 // Find title
-                const titleEl = card.querySelector('.goods-tile__heading, .goods-tile__title, a[class*="heading"], a[class*="title"], h2, h3, a[href*="/p"]') || card.querySelector('a');
+                const titleEl = card.querySelector('.goods-tile__heading, .goods-tile__title, a.product-card__name, a.title, .product-item__name a, a[class*="heading"], a[class*="title"], h2, h3, a[href*="/p"]') || card.querySelector('a');
                 const title = (titleEl ? (titleEl.textContent || titleEl.getAttribute('title') || '') : '').trim();
-                if (!title) continue;
+                if (!title || title.length < 4) continue;
 
-                // Category verification: must be a computer/laptop
-                const lower = title.toLowerCase();
-                const isLaptop = /(?:ноутбук|laptop|notebook|thin|loq|tuf|nitro|legion|victus|macbook|thinkpad|rog|predator|katana|sword|pulse|cyborg|ideapad|vivobook|zenbook|pavilion|omen|alienware|aspire)/i.test(lower);
-                if (!isLaptop) continue;
-
-                // Exclude accessories & non-computers
-                const isAccessory = /(?:сумка|рюкзак|чохол|чехол|підставка|подставка|миша|мышь|клавіатура|клавиатура|порошок|кабель|зарядн|адаптер|блок|коврик|гарнітура)/i.test(lower);
-                if (isAccessory) continue;
-
-                // Price extraction: get real current price (skip old/strikethrough prices)
+                // Price extraction: get real current price
                 let price = 0;
-                const priceEl = card.querySelector('.goods-tile__price-value, [class*="price-value"], .price__value, [class*="current-price"]');
+                const priceEl = card.querySelector('.goods-tile__price-value, .goods-tile__price_type_orange, .price-box__content, .product-item__price-current, [class*="price-value"], .price__value, [class*="current-price"], [data-qa="product-price"], .price, [class*="price"]');
                 if (priceEl) {
                     const digits = priceEl.textContent.replace(/\D/g, '');
                     price = parseInt(digits, 10) || 0;
-                } else {
-                    const priceBlocks = Array.from(card.querySelectorAll('[class*="price"]'));
+                }
+                
+                if (price === 0) {
+                    const priceBlocks = Array.from(card.querySelectorAll('[class*="price"], span, div'));
                     for (const pb of priceBlocks) {
                         if (pb.closest('[class*="old"], [class*="strikethrough"], del, s')) continue;
-                        const digits = pb.textContent.replace(/\D/g, '');
-                        const val = parseInt(digits, 10) || 0;
-                        if (val >= 15000 && val <= 300000) {
-                            price = val;
-                            break;
+                        const txt = pb.textContent || '';
+                        if (txt.includes('₴') || txt.includes('грн') || txt.includes('UAH')) {
+                            const digits = txt.replace(/\D/g, '');
+                            const val = parseInt(digits, 10) || 0;
+                            if (val >= 100 && val <= 2000000) {
+                                price = val;
+                                break;
+                            }
                         }
                     }
                 }
 
-                // Direct product link
+                // Direct link
                 let link = '';
-                if (titleEl && titleEl.href && titleEl.href.includes('/p')) link = titleEl.href;
+                if (titleEl && titleEl.href && (titleEl.href.includes('/p') || titleEl.href.includes('/notebook') || titleEl.href.includes('/product') || titleEl.href.includes('/item'))) link = titleEl.href;
                 if (!link) {
-                    const anyA = card.querySelector('a[href*="/p"]');
+                    const anyA = card.querySelector('a[href*="/p"], a[href*="/notebook"], a[href*="/product"], a[href*="/item"]');
                     if (anyA) link = anyA.href;
                 }
                 if (!link && titleEl && titleEl.href) link = titleEl.href;
@@ -61,15 +57,13 @@ public static class BrowserAgentScripts
                 const specsEl = card.querySelector('.goods-tile__description, [class*="specs"], [class*="desc"], ul');
                 const specs = specsEl ? specsEl.textContent.trim() : '';
 
-                if (price > 0) {
-                    results.push({
-                        title: title.slice(0, 140),
-                        price: price,
-                        currency: '₴',
-                        url: link || window.location.href,
-                        specs: specs.slice(0, 200)
-                    });
-                }
+                results.push({
+                    title: title.slice(0, 140),
+                    price: price,
+                    currency: '₴',
+                    url: link || window.location.href,
+                    specs: specs.slice(0, 200)
+                });
             }
 
             return JSON.stringify(results);
@@ -80,8 +74,7 @@ public static class BrowserAgentScripts
     """;
 
     /// <summary>
-    /// Generates targeted JavaScript to find and click the buy button for the specified product model,
-    /// whether on a product detail page or inside a catalog tile.
+    /// Generates targeted JavaScript to find and click the buy button for the specified product model.
     /// </summary>
     public static string BuildClickBuyButtonScript(string? targetModelName)
     {
@@ -115,7 +108,7 @@ public static class BrowserAgentScripts
 
                 // 2. In catalog grid: find the specific card matching target model
                 if (!button) {
-                    const cards = Array.from(document.querySelectorAll('rz-catalog-tile, .goods-tile, .product-card, article, [data-product-id], .catalog-grid__cell'));
+                    const cards = Array.from(document.querySelectorAll('rz-catalog-tile, .goods-tile, .product-card, article, [data-product-id], .catalog-grid__cell, .products-list__item, .catalog-grid__item'));
                     const tokens = targetModel.split(/[\s,()\/]+/).filter(w => w.length > 2);
                     
                     let matchingCard = null;
@@ -130,7 +123,7 @@ public static class BrowserAgentScripts
                         });
                     }
 
-                    // Fallback to first valid laptop card if exact match isn't found
+                    // Fallback to first valid laptop card
                     if (!matchingCard) {
                         matchingCard = cards.find(c => {
                             const txt = (c.textContent || '').toLowerCase();
@@ -139,7 +132,7 @@ public static class BrowserAgentScripts
                     }
 
                     if (matchingCard) {
-                        button = matchingCard.querySelector('app-buy-button button, button[class*="buy"], button[aria-label*="Купити"], button[aria-label*="Купить"], [data-qa="buy-button"]');
+                        button = matchingCard.querySelector('app-buy-button button, button[class*="buy"], button[aria-label*="Купити"], button[aria-label*="Купить"], [data-qa="buy-button"], button.price-box__buy, button.btn-buy');
                     }
                 }
 
@@ -164,39 +157,60 @@ public static class BrowserAgentScripts
     }
 
     /// <summary>
-    /// Opens the cart / checkout modal if not already open, and purges accidental non-computer items.
+    /// Purges accidental non-laptop items from the cart, opens checkout, and proceeds to the checkout page.
     /// </summary>
-    public const string OpenCartAndCleanAccidentalItemsScript = """
+    public const string ProceedToCheckoutAndPurgePowderScript = """
     (() => {
         try {
-            // Step 1: Remove accidental non-laptop items (e.g. washing powder from prior failed attempts)
-            const cartItems = Array.from(document.querySelectorAll('.cart-list__item, .cart-product, li[class*="cart"], .popup-cart-item'));
+            // Step 1: Ensure cart modal is opened if on catalog/product page
+            const modal = document.querySelector('.modal-dialog, rz-cart, [class*="cart-modal"], [class*="cart-popup"]');
+            if (!modal || modal.offsetParent === null) {
+                const headerCartBtn = document.querySelector(
+                    'a[href*="/cart"], button[aria-label*="Кошик"], button[aria-label*="Корзина"], rz-cart-icon, .header-actions__item--cart, [data-qa="cart-button"]'
+                );
+                if (headerCartBtn) headerCartBtn.click();
+            }
+
+            // Step 2: Uncheck or delete non-laptop items (e.g. accidental washing powder)
+            const cartItems = Array.from(document.querySelectorAll('.cart-product, .cart-list__item, li[class*="cart"], .popup-cart-item'));
             for (const item of cartItems) {
                 const text = (item.textContent || '').toLowerCase();
-                if (text.includes('порошок') || text.includes('green line') || text.includes('ополіскувач') || text.includes('sensua')) {
-                    const delBtn = item.querySelector('button[aria-label*="Видалити"], button[class*="delete"], [data-qa="delete-button"], button[class*="trash"]');
-                    if (delBtn) delBtn.click();
+                const isAccidental = text.includes('порошок') || text.includes('green line') || text.includes('ополіскувач') || text.includes('sensua') || !text.includes('ноутбук');
+                if (isAccidental) {
+                    // Uncheck checkbox
+                    const chk = item.querySelector('input[type="checkbox"], [class*="checkbox"]');
+                    if (chk && (chk.checked || chk.getAttribute('aria-checked') === 'true')) {
+                        chk.click();
+                    }
+
+                    // Click menu dots and delete if possible
+                    const dots = item.querySelector('button[id*="actions"], button[class*="actions"], button[aria-label*="дії"]');
+                    if (dots) {
+                        dots.click();
+                        setTimeout(() => {
+                            const delBtn = Array.from(document.querySelectorAll('button, li, a')).find(el => el.textContent.trim().toLowerCase() === 'видалити');
+                            if (delBtn) delBtn.click();
+                        }, 120);
+                    }
                 }
             }
 
-            // Step 2: Ensure the cart popup / modal is opened and visible
-            const modal = document.querySelector('.modal-dialog, rz-cart, [class*="cart-modal"], [class*="cart-popup"]');
-            if (modal && modal.offsetParent !== null) {
-                return JSON.stringify({ cartOpen: true });
-            }
+            // Step 3: Click "Оформити замовлення" (Proceed to Checkout)
+            setTimeout(() => {
+                const checkoutBtn = document.querySelector(
+                    'a[href*="/checkout"], .cart-receipt__submit, button[class*="checkout"], a[class*="checkout"]'
+                );
+                if (checkoutBtn) {
+                    checkoutBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    checkoutBtn.style.outline = '3px solid #7468c7';
+                    if (checkoutBtn.click) checkoutBtn.click();
+                    else if (checkoutBtn.href) window.location.href = checkoutBtn.href;
+                }
+            }, 500);
 
-            // Click header cart button
-            const headerCartBtn = document.querySelector(
-                'a[href*="/cart"], button[aria-label*="Кошик"], button[aria-label*="Корзина"], rz-cart-icon, .header-actions__item--cart, [data-qa="cart-button"]'
-            );
-            if (headerCartBtn) {
-                headerCartBtn.click();
-                return JSON.stringify({ cartOpen: true, action: 'clicked_header_cart' });
-            }
-
-            return JSON.stringify({ cartOpen: false });
+            return JSON.stringify({ success: true });
         } catch(e) {
-            return JSON.stringify({ cartOpen: false, error: e.toString() });
+            return JSON.stringify({ success: false, error: e.toString() });
         }
     })()
     """;

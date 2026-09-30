@@ -85,7 +85,13 @@ public partial class MainWindow
     }
     private void RefreshFolders()
     {
-        if (FoldersHost is null) return; FoldersHost.Children.Clear(); LooseItemsHost.Children.Clear(); _folderVisuals.Clear();
+        if (FoldersHost is null) return;
+        if (AddFolderIcon is not null && AddFolderIcon.Source is null)
+            AddFolderIcon.Source = FolderAnimationHelper.GetFrame("add_folder", 0, 23);
+        if (FoldersHeaderIcon is not null && FoldersHeaderIcon.Source is null)
+            FoldersHeaderIcon.Source = FolderAnimationHelper.GetFrame("folder", 0, 22);
+
+        FoldersHost.Children.Clear(); LooseItemsHost.Children.Clear(); _folderVisuals.Clear();
         foreach (var folder in _spaces[_activeSpace].State.Folders) FoldersHost.Children.Add(Folder(folder));
         foreach (var item in _spaces[_activeSpace].State.LooseItems) LooseItemsHost.Children.Add(SiteRow(item, null, true));
         if (FoldersContainer is not null)
@@ -107,6 +113,7 @@ public partial class MainWindow
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(16) });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(28) });
         row.ColumnDefinitions.Add(new ColumnDefinition());
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(24) });
 
         var rotation = new RotateTransform(folder.Expanded ? 0 : -90);
         var arrow = new IconPath
@@ -117,41 +124,46 @@ public partial class MainWindow
             RenderTransform = rotation, RenderTransformOrigin = new Point(.5, .5), VerticalAlignment = WpfVerticalAlignment.Center
         };
 
-        // Layered Lucide folder/folder-open paths retain the existing open animation.
-        var folderScale = new ScaleTransform(1, 1);
-        var iconHost = new Grid
+        var folderIcon = new Image
         {
-            Width = 20, Height = 20, RenderTransform = folderScale,
-            RenderTransformOrigin = new Point(.5, .5), VerticalAlignment = WpfVerticalAlignment.Center
+            Width = 18, Height = 18,
+            HorizontalAlignment = WpfHorizontalAlignment.Center,
+            VerticalAlignment = WpfVerticalAlignment.Center,
+            Source = FolderAnimationHelper.GetFrame("folder", folder.Expanded ? 21 : 0, 22)
         };
-        var back = new IconPath
-        {
-            Width = 19, Height = 19, Stretch = System.Windows.Media.Stretch.Uniform, Data = (Geometry)FindResource("IconFolderBack"),
-            Fill = Brushes.Transparent, Stroke = folder.Expanded ? (Brush)Resources["AccentBrush"] : (Brush)Resources["BorderStrongBrush"], StrokeThickness = 1.8, StrokeLineJoin = PenLineJoin.Round, HorizontalAlignment = WpfHorizontalAlignment.Center,
-            VerticalAlignment = WpfVerticalAlignment.Center
-        };
-        var frontTranslate = new TranslateTransform(0, folder.Expanded ? 1.8 : 0);
-        var front = new IconPath
-        {
-            Width = 19, Height = 19, Stretch = System.Windows.Media.Stretch.Uniform, Data = (Geometry)FindResource("IconFolderFront"),
-            Fill = Brushes.Transparent, Stroke = folder.Expanded ? (Brush)Resources["AccentMutedBrush"] : (Brush)Resources["ChromeMuted"], StrokeThickness = 1.8, StrokeLineJoin = PenLineJoin.Round, RenderTransform = frontTranslate,
-            HorizontalAlignment = WpfHorizontalAlignment.Center, VerticalAlignment = WpfVerticalAlignment.Center
-        };
-        var shine = new IconPath
-        {
-            Width = 8, Height = 8, Stretch = System.Windows.Media.Stretch.Uniform, Data = (Geometry)FindResource("IconFolderShine"),
-            Fill = Brushes.Transparent, Stroke = (Brush)Resources["ChromeSecondary"], StrokeThickness = 1.7, StrokeLineJoin = PenLineJoin.Round, Opacity = folder.Expanded ? .82 : 0,
-            HorizontalAlignment = WpfHorizontalAlignment.Left, VerticalAlignment = WpfVerticalAlignment.Bottom,
-            Margin = new Thickness(1, 0, 0, 1), IsHitTestVisible = false
-        };
-        iconHost.Children.Add(back); iconHost.Children.Add(front); iconHost.Children.Add(shine);
-        Grid.SetColumn(iconHost, 1);
+        RenderOptions.SetBitmapScalingMode(folderIcon, BitmapScalingMode.HighQuality);
+        Grid.SetColumn(folderIcon, 1);
 
         var label = new TextBlock { Text = folder.Name, FontSize = 12.5, FontWeight = FontWeights.Medium, Foreground = (Brush)Resources["ChromeSecondary"], VerticalAlignment = WpfVerticalAlignment.Center };
         Grid.SetColumn(label, 2);
         var editor = new TextBox { Text = folder.Name, FontSize = 12.5, Foreground = Brushes.White, Background = (Brush)Resources["SurfaceRaisedBrush"], BorderBrush = (Brush)Resources["BorderStrongBrush"], BorderThickness = new Thickness(1), Padding = new Thickness(5, 2, 5, 2), Visibility = Visibility.Collapsed };
         Grid.SetColumn(editor, 2);
-        row.Children.Add(arrow); row.Children.Add(iconHost); row.Children.Add(label); row.Children.Add(editor); header.Child = row;
+
+        var deleteIcon = new Image
+        {
+            Width = 16, Height = 16,
+            HorizontalAlignment = WpfHorizontalAlignment.Center,
+            VerticalAlignment = WpfVerticalAlignment.Center,
+            Source = FolderAnimationHelper.GetFrame("delete_folder", 0, 23)
+        };
+        RenderOptions.SetBitmapScalingMode(deleteIcon, BitmapScalingMode.HighQuality);
+        var deleteBtn = new Button
+        {
+            Style = (Style)FindResource("BareIconButton"),
+            Width = 24, Height = 24,
+            Content = deleteIcon,
+            HorizontalAlignment = WpfHorizontalAlignment.Right,
+            VerticalAlignment = WpfVerticalAlignment.Center,
+            ToolTip = "Удалить папку"
+        };
+        deleteBtn.Click += (_, e) =>
+        {
+            e.Handled = true;
+            FolderAnimationHelper.PlayOnce(deleteIcon, "delete_folder", 23, 20, () => AskDelete(folder));
+        };
+        Grid.SetColumn(deleteBtn, 3);
+
+        row.Children.Add(arrow); row.Children.Add(folderIcon); row.Children.Add(label); row.Children.Add(editor); row.Children.Add(deleteBtn); header.Child = row;
 
         var itemsTranslate = new TranslateTransform(0, folder.Expanded ? 0 : -7);
         var items = new StackPanel { Opacity = folder.Expanded ? 1 : 0, RenderTransform = itemsTranslate };
@@ -162,8 +174,7 @@ public partial class MainWindow
         var visual = new FolderVisual
         {
             Label = label, Editor = editor, Content = content, Items = items, Chevron = rotation,
-            FolderBack = back, FolderFront = front, FolderShine = shine, FolderFrontTranslate = frontTranslate,
-            FolderScale = folderScale, ItemsTranslate = itemsTranslate
+            FolderIcon = folderIcon, DeleteIcon = deleteIcon, ItemsTranslate = itemsTranslate
         };
         _folderVisuals[folder.Id] = visual;
         var hoverTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(600) };
@@ -271,13 +282,7 @@ public partial class MainWindow
         visual.Items.BeginAnimation(OpacityProperty, new DoubleAnimation(folder.Expanded ? 0 : 1, folder.Expanded ? 1 : 0, TimeSpan.FromMilliseconds(ms == 0 ? 0 : 190)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
         visual.ItemsTranslate.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(folder.Expanded ? -7 : 0, folder.Expanded ? 0 : -7, duration) { EasingFunction = ease });
         visual.Chevron.BeginAnimation(RotateTransform.AngleProperty, new DoubleAnimation(folder.Expanded ? -90 : 0, folder.Expanded ? 0 : -90, duration) { EasingFunction = ease });
-        visual.FolderFrontTranslate.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(folder.Expanded ? 0 : 1.8, folder.Expanded ? 1.8 : 0, duration) { EasingFunction = ease });
-        visual.FolderShine.BeginAnimation(OpacityProperty, new DoubleAnimation(folder.Expanded ? 0 : .82, folder.Expanded ? .82 : 0, duration));
-        visual.FolderBack.Fill = folder.Expanded ? (Brush)Resources["AccentBrush"] : (Brush)Resources["BorderStrongBrush"];
-        visual.FolderFront.Fill = folder.Expanded ? (Brush)Resources["AccentMutedBrush"] : (Brush)Resources["ChromeMuted"];
-        var pulse = new DoubleAnimation(1, folder.Expanded ? 1.12 : .94, TimeSpan.FromMilliseconds(ms == 0 ? 0 : 125)) { AutoReverse = true, EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } };
-        visual.FolderScale.BeginAnimation(ScaleTransform.ScaleXProperty, pulse);
-        visual.FolderScale.BeginAnimation(ScaleTransform.ScaleYProperty, pulse);
+        FolderAnimationHelper.AnimateTo(visual.FolderIcon, "folder", 22, folder.Expanded);
         Save();
     }
 
@@ -398,9 +403,6 @@ public partial class MainWindow
             FoldersContainer.InvalidateMeasure();
         };
         FoldersContainer.BeginAnimation(MaxHeightProperty, heightAnimation);
-        FoldersSectionFrontTranslate.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(_foldersSectionExpanded ? 0 : 1.8, _foldersSectionExpanded ? 1.8 : 0, TimeSpan.FromMilliseconds(ms)));
-        FoldersSectionBack.Stroke = _foldersSectionExpanded ? (Brush)Resources["AccentBrush"] : (Brush)Resources["ChromeMuted"];
-        FoldersSectionFront.Stroke = _foldersSectionExpanded ? (Brush)Resources["AccentMutedBrush"] : (Brush)Resources["ChromeMuted"];
         e.Handled = true;
     }
 

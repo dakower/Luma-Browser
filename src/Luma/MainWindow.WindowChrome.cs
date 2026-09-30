@@ -63,7 +63,7 @@ public partial class MainWindow
         if (peek)
         {
             if (visible) ShowPeek(animate); else HidePeek(animate);
-            EdgeReveal.Visibility = _sidebarVisible || _fullscreen ? Visibility.Collapsed : Visibility.Visible;
+            EdgeReveal.Visibility = Visibility.Collapsed;
             return;
         }
         // A pinned open/close owns the layout again, so drop any floating peek first.
@@ -75,6 +75,8 @@ public partial class MainWindow
         if (animate && _state.AnimationsEnabled && Math.Abs(current - target) > 0.5)
         {
             Sidebar.Opacity = 1;
+            Sidebar.Visibility = Visibility.Visible;
+            Sidebar.IsHitTestVisible = true;
             var slide = new DoubleAnimation(current, target, TimeSpan.FromMilliseconds(240)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseInOut } };
             slide.Completed += (_, _) =>
             {
@@ -82,11 +84,19 @@ public partial class MainWindow
                 var settled = _sidebarVisible || _sidebarAutoShown ? SidebarWidth : 0d;
                 SidebarColumn.Width = new GridLength(settled);
                 Sidebar.Opacity = settled > 0 ? 1 : 0;
+                Sidebar.Visibility = settled > 0 ? Visibility.Visible : Visibility.Collapsed;
+                Sidebar.IsHitTestVisible = settled > 0;
             };
             BeginAnimation(SidebarSlideProperty, slide);
         }
-        else { SidebarColumn.Width = new GridLength(target); Sidebar.Opacity = visible ? 1 : 0; }
-        EdgeReveal.Visibility = _sidebarVisible || _fullscreen ? Visibility.Collapsed : Visibility.Visible;
+        else
+        {
+            SidebarColumn.Width = new GridLength(target);
+            Sidebar.Opacity = visible ? 1 : 0;
+            Sidebar.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+            Sidebar.IsHitTestVisible = visible;
+        }
+        EdgeReveal.Visibility = Visibility.Collapsed;
     }
 
     /// <summary>Real fullscreen for any site: the titlebar and sidebar fold away and the window
@@ -111,11 +121,6 @@ public partial class MainWindow
             var size = transform.Transform(new Point(bounds.Width, bounds.Height));
             WindowState = WindowState.Normal;
             Left = topLeft.X; Top = topLeft.Y; Width = size.X; Height = size.Y;
-            // No Topmost here on purpose: a topmost window keeps rendering over whatever you
-            // switch to, so Alt+Tab looked like it did nothing — you were on another app, just
-            // stuck staring at the still-on-top video. Without it, fullscreen behaves like a
-            // normal maximized window: on top while active, correctly yields on Alt+Tab, and
-            // comes back exactly as it was when you switch back.
         }
         else
         {
@@ -142,6 +147,9 @@ public partial class MainWindow
         _peekActive = true;
         SidebarPeekSlide.BeginAnimation(TranslateTransform.XProperty, null);
 
+        Sidebar.Visibility = Visibility.Visible;
+        Sidebar.IsHitTestVisible = true;
+
         if (!ReferenceEquals(Sidebar.Parent, SidebarPeekHost))
         {
             SidebarColumn.Width = new GridLength(0);
@@ -162,6 +170,7 @@ public partial class MainWindow
     {
         if (!_peekActive) { FinishPeek(); return; }
         _peekActive = false;
+        Sidebar.IsHitTestVisible = false;
         var duration = TimeSpan.FromMilliseconds(animate && _state.AnimationsEnabled ? 210 : 0);
         var slide = new DoubleAnimation(SidebarPeekSlide.X, -SidebarWidth, duration) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn } };
         slide.Completed += (_, _) => FinishPeek();
@@ -182,6 +191,8 @@ public partial class MainWindow
         }
         var pinned = _sidebarVisible && !_sidebarAutoShown;
         Sidebar.Opacity = pinned ? 1 : 0;
+        Sidebar.Visibility = pinned ? Visibility.Visible : Visibility.Collapsed;
+        Sidebar.IsHitTestVisible = pinned;
         SidebarColumn.Width = new GridLength(pinned ? SidebarWidth : 0);
     }
 

@@ -63,7 +63,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         public RuntimeSpace(SpaceState state) => State = state;
     }
     public sealed class SpaceDotView { public int Index { get; init; } public string Name { get; init; } = "Пространство"; public Brush Brush { get; init; } = Brushes.White; public Brush TextBrush { get; init; } = Brushes.White; public Brush OutlineBrush { get; init; } = Brushes.Transparent; public bool IsActive { get; init; } public double Size { get; init; } public string Letter => string.IsNullOrWhiteSpace(Name) ? "?" : Name.Trim().Substring(0, 1).ToUpperInvariant(); }
-    private sealed class FolderVisual { public TextBlock Label = null!; public TextBox Editor = null!; public Border Content = null!; public StackPanel Items = null!; public RotateTransform Chevron = null!; public IconPath FolderBack = null!; public IconPath FolderFront = null!; public IconPath FolderShine = null!; public TranslateTransform FolderFrontTranslate = null!; public ScaleTransform FolderScale = null!; public TranslateTransform ItemsTranslate = null!; }
+    private sealed class FolderVisual { public TextBlock Label = null!; public TextBox Editor = null!; public Border Content = null!; public StackPanel Items = null!; public RotateTransform Chevron = null!; public Image FolderIcon = null!; public Image DeleteIcon = null!; public TranslateTransform ItemsTranslate = null!; }
     private sealed class SavedDrag { public SavedSite Site = null!; public FolderState? Source; public bool Loose; }
     private enum SearchPurpose { NewTab, Navigate, Split, Folder, TabSearch }
 
@@ -119,7 +119,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private FolderState? _deleteFolder;
     private Action? _confirmAction;
     private Point _dragStart;
-    private bool _sidebarVisible = true, _sidebarAutoShown, _closing, _suppressPip, _dividerDragging, _manualMaximized, _seekDragging, _volumeDragging;
+    private bool _sidebarVisible = true, _sidebarAutoShown, _closing, _suppressPip, _suppressAmbient, _dividerDragging, _manualMaximized, _seekDragging, _volumeDragging;
     private BrowserTab? _nowPlaying;
     private FloatingMusicWindow? _floatingMusic;
     private bool _floatingMusicDismissed;
@@ -141,7 +141,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _leftButtonWasDown;
     // Background tabs are suspended after a while: Chromium gives the memory back and the row
     // only dims a shade, so nothing about the sidebar changes visually.
-    private readonly DispatcherTimer _sleepWatch = new() { Interval = TimeSpan.FromSeconds(60) };
+    private readonly DispatcherTimer _sleepWatch = new() { Interval = TimeSpan.FromSeconds(30) };
     private CancellationTokenSource? _navigationSaveDebounce;
 
     [StructLayout(LayoutKind.Sequential)]
@@ -205,13 +205,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void EdgeWatchTick()
     {
         if (!IsLoaded || WindowState == WindowState.Minimized) return;
-        if (!GetCursorPos(out var native)) return;
-        Point local;
-        try { local = PointFromScreen(new Point(native.X, native.Y)); }
-        catch { return; }
-        var insideWindow = local.X >= -2 && local.Y >= -2 && local.X <= ActualWidth + 2 && local.Y <= ActualHeight + 2;
-        if (!_sidebarVisible && !_sidebarAutoShown && !_fullscreen && insideWindow && IsActive && local.X <= 8) SetSidebar(true, true, false, true);
-        else if (_sidebarAutoShown && (!insideWindow || !IsActive || _fullscreen || local.X > SidebarWidth + 24)) SetSidebar(false, true, false, true);
+        if (_sidebarAutoShown && (!IsActive || _fullscreen)) SetSidebar(false, true, false, true);
         if (_peekActive) SyncPeekBounds();
     }
     private Rect _fsBounds = new(0, 0, 1280, 800);
@@ -233,7 +227,22 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             if (_currentTab == value) return;
             var previous = _currentTab;
-            if (previous is not null && previous != value && ReferenceEquals(previous, _previewThemeTab)) CancelThemePreview();
+            if (previous is not null && previous != value)
+            {
+                if (ReferenceEquals(previous, _previewThemeTab)) CancelThemePreview();
+                try
+                {
+                    if (previous.View?.CoreWebView2 is { } prevCore && !prevCore.IsDocumentPlayingAudio)
+                    {
+                        prevCore.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Low;
+                    }
+                    if (previous.SecondaryView?.CoreWebView2 is { } prevSec && !prevSec.IsDocumentPlayingAudio)
+                    {
+                        prevSec.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Low;
+                    }
+                }
+                catch { }
+            }
             _currentTab = value;
             if (value is not null) { value.LastActiveAt = _clock.UtcNow; WakeTab(value); }
             if (_spaces.Count > 0) _spaces[_activeSpace].Current = value;
@@ -289,8 +298,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         AddHandler(UIElement.PreviewTouchDownEvent, new EventHandler<TouchEventArgs>(ReliableTabPreviewTouchDown), true);
         ApplyTheme(); Loaded += OnLoaded; Closing += OnClosing;
         Activated += (_, _) => { _floatingMusicDismissed = false; _ = StopFloatingVideoAsync(); HideFloatingMusic(); };
-        Deactivated += (_, _) => { _floatingMusicDismissed = false; HandleBrowserBackgrounded(); };
-        StateChanged += (_, _) => { if (WindowState == WindowState.Minimized) { _floatingMusicDismissed = false; HandleBrowserBackgrounded(); } else if (IsActive) HideFloatingMusic(); };
+        Deactivated += (_, _) => { _floatingMusicDismissed = false; HandleBrowserBackgrounded(); TrimProcessMemory(); };
+        StateChanged += (_, _) => { if (WindowState == WindowState.Minimized) { _floatingMusicDismissed = false; HandleBrowserBackgrounded(); TrimProcessMemory(); } else if (IsActive) HideFloatingMusic(); };
     }
 
     private async void OnLoaded(object sender, RoutedEventArgs e)

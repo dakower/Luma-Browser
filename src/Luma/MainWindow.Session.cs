@@ -53,10 +53,42 @@ namespace Luma;
 
 public partial class MainWindow
 {
+    [DllImport("psapi.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool EmptyWorkingSet(IntPtr hProcess);
+
+    internal static void TrimProcessMemory()
+    {
+        try
+        {
+            GC.Collect(1, GCCollectionMode.Optimized, false);
+            EmptyWorkingSet(Process.GetCurrentProcess().Handle);
+
+            var currentSessionId = Process.GetCurrentProcess().SessionId;
+            foreach (var proc in Process.GetProcessesByName("msedgewebview2"))
+            {
+                try
+                {
+                    if (proc.SessionId == currentSessionId)
+                    {
+                        EmptyWorkingSet(proc.Handle);
+                    }
+                }
+                catch { }
+                finally
+                {
+                    proc.Dispose();
+                }
+            }
+        }
+        catch { }
+    }
+
     private void SleepWatchTick()
     {
         if (_state.SleepAfterMinutes == 0) return;
-        var limit = TimeSpan.FromMinutes(Math.Max(5, _state.SleepAfterMinutes));
+        var limit = TimeSpan.FromMinutes(Math.Max(1, _state.SleepAfterMinutes));
+        var suspendedAny = false;
         foreach (var space in _spaces)
             foreach (var tab in space.Tabs.ToList())
             {
@@ -68,14 +100,38 @@ public partial class MainWindow
                 // awake regardless of how long it has been out of sight.
                 try { if (core.IsDocumentPlayingAudio) { tab.LastActiveAt = _clock.UtcNow; continue; } }
                 catch (Exception ex) { App.Log(ex); }
-                try { tab.IsAsleep = true; _ = core.TrySuspendAsync(); }
+                try
+                {
+                    core.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Low;
+                    if (tab.SecondaryView?.CoreWebView2 is { } secCore)
+                        secCore.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Low;
+
+                    tab.IsAsleep = true;
+                    _ = core.TrySuspendAsync();
+                    _ = tab.SecondaryView?.CoreWebView2?.TrySuspendAsync();
+                    suspendedAny = true;
+                }
                 catch (Exception ex) { tab.IsAsleep = false; App.Log(ex); }
             }
+
+        if (suspendedAny)
+        {
+            TrimProcessMemory();
+        }
     }
 
     private void WakeTab(BrowserTab tab)
     {
         tab.LastActiveAt = _clock.UtcNow;
+        try
+        {
+            if (tab.View.CoreWebView2 is { } core)
+                core.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Normal;
+            if (tab.SecondaryView?.CoreWebView2 is { } secCore)
+                secCore.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Normal;
+        }
+        catch (Exception ex) { App.Log(ex); }
+
         if (!tab.IsAsleep) return;
         tab.IsAsleep = false;
         try { tab.View.CoreWebView2?.Resume(); tab.SecondaryView?.CoreWebView2?.Resume(); }
@@ -243,6 +299,7 @@ public partial class MainWindow
         NormalizeTabSelection();
         ForgetViewState(tab.View); ForgetViewState(tab.SecondaryView);
         tab.Dispose();
+        TrimProcessMemory();
 
         if (ReferenceEquals(_floatingVideoTab, tab))
         {

@@ -89,7 +89,13 @@ public partial class MainWindow
         if (present)
         {
             _suppressPip = true; PipToggle.IsChecked = _state.AutoPictureInPicture.TryGetValue(tab!.Domain, out var pip) && pip; _suppressPip = false;
+            var isYt = tab.Domain.Contains("youtube.com", StringComparison.OrdinalIgnoreCase) || tab.Domain.Contains("youtu.be", StringComparison.OrdinalIgnoreCase);
+            AmbientLightPanel.Visibility = isYt ? Visibility.Visible : Visibility.Collapsed;
+            _suppressAmbient = true;
+            AmbientLightToggle.IsChecked = _state.AmbientLight.TryGetValue(tab.Domain, out var amb) ? amb : isYt;
+            _suppressAmbient = false;
             if (Uri.TryCreate(tab.ActiveUrl, UriKind.Absolute, out var uri)) { var secure = uri.Scheme == "https"; SecurityText.Text = secure ? "Защищено" : "Не защищено"; SecurityIcon.Data = (Geometry)FindResource(secure ? "IconShieldCheck" : "IconInfo"); SecurityIcon.Stroke = secure ? new SolidColorBrush(Color.FromRgb(97, 196, 84)) : new SolidColorBrush(Color.FromRgb(224, 138, 147)); }
+            TelegramAiButton.Visibility = tab.Domain.Contains("telegram.org", StringComparison.OrdinalIgnoreCase) ? Visibility.Visible : Visibility.Collapsed;
         }
     }
 

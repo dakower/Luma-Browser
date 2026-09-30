@@ -45,7 +45,7 @@ public static class BrowserScripts
     /// <summary>Reader overlay in the Luma palette. Toggles itself off on a second call.</summary>
     /// <summary>Warms up same-site links the pointer rests on, so the click feels instant.</summary>
     public const string LinkPrefetch = """
-    (()=>{try{const done=new Set();const add=u=>{if(!u||done.has(u)||done.size>80)return;done.add(u);try{const l=document.createElement('link');l.rel='prefetch';l.as='document';l.href=u;(document.head||document.documentElement).appendChild(l)}catch(e){}};let t=null;document.addEventListener('mouseover',e=>{const a=e.target&&e.target.closest?e.target.closest('a[href]'):null;if(!a)return;clearTimeout(t);t=setTimeout(()=>{try{const u=new URL(a.getAttribute('href'),location.href);if(u.origin===location.origin&&/^https?:$/.test(u.protocol)&&u.href!==location.href)add(u.href)}catch(x){}},200)},true);document.addEventListener('mouseout',()=>clearTimeout(t),true)}catch(e){}})()
+    (()=>{try{const done=new Set();const add=u=>{if(!u||done.has(u)||done.size>20)return;done.add(u);try{const l=document.createElement('link');l.rel='prefetch';l.as='document';l.href=u;(document.head||document.documentElement).appendChild(l)}catch(e){}};let t=null;document.addEventListener('mouseover',e=>{const a=e.target&&e.target.closest?e.target.closest('a[href]'):null;if(!a)return;clearTimeout(t);t=setTimeout(()=>{try{const u=new URL(a.getAttribute('href'),location.href);if(u.origin===location.origin&&/^https?:$/.test(u.protocol)&&u.href!==location.href)add(u.href)}catch(x){}},350)},true);document.addEventListener('mouseout',()=>clearTimeout(t),true)}catch(e){}})()
     """;
 
     /// <summary>Remembers where a video was left off and adds Alt+[ / Alt+] speed control anywhere.</summary>
@@ -492,5 +492,132 @@ public static class BrowserScripts
     public static string SetScrollbarAccent(string accent) => $"window.__lumaSetScrollbar?.({JsonSerializer.Serialize(accent)})";
 
     public static string ContextMenu(string pane) => (_contextMenu ??= ReadResource(ContextMenuResourceName)).Replace("__PANE__", pane == "secondary" ? "secondary" : "primary", StringComparison.Ordinal);
+
+    /// <summary>
+    /// YouTube Ambient Light: creates real-time reactive dynamic glow around the video player
+    /// matching the edges and colors of the playing video, identical to the Ambient Light for YouTube extension.
+    /// </summary>
+    public static string AmbientLight(bool enabled) => $$"""
+    (() => {
+      try {
+        if (window.__lumaAmbientInitialized) {
+          if (typeof window.__lumaSetAmbientEnabled === 'function') {
+            window.__lumaSetAmbientEnabled({{enabled.ToString().ToLowerInvariant()}});
+          }
+          return;
+        }
+        window.__lumaAmbientInitialized = true;
+
+        let enabled = {{enabled.ToString().ToLowerInvariant()}};
+        window.__lumaSetAmbientEnabled = (val) => {
+          enabled = Boolean(val);
+          const container = document.getElementById('luma-ambient-container');
+          if (container) {
+            container.style.display = enabled ? 'block' : 'none';
+          }
+        };
+
+        let container = null, canvas = null, ctx = null, activeVideo = null;
+
+        function initDOM() {
+          if (document.getElementById('luma-ambient-container')) return;
+
+          const style = document.createElement('style');
+          style.id = 'luma-ambient-style';
+          style.textContent = `
+            #luma-ambient-container {
+              position: absolute;
+              inset: -14% -18%;
+              width: 136%;
+              height: 128%;
+              pointer-events: none;
+              z-index: 0;
+              overflow: visible;
+              display: ${enabled ? 'block' : 'none'};
+              opacity: 0.95;
+              transition: opacity 0.4s ease;
+            }
+            #luma-ambient-canvas {
+              position: absolute;
+              top: 50%;
+              left: 50%;
+              transform: translate(-50%, -50%);
+              width: 100%;
+              height: 100%;
+              pointer-events: none;
+              filter: blur(80px) saturate(2.4) brightness(1.3);
+              transform-origin: center center;
+              will-change: transform, filter;
+            }
+            #movie_player, .html5-video-player, #player-container, #ytd-player {
+              overflow: visible !important;
+            }
+            #movie_player video, .html5-video-player video {
+              position: relative !important;
+              z-index: 1 !important;
+            }
+            .ytp-chrome-bottom, .ytp-chrome-top, .ytp-gradient-bottom, .ytp-gradient-top {
+              z-index: 35 !important;
+            }
+            ytd-watch-flexy[theater] #player-theater-container,
+            #player-container-outer,
+            #player-container-inner {
+              overflow: visible !important;
+            }
+            #cinematics {
+              display: none !important;
+            }
+          `;
+          (document.head || document.documentElement).appendChild(style);
+
+          container = document.createElement('div');
+          container.id = 'luma-ambient-container';
+
+          canvas = document.createElement('canvas');
+          canvas.id = 'luma-ambient-canvas';
+          canvas.width = 64;
+          canvas.height = 36;
+          ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
+
+          container.appendChild(canvas);
+        }
+
+        function mount() {
+          initDOM();
+          if (!container) return;
+          const player = document.querySelector('#movie_player') ||
+                        document.querySelector('.html5-video-player') ||
+                        document.querySelector('#player-container') ||
+                        document.querySelector('ytd-player');
+
+          if (player && container.parentElement !== player) {
+            player.insertBefore(container, player.firstChild);
+          }
+        }
+
+        function tick() {
+          if (enabled) {
+            if (!activeVideo || !activeVideo.isConnected) {
+              activeVideo = document.querySelector('video.html5-main-video') || document.querySelector('video');
+              mount();
+            }
+            if (activeVideo && ctx && !activeVideo.paused && !activeVideo.ended && activeVideo.readyState >= 2) {
+              try {
+                ctx.drawImage(activeVideo, 0, 0, canvas.width, canvas.height);
+              } catch(e) {}
+            }
+          }
+          requestAnimationFrame(tick);
+        }
+
+        const obs = new MutationObserver(() => mount());
+        obs.observe(document.body || document.documentElement, { childList: true, subtree: true });
+
+        mount();
+        requestAnimationFrame(tick);
+      } catch (e) {}
+    })()
+    """;
+
     private static string ReadResource(string name) { using var stream = typeof(BrowserScripts).Assembly.GetManifestResourceStream(name) ?? throw new InvalidOperationException($"Встроенный ресурс {name} не найден."); using var reader = new StreamReader(stream, Encoding.UTF8, true); return reader.ReadToEnd(); }
 }
