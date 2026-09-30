@@ -144,9 +144,9 @@
         <Setter Property="Height" Value="40"/>
         <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
         <Setter Property="OverridesDefaultStyle" Value="True"/>
-        <Setter Property="Background" Value="#14111E"/>
-        <Setter Property="Foreground" Value="#D6D0E0"/>
-        <Setter Property="BorderBrush" Value="#251F33"/>
+        <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource ChromeSecondary}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="FontSize" Value="12.5"/>
@@ -159,9 +159,9 @@
               </Border>
               <ControlTemplate.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                  <Setter TargetName="PillBorder" Property="Background" Value="#1E192D"/>
+                  <Setter TargetName="PillBorder" Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
                   <Setter TargetName="PillBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
-                  <Setter Property="Foreground" Value="#FFFFFF"/>
+                  <Setter Property="Foreground" Value="{DynamicResource ChromeText}"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
                   <Setter TargetName="PillBorder" Property="Opacity" Value=".75"/>
@@ -172,22 +172,22 @@
         </Setter>
       </Style>
       <Style x:Key="HomeRecentTile" TargetType="Button">
-        <Setter Property="Height" Value="86"/>
+        <Setter Property="Height" Value="100"/>
         <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
         <Setter Property="OverridesDefaultStyle" Value="True"/>
-        <Setter Property="Background" Value="#14111E"/>
-        <Setter Property="BorderBrush" Value="#251F33"/>
+        <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="Template">
           <Setter.Value>
             <ControlTemplate TargetType="Button">
-              <Border x:Name="TileBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="12">
+              <Border x:Name="TileBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="14">
                 <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
               </Border>
               <ControlTemplate.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                  <Setter TargetName="TileBorder" Property="Background" Value="#1E192D"/>
+                  <Setter TargetName="TileBorder" Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
                   <Setter TargetName="TileBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
@@ -452,28 +452,41 @@
         </StackPanel>
 
         <!-- address pill -->
-        <Border Height="34" CornerRadius="17" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="6,0,8,0" HorizontalAlignment="Center" VerticalAlignment="Center">
-          <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-            <Button x:Name="CopyUrlButton" Style="{StaticResource BareIconButton}" Width="22" Height="22" Margin="0,0,4,0" Click="CopyUrl_Click" Foreground="{DynamicResource ChromeIconMuted}" ToolTip="Скопировать адрес">
+        <Border Width="460" Height="34" CornerRadius="17" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="6,0,6,0" HorizontalAlignment="Center" VerticalAlignment="Center">
+          <Grid VerticalAlignment="Center">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto"/>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Left: Copy URL button -->
+            <Button x:Name="CopyUrlButton" Grid.Column="0" Style="{StaticResource BareIconButton}" Width="24" Height="24" Click="CopyUrl_Click" Foreground="{DynamicResource ChromeIconMuted}" ToolTip="Скопировать адрес">
               <Path Width="13" Height="13" Stretch="Uniform" Data="{StaticResource IconCopy}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
             </Button>
-            <Border x:Name="DomainPill" Background="Transparent" Margin="2,0,8,0" Cursor="Hand" MouseLeftButtonUp="DomainPill_Click" VerticalAlignment="Center">
-              <TextBlock x:Name="DomainText" Text="Новая вкладка" Foreground="#ECE8F5" FontFamily="Segoe UI Variable Display, Segoe UI" FontSize="13" FontWeight="SemiBold" MaxWidth="380" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+
+            <!-- Center: Domain/Title Pill -->
+            <Border x:Name="DomainPill" Grid.Column="1" Background="Transparent" Margin="8,0" Cursor="Hand" MouseLeftButtonUp="DomainPill_Click" HorizontalAlignment="Center" VerticalAlignment="Center">
+              <TextBlock x:Name="DomainText" Text="Новая вкладка" Foreground="{DynamicResource ChromeText}" FontFamily="Segoe UI Variable Display, Segoe UI" FontSize="13" FontWeight="SemiBold" MaxWidth="310" TextTrimming="CharacterEllipsis" TextAlignment="Center" VerticalAlignment="Center"/>
             </Border>
-            <Button x:Name="TranslateButton" Style="{StaticResource BareIconButton}" Width="22" Height="22" Margin="0,0,4,0" Click="TranslateButton_Click" Foreground="{DynamicResource ChromeIconMuted}" ToolTip="Перевести страницу">
-              <Path x:Name="TranslateIcon" Width="13" Height="13" Stretch="Uniform" Data="{StaticResource IconGlobe}" Fill="Transparent" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round" RenderTransformOrigin="0.5,0.5">
-                <Path.RenderTransform>
-                  <RotateTransform Angle="0"/>
-                </Path.RenderTransform>
-              </Path>
-            </Button>
-            <Button x:Name="SplitButton" Style="{StaticResource BareIconButton}" Width="22" Height="22" Margin="0,0,4,0" Click="SplitButton_Click" Foreground="{DynamicResource ChromeIconMuted}" ToolTip="Split View">
-              <Path Width="13" Height="13" Stretch="Uniform" Data="{StaticResource IconSplit}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeLineJoin="Round"/>
-            </Button>
-            <Button x:Name="SiteSettingsButton" Style="{StaticResource BareIconButton}" Width="22" Height="22" Click="SiteSettings_Click" Foreground="{DynamicResource ChromeIconMuted}" ToolTip="Параметры сайта">
-              <Path Width="13" Height="13" Stretch="Uniform" Data="{StaticResource IconSlidersHorizontal}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-            </Button>
-          </StackPanel>
+
+            <!-- Right: Action tools cluster -->
+            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+              <Button x:Name="TranslateButton" Style="{StaticResource BareIconButton}" Width="24" Height="24" Margin="0,0,3,0" Click="TranslateButton_Click" Foreground="{DynamicResource ChromeIconMuted}" ToolTip="Перевести страницу">
+                <Path x:Name="TranslateIcon" Width="13" Height="13" Stretch="Uniform" Data="{StaticResource IconGlobe}" Fill="Transparent" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round" RenderTransformOrigin="0.5,0.5">
+                  <Path.RenderTransform>
+                    <RotateTransform Angle="0"/>
+                  </Path.RenderTransform>
+                </Path>
+              </Button>
+              <Button x:Name="SplitButton" Style="{StaticResource BareIconButton}" Width="24" Height="24" Margin="0,0,3,0" Click="SplitButton_Click" Foreground="{DynamicResource ChromeIconMuted}" ToolTip="Split View">
+                <Path Width="13" Height="13" Stretch="Uniform" Data="{StaticResource IconSplit}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeLineJoin="Round"/>
+              </Button>
+              <Button x:Name="SiteSettingsButton" Style="{StaticResource BareIconButton}" Width="24" Height="24" Click="SiteSettings_Click" Foreground="{DynamicResource ChromeIconMuted}" ToolTip="Параметры сайта">
+                <Path Width="13" Height="13" Stretch="Uniform" Data="{StaticResource IconSlidersHorizontal}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+              </Button>
+            </StackPanel>
+          </Grid>
         </Border>
 
         <!-- window controls -->
@@ -732,14 +745,14 @@
               </StackPanel>
 
               <!-- Elegant Minimalist Headline -->
-              <TextBlock Text="Куда отправимся?" Foreground="#ECE7F5" FontFamily="Segoe UI Variable Display, Segoe UI" FontSize="35" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,0,0,24">
+              <TextBlock Text="Куда отправимся?" Foreground="{DynamicResource ChromeText}" FontFamily="Segoe UI Variable Display, Segoe UI" FontSize="35" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,0,0,24">
                 <TextBlock.Effect>
                   <DropShadowEffect Color="#000000" BlurRadius="14" ShadowDepth="2" Opacity=".3"/>
                 </TextBlock.Effect>
               </TextBlock>
 
               <!-- Minimalist Search Capsule -->
-              <Border Height="54" Width="640" CornerRadius="27" Background="#161322" BorderBrush="{DynamicResource BorderStrongBrush}" BorderThickness="1" Margin="0,0,0,16" Padding="18,0,9,0">
+              <Border Height="54" Width="640" CornerRadius="27" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Margin="0,0,0,16" Padding="18,0,9,0">
                 <Border.Effect>
                   <DropShadowEffect Color="#000000" BlurRadius="24" ShadowDepth="6" Opacity=".3"/>
                 </Border.Effect>
@@ -752,7 +765,7 @@
                   <Path Stretch="Uniform" Width="16" Height="16" Data="{StaticResource IconSearch}" Stroke="{DynamicResource AccentMutedBrush}" StrokeThickness="2" VerticalAlignment="Center"/>
                   <Grid Grid.Column="1" Margin="8,0,10,0">
                     <TextBlock x:Name="HomeSearchPlaceholder" Text="Поиск в интернете или адрес сайта..." Foreground="{DynamicResource ChromeMuted}" FontSize="15" VerticalAlignment="Center" IsHitTestVisible="False"/>
-                    <TextBox x:Name="HomeSearchBox" Background="Transparent" BorderThickness="0" Foreground="#FAF8FC" CaretBrush="{DynamicResource AccentMutedBrush}" FontSize="15" FontWeight="Normal" VerticalContentAlignment="Center" TextChanged="HomeSearchBox_TextChanged" KeyDown="HomeSearchBox_KeyDown"/>
+                    <TextBox x:Name="HomeSearchBox" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource ChromeText}" CaretBrush="{DynamicResource AccentMutedBrush}" FontSize="15" FontWeight="Normal" VerticalContentAlignment="Center" TextChanged="HomeSearchBox_TextChanged" KeyDown="HomeSearchBox_KeyDown"/>
                   </Grid>
                   <Button Grid.Column="2" Width="36" Height="36" Background="{DynamicResource AccentBrush}" BorderThickness="0" FocusVisualStyle="{x:Null}" OverridesDefaultStyle="True" Cursor="Hand" Click="HomeSearchSubmit_Click" ToolTip="Искать">
                     <Button.Template>
@@ -823,44 +836,64 @@
                   <ColumnDefinition/>
                 </Grid.ColumnDefinitions>
                 <Button x:Name="HomeRecentButton1" Grid.Column="0" Style="{StaticResource HomeRecentTile}" Click="HomeRecentSite_Click">
-                  <StackPanel Margin="12,11">
-                    <Grid Width="28" Height="28" HorizontalAlignment="Left">
-                      <Border CornerRadius="8" Background="{DynamicResource SurfaceInsetBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"/>
-                      <Image x:Name="HomeRecentIcon1" Width="16" Height="16" ImageFailed="HomeRecentIcon_Failed"/>
+                  <Grid Margin="13,12,13,10">
+                    <Grid.RowDefinitions>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid Grid.Row="0" Width="30" Height="30" HorizontalAlignment="Left">
+                      <Border CornerRadius="9" Background="{DynamicResource SurfaceInsetBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"/>
+                      <Image x:Name="HomeRecentIcon1" Width="18" Height="18" ImageFailed="HomeRecentIcon_Failed" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Grid>
-                    <TextBlock x:Name="HomeRecentTitle1" Foreground="#FAF8FC" FontSize="12.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="0,8,0,0"/>
-                    <TextBlock x:Name="HomeRecentDomain1" Foreground="{DynamicResource ChromeMuted}" FontSize="10.5" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
-                  </StackPanel>
+                    <TextBlock Grid.Row="1" x:Name="HomeRecentTitle1" Foreground="{DynamicResource ChromeText}" FontSize="12.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="0,8,0,0"/>
+                    <TextBlock Grid.Row="2" x:Name="HomeRecentDomain1" Foreground="{DynamicResource ChromeMuted}" FontSize="11" TextTrimming="CharacterEllipsis" Margin="0,3,0,0"/>
+                  </Grid>
                 </Button>
                 <Button x:Name="HomeRecentButton2" Grid.Column="2" Style="{StaticResource HomeRecentTile}" Click="HomeRecentSite_Click">
-                  <StackPanel Margin="12,11">
-                    <Grid Width="28" Height="28" HorizontalAlignment="Left">
-                      <Border CornerRadius="8" Background="{DynamicResource SurfaceInsetBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"/>
-                      <Image x:Name="HomeRecentIcon2" Width="16" Height="16" ImageFailed="HomeRecentIcon_Failed"/>
+                  <Grid Margin="13,12,13,10">
+                    <Grid.RowDefinitions>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid Grid.Row="0" Width="30" Height="30" HorizontalAlignment="Left">
+                      <Border CornerRadius="9" Background="{DynamicResource SurfaceInsetBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"/>
+                      <Image x:Name="HomeRecentIcon2" Width="18" Height="18" ImageFailed="HomeRecentIcon_Failed" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Grid>
-                    <TextBlock x:Name="HomeRecentTitle2" Foreground="#FAF8FC" FontSize="12.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="0,8,0,0"/>
-                    <TextBlock x:Name="HomeRecentDomain2" Foreground="{DynamicResource ChromeMuted}" FontSize="10.5" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
-                  </StackPanel>
+                    <TextBlock Grid.Row="1" x:Name="HomeRecentTitle2" Foreground="{DynamicResource ChromeText}" FontSize="12.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="0,8,0,0"/>
+                    <TextBlock Grid.Row="2" x:Name="HomeRecentDomain2" Foreground="{DynamicResource ChromeMuted}" FontSize="11" TextTrimming="CharacterEllipsis" Margin="0,3,0,0"/>
+                  </Grid>
                 </Button>
                 <Button x:Name="HomeRecentButton3" Grid.Column="4" Style="{StaticResource HomeRecentTile}" Click="HomeRecentSite_Click">
-                  <StackPanel Margin="12,11">
-                    <Grid Width="28" Height="28" HorizontalAlignment="Left">
-                      <Border CornerRadius="8" Background="{DynamicResource SurfaceInsetBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"/>
-                      <Image x:Name="HomeRecentIcon3" Width="16" Height="16" ImageFailed="HomeRecentIcon_Failed"/>
+                  <Grid Margin="13,12,13,10">
+                    <Grid.RowDefinitions>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid Grid.Row="0" Width="30" Height="30" HorizontalAlignment="Left">
+                      <Border CornerRadius="9" Background="{DynamicResource SurfaceInsetBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"/>
+                      <Image x:Name="HomeRecentIcon3" Width="18" Height="18" ImageFailed="HomeRecentIcon_Failed" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Grid>
-                    <TextBlock x:Name="HomeRecentTitle3" Foreground="#FAF8FC" FontSize="12.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="0,8,0,0"/>
-                    <TextBlock x:Name="HomeRecentDomain3" Foreground="{DynamicResource ChromeMuted}" FontSize="10.5" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
-                  </StackPanel>
+                    <TextBlock Grid.Row="1" x:Name="HomeRecentTitle3" Foreground="{DynamicResource ChromeText}" FontSize="12.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="0,8,0,0"/>
+                    <TextBlock Grid.Row="2" x:Name="HomeRecentDomain3" Foreground="{DynamicResource ChromeMuted}" FontSize="11" TextTrimming="CharacterEllipsis" Margin="0,3,0,0"/>
+                  </Grid>
                 </Button>
                 <Button x:Name="HomeRecentButton4" Grid.Column="6" Style="{StaticResource HomeRecentTile}" Click="HomeRecentSite_Click">
-                  <StackPanel Margin="12,11">
-                    <Grid Width="28" Height="28" HorizontalAlignment="Left">
-                      <Border CornerRadius="8" Background="{DynamicResource SurfaceInsetBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"/>
-                      <Image x:Name="HomeRecentIcon4" Width="16" Height="16" ImageFailed="HomeRecentIcon_Failed"/>
+                  <Grid Margin="13,12,13,10">
+                    <Grid.RowDefinitions>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid Grid.Row="0" Width="30" Height="30" HorizontalAlignment="Left">
+                      <Border CornerRadius="9" Background="{DynamicResource SurfaceInsetBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"/>
+                      <Image x:Name="HomeRecentIcon4" Width="18" Height="18" ImageFailed="HomeRecentIcon_Failed" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Grid>
-                    <TextBlock x:Name="HomeRecentTitle4" Foreground="#FAF8FC" FontSize="12.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="0,8,0,0"/>
-                    <TextBlock x:Name="HomeRecentDomain4" Foreground="{DynamicResource ChromeMuted}" FontSize="10.5" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
-                  </StackPanel>
+                    <TextBlock Grid.Row="1" x:Name="HomeRecentTitle4" Foreground="{DynamicResource ChromeText}" FontSize="12.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="0,8,0,0"/>
+                    <TextBlock Grid.Row="2" x:Name="HomeRecentDomain4" Foreground="{DynamicResource ChromeMuted}" FontSize="11" TextTrimming="CharacterEllipsis" Margin="0,3,0,0"/>
+                  </Grid>
                 </Button>
               </Grid>
             </StackPanel>
@@ -1020,16 +1053,16 @@
 
     <Popup x:Name="HistoryPopup" AllowsTransparency="True" Placement="Relative" PlacementTarget="{Binding ElementName=SiteShell}" StaysOpen="True" Focusable="True">
         <Grid x:Name="HistoryOverlay" Visibility="Collapsed" Opacity="0" Background="#B9000000" Focusable="True" MouseLeftButtonUp="HistoryBackdrop_Click">
-          <Border x:Name="HistoryCard" Width="720" MaxHeight="620" CacheMode="BitmapCache" HorizontalAlignment="Center" VerticalAlignment="Center" CornerRadius="24" Background="#F21B1723" BorderBrush="{DynamicResource BorderStrongBrush}" BorderThickness="1" Padding="24" RenderTransformOrigin=".5,.5" MouseLeftButtonUp="HistoryCard_Click">
+          <Border x:Name="HistoryCard" Width="720" MaxHeight="620" CacheMode="BitmapCache" HorizontalAlignment="Center" VerticalAlignment="Center" CornerRadius="24" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderStrongBrush}" BorderThickness="1" Padding="24" RenderTransformOrigin=".5,.5" MouseLeftButtonUp="HistoryCard_Click">
             <Border.RenderTransform><ScaleTransform x:Name="HistoryCardScale" ScaleX=".96" ScaleY=".96"/></Border.RenderTransform>
             <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-              <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="36"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="История Luma" Foreground="#FAF7FC" FontSize="24" FontWeight="Bold"/><TextBlock Text="Ваши недавние страницы — локально на этом устройстве" Foreground="#93899E" FontSize="12" Margin="0,4,0,0"/></StackPanel><Button Grid.Column="1" Style="{StaticResource BareIconButton}" Width="32" Height="32" Click="HistoryClose_Click"><Path Stretch="Uniform" Width="12" Height="12" Data="{StaticResource IconX}" Stroke="#B8ADBF" StrokeThickness="2"/></Button></Grid>
-              <Border Grid.Row="1" Height="44" CornerRadius="12" Background="{DynamicResource SurfaceInsetBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Margin="0,18,0,12" Padding="13,0"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="28"/><ColumnDefinition/></Grid.ColumnDefinitions><Path Stretch="Uniform" Width="14" Height="14" Data="{StaticResource IconSearch}" Stroke="#887D94" StrokeThickness="2"/><TextBox x:Name="HistorySearchBox" Grid.Column="1" Background="Transparent" BorderThickness="0" Foreground="White" CaretBrush="{DynamicResource AccentMutedBrush}" FontSize="13" VerticalContentAlignment="Center" TextChanged="HistorySearch_TextChanged"/></Grid></Border>
+              <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="36"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="История Luma" Foreground="{DynamicResource ChromeText}" FontSize="24" FontWeight="Bold"/><TextBlock Text="Ваши недавние страницы — локально на этом устройстве" Foreground="{DynamicResource ChromeMuted}" FontSize="12" Margin="0,4,0,0"/></StackPanel><Button Grid.Column="1" Style="{StaticResource BareIconButton}" Width="32" Height="32" Click="HistoryClose_Click"><Path Stretch="Uniform" Width="12" Height="12" Data="{StaticResource IconX}" Stroke="{DynamicResource ChromeSecondary}" StrokeThickness="2"/></Button></Grid>
+              <Border Grid.Row="1" Height="44" CornerRadius="12" Background="{DynamicResource SurfaceInsetBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Margin="0,18,0,12" Padding="13,0"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="28"/><ColumnDefinition/></Grid.ColumnDefinitions><Path Stretch="Uniform" Width="14" Height="14" Data="{StaticResource IconSearch}" Stroke="{DynamicResource AccentMutedBrush}" StrokeThickness="2"/><TextBox x:Name="HistorySearchBox" Grid.Column="1" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource ChromeText}" CaretBrush="{DynamicResource AccentMutedBrush}" FontSize="13" VerticalContentAlignment="Center" TextChanged="HistorySearch_TextChanged"/></Grid></Border>
               <ListBox x:Name="HistoryList" Grid.Row="2" Background="Transparent" BorderThickness="0" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.CanContentScroll="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" PreviewMouseLeftButtonUp="HistoryRow_Click">
-                <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem"><Setter Property="Height" Value="Auto"/><Setter Property="MinHeight" Value="54"/><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Background" Value="Transparent"/><Setter Property="FocusVisualStyle" Value="{x:Null}"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><Border x:Name="HistoryRowChrome" Background="{TemplateBinding Background}" CornerRadius="12"><ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="HistoryRowChrome" Property="Background" Value="#10FFFFFF"/></Trigger><Trigger Property="IsSelected" Value="True"><Setter TargetName="HistoryRowChrome" Property="Background" Value="#267656E8"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style></ListBox.ItemContainerStyle>
-                <ListBox.ItemTemplate><DataTemplate><Border CornerRadius="12" Background="#0AFFFFFF" Margin="0,0,0,6" Padding="11"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="38"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><Border Width="28" Height="28" CornerRadius="8" Background="{DynamicResource SurfaceRaisedBrush}" ClipToBounds="True"><Image Source="{Binding FaviconUrl}" Width="17" Height="17"/></Border><StackPanel Grid.Column="1"><TextBlock Text="{Binding Title}" Foreground="#EEE9F2" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding Domain}" Foreground="#8F8599" FontSize="10.5" Margin="0,2,0,0"/></StackPanel><TextBlock Grid.Column="2" Text="{Binding VisitedAt, StringFormat={}{0:dd.MM HH:mm}}" Foreground="{DynamicResource ChromeMuted}" FontSize="10.5" VerticalAlignment="Center" Margin="12,0,0,0"/></Grid></Border></DataTemplate></ListBox.ItemTemplate>
+                <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem"><Setter Property="Height" Value="Auto"/><Setter Property="MinHeight" Value="54"/><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Background" Value="Transparent"/><Setter Property="FocusVisualStyle" Value="{x:Null}"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><Border x:Name="HistoryRowChrome" Background="{TemplateBinding Background}" CornerRadius="12"><ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="HistoryRowChrome" Property="Background" Value="{DynamicResource SurfaceRaisedBrush}"/></Trigger><Trigger Property="IsSelected" Value="True"><Setter TargetName="HistoryRowChrome" Property="Background" Value="{DynamicResource AccentSoftBrush}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style></ListBox.ItemContainerStyle>
+                <ListBox.ItemTemplate><DataTemplate><Border CornerRadius="12" Background="{DynamicResource SurfaceRaisedBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Margin="0,0,0,6" Padding="11"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="38"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><Border Width="28" Height="28" CornerRadius="8" Background="{DynamicResource SurfaceInsetBrush}" ClipToBounds="True"><Image Source="{Binding FaviconUrl}" Width="17" Height="17"/></Border><StackPanel Grid.Column="1"><TextBlock Text="{Binding Title}" Foreground="{DynamicResource ChromeText}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding Domain}" Foreground="{DynamicResource ChromeMuted}" FontSize="10.5" Margin="0,2,0,0"/></StackPanel><TextBlock Grid.Column="2" Text="{Binding VisitedAt, StringFormat={}{0:dd.MM HH:mm}}" Foreground="{DynamicResource ChromeMuted}" FontSize="10.5" VerticalAlignment="Center" Margin="12,0,0,0"/></Grid></Border></DataTemplate></ListBox.ItemTemplate>
               </ListBox>
-              <Grid Grid.Row="3" Margin="0,14,0,0"><TextBlock x:Name="HistoryCountText" Foreground="#7F7589" FontSize="11" VerticalAlignment="Center"/><Button Content="Очистить историю" HorizontalAlignment="Right" Style="{StaticResource MenuButton}" Width="150" Height="36" Click="HistoryClear_Click"/></Grid>
+              <Grid Grid.Row="3" Margin="0,14,0,0"><TextBlock x:Name="HistoryCountText" Foreground="{DynamicResource ChromeMuted}" FontSize="11" VerticalAlignment="Center"/><Button Content="Очистить историю" HorizontalAlignment="Right" Style="{StaticResource MenuButton}" Width="150" Height="36" Click="HistoryClear_Click"/></Grid>
             </Grid>
           </Border>
         </Grid>
