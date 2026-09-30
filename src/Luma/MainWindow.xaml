@@ -66,12 +66,18 @@
         <Setter Property="Template">
           <Setter.Value>
             <ControlTemplate TargetType="Button">
-              <Border x:Name="Glow" Height="36" CornerRadius="10" Padding="7,0,13,0" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderStrongBrush}" BorderThickness="1">
+              <Border x:Name="Glow" Height="32" CornerRadius="16" Padding="4,0,12,0" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
                 <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
               </Border>
               <ControlTemplate.Triggers>
-                <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Glow" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/><Setter TargetName="Glow" Property="Background" Value="{DynamicResource AccentSoftBrush}"/><Setter Property="Foreground" Value="White"/></Trigger>
-                <Trigger Property="IsPressed" Value="True"><Setter TargetName="Glow" Property="Opacity" Value=".78"/></Trigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                  <Setter TargetName="Glow" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                  <Setter TargetName="Glow" Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+                  <Setter Property="Foreground" Value="White"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                  <Setter TargetName="Glow" Property="Opacity" Value=".78"/>
+                </Trigger>
               </ControlTemplate.Triggers>
             </ControlTemplate>
           </Setter.Value>
@@ -79,7 +85,7 @@
       </Style>
       <Style x:Key="TopMenuGlowButton" TargetType="Button">
         <Setter Property="Foreground" Value="{DynamicResource ChromeMuted}"/><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Cursor" Value="Hand"/><Setter Property="FocusVisualStyle" Value="{x:Null}"/><Setter Property="OverridesDefaultStyle" Value="True"/>
-        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="MenuGlow" CornerRadius="7" Background="{TemplateBinding Background}" BorderBrush="Transparent" BorderThickness="1"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="MenuGlow" Property="Background" Value="{DynamicResource AccentSoftBrush}"/><Setter TargetName="MenuGlow" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/><Setter Property="Foreground" Value="White"/></Trigger><Trigger Property="IsPressed" Value="True"><Setter Property="Opacity" Value=".7"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="MenuGlow" CornerRadius="8" Background="{TemplateBinding Background}" BorderBrush="Transparent" BorderThickness="1"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="MenuGlow" Property="Background" Value="{DynamicResource AccentSoftBrush}"/><Setter TargetName="MenuGlow" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/><Setter Property="Foreground" Value="White"/></Trigger><Trigger Property="IsPressed" Value="True"><Setter Property="Opacity" Value=".7"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
       </Style>
       <Style x:Key="BareIconButton" TargetType="Button">
         <Setter Property="Width" Value="26"/>
@@ -99,6 +105,7 @@
               </Border>
               <ControlTemplate.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
+                  <Setter TargetName="B" Property="Background" Value="#1FFFFFFF"/>
                   <Setter Property="Foreground" Value="{DynamicResource ChromeSecondary}"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
@@ -106,6 +113,85 @@
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
                   <Setter Property="Opacity" Value=".32"/>
+                </Trigger>
+              </ControlTemplate.Triggers>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
+      <Style x:Key="WindowCloseButton" TargetType="Button" BasedOn="{StaticResource BareIconButton}">
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="Button">
+              <Border x:Name="B" Background="Transparent" CornerRadius="7">
+                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              </Border>
+              <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                  <Setter TargetName="B" Property="Background" Value="#D83B01"/>
+                  <Setter Property="Foreground" Value="#FFFFFF"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                  <Setter TargetName="B" Property="Background" Value="#A80000"/>
+                  <Setter Property="Foreground" Value="#FFFFFF"/>
+                </Trigger>
+              </ControlTemplate.Triggers>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
+      <Style x:Key="HomeQuickPill" TargetType="Button">
+        <Setter Property="Height" Value="40"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="OverridesDefaultStyle" Value="True"/>
+        <Setter Property="Background" Value="#14111E"/>
+        <Setter Property="Foreground" Value="#D6D0E0"/>
+        <Setter Property="BorderBrush" Value="#251F33"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FontSize" Value="12.5"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="Button">
+              <Border x:Name="PillBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="12">
+                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              </Border>
+              <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                  <Setter TargetName="PillBorder" Property="Background" Value="#1E192D"/>
+                  <Setter TargetName="PillBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                  <Setter Property="Foreground" Value="#FFFFFF"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                  <Setter TargetName="PillBorder" Property="Opacity" Value=".75"/>
+                </Trigger>
+              </ControlTemplate.Triggers>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
+      <Style x:Key="HomeRecentTile" TargetType="Button">
+        <Setter Property="Height" Value="86"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="OverridesDefaultStyle" Value="True"/>
+        <Setter Property="Background" Value="#14111E"/>
+        <Setter Property="BorderBrush" Value="#251F33"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="Button">
+              <Border x:Name="TileBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="12">
+                <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+              </Border>
+              <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                  <Setter TargetName="TileBorder" Property="Background" Value="#1E192D"/>
+                  <Setter TargetName="TileBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                  <Setter TargetName="TileBorder" Property="Opacity" Value=".75"/>
                 </Trigger>
               </ControlTemplate.Triggers>
             </ControlTemplate>
@@ -337,96 +423,122 @@
   </Window.Resources>
   <Grid x:Name="RootShell" Background="#0B0912" ClipToBounds="True">
     <Grid.RowDefinitions>
-      <RowDefinition Height="64"/>
+      <RowDefinition Height="52"/>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="*"/>
     </Grid.RowDefinitions>
 
     <!-- ============ TITLEBAR ============ -->
-    <Border x:Name="TitleBar" Grid.Row="0" Background="{DynamicResource TopBrush}" MouseLeftButtonDown="DragArea_MouseLeftButtonDown">
+    <Border x:Name="TitleBar" Grid.Row="0" Background="{DynamicResource TopBrush}" BorderBrush="#1C1828" BorderThickness="0,0,0,1" MouseLeftButtonDown="DragArea_MouseLeftButtonDown">
       <Grid>
 
         <!-- navigation cluster -->
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="12,0,0,0">
-          <Button x:Name="TopMenuButton" Style="{StaticResource TopMenuGlowButton}" Width="22" Height="22" Margin="0,0,10,0" Click="MainMenu_Click" ToolTip="&#x41C;&#x435;&#x43D;&#x44E; Luma">
+          <Button x:Name="TopMenuButton" Style="{StaticResource TopMenuGlowButton}" Width="26" Height="26" Margin="0,0,8,0" Click="MainMenu_Click" ToolTip="Меню Luma">
             <Image Source="Assets/luma-mark.png" Width="18" Height="18" Stretch="Uniform"/>
           </Button>
-          <Button Style="{StaticResource BareIconButton}" Width="22" Height="22" Margin="0,0,10,0" Click="ToggleSidebar_Click" ToolTip="&#x411;&#x43E;&#x43A;&#x43E;&#x432;&#x430;&#x44F; &#x43F;&#x430;&#x43D;&#x435;&#x43B;&#x44C;">
+          <Button Style="{StaticResource BareIconButton}" Width="26" Height="26" Margin="0,0,6,0" Click="ToggleSidebar_Click" ToolTip="Боковая панель">
             <Path Width="15" Height="15" Stretch="Uniform" Data="{StaticResource IconSidebar}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeLineJoin="Round"/>
           </Button>
-          <Button x:Name="BackButton" Style="{StaticResource BareIconButton}" Width="22" Height="22" Margin="0,0,10,0" Click="Back_Click" ToolTip="&#x41D;&#x430;&#x437;&#x430;&#x434;">
+          <Button x:Name="BackButton" Style="{StaticResource BareIconButton}" Width="26" Height="26" Margin="0,0,6,0" Click="Back_Click" ToolTip="Назад">
             <Path Width="14" Height="14" Stretch="Uniform" Data="{StaticResource IconChevronLeft}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
           </Button>
-          <Button x:Name="ForwardButton" Style="{StaticResource BareIconButton}" Width="22" Height="22" Margin="0,0,10,0" Click="Forward_Click" ToolTip="&#x412;&#x43F;&#x435;&#x440;&#x451;&#x434;">
+          <Button x:Name="ForwardButton" Style="{StaticResource BareIconButton}" Width="26" Height="26" Margin="0,0,6,0" Click="Forward_Click" ToolTip="Вперёд">
             <Path Width="14" Height="14" Stretch="Uniform" Data="{StaticResource IconChevronRight}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
           </Button>
-          <Button Style="{StaticResource BareIconButton}" Width="22" Height="22" Click="Reload_Click" ToolTip="&#x41E;&#x431;&#x43D;&#x43E;&#x432;&#x438;&#x442;&#x44C;">
+          <Button Style="{StaticResource BareIconButton}" Width="26" Height="26" Click="Reload_Click" ToolTip="Обновить">
             <Path Width="14" Height="14" Stretch="Uniform" Data="{StaticResource IconReload}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
           </Button>
         </StackPanel>
 
         <!-- address pill -->
-        <Border Height="32" CornerRadius="8" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="10,0" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <Border Height="34" CornerRadius="17" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="6,0,8,0" HorizontalAlignment="Center" VerticalAlignment="Center">
           <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-            <Button x:Name="CopyUrlButton" Style="{StaticResource BareIconButton}" Width="18" Height="18" Margin="0,0,6,0" Click="CopyUrl_Click" Foreground="{DynamicResource ChromeIconMuted}" ToolTip="&#x421;&#x43A;&#x43E;&#x43F;&#x438;&#x440;&#x43E;&#x432;&#x430;&#x442;&#x44C; &#x430;&#x434;&#x440;&#x435;&#x441;">
-              <Path Width="14" Height="14" Stretch="Uniform" Data="{StaticResource IconCopy}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+            <Button x:Name="CopyUrlButton" Style="{StaticResource BareIconButton}" Width="22" Height="22" Margin="0,0,4,0" Click="CopyUrl_Click" Foreground="{DynamicResource ChromeIconMuted}" ToolTip="Скопировать адрес">
+              <Path Width="13" Height="13" Stretch="Uniform" Data="{StaticResource IconCopy}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
             </Button>
-            <Border x:Name="DomainPill" Background="Transparent" Margin="0,0,8,0" Cursor="Hand" MouseLeftButtonUp="DomainPill_Click" VerticalAlignment="Center">
-              <TextBlock x:Name="DomainText" Text="&#x41D;&#x43E;&#x432;&#x430;&#x44F; &#x432;&#x43A;&#x43B;&#x430;&#x434;&#x43A;&#x430;" Foreground="#E6E4EC" FontFamily="Segoe UI Variable Display, Segoe UI" FontSize="13.5" FontWeight="SemiBold" MaxWidth="420" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+            <Border x:Name="DomainPill" Background="Transparent" Margin="2,0,8,0" Cursor="Hand" MouseLeftButtonUp="DomainPill_Click" VerticalAlignment="Center">
+              <TextBlock x:Name="DomainText" Text="Новая вкладка" Foreground="#ECE8F5" FontFamily="Segoe UI Variable Display, Segoe UI" FontSize="13" FontWeight="SemiBold" MaxWidth="380" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
             </Border>
-            <Button x:Name="TranslateButton" Style="{StaticResource BareIconButton}" Width="18" Height="18" Margin="0,0,6,0" Click="TranslateButton_Click" Foreground="{DynamicResource ChromeIconMuted}" ToolTip="&#x41F;&#x435;&#x440;&#x435;&#x432;&#x435;&#x441;&#x442;&#x438; &#x441;&#x442;&#x440;&#x430;&#x43D;&#x438;&#x446;&#x443;">
-              <Path x:Name="TranslateIcon" Width="14" Height="14" Stretch="Uniform" Data="{StaticResource IconGlobe}" Fill="Transparent" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round" RenderTransformOrigin="0.5,0.5">
+            <Button x:Name="TranslateButton" Style="{StaticResource BareIconButton}" Width="22" Height="22" Margin="0,0,4,0" Click="TranslateButton_Click" Foreground="{DynamicResource ChromeIconMuted}" ToolTip="Перевести страницу">
+              <Path x:Name="TranslateIcon" Width="13" Height="13" Stretch="Uniform" Data="{StaticResource IconGlobe}" Fill="Transparent" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round" RenderTransformOrigin="0.5,0.5">
                 <Path.RenderTransform>
                   <RotateTransform Angle="0"/>
                 </Path.RenderTransform>
               </Path>
             </Button>
-            <Button x:Name="SplitButton" Style="{StaticResource BareIconButton}" Width="18" Height="18" Margin="0,0,6,0" Click="SplitButton_Click" Foreground="{DynamicResource ChromeIconMuted}" ToolTip="Split View">
-              <Path Width="14" Height="14" Stretch="Uniform" Data="{StaticResource IconSplit}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeLineJoin="Round"/>
+            <Button x:Name="SplitButton" Style="{StaticResource BareIconButton}" Width="22" Height="22" Margin="0,0,4,0" Click="SplitButton_Click" Foreground="{DynamicResource ChromeIconMuted}" ToolTip="Split View">
+              <Path Width="13" Height="13" Stretch="Uniform" Data="{StaticResource IconSplit}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeLineJoin="Round"/>
             </Button>
-            <Button x:Name="SiteSettingsButton" Style="{StaticResource BareIconButton}" Width="18" Height="18" Click="SiteSettings_Click" Foreground="{DynamicResource ChromeIconMuted}" ToolTip="&#x41F;&#x430;&#x440;&#x430;&#x43C;&#x435;&#x442;&#x440;&#x44B; &#x441;&#x430;&#x439;&#x442;&#x430;">
-              <Path Width="14" Height="14" Stretch="Uniform" Data="{StaticResource IconSlidersHorizontal}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+            <Button x:Name="SiteSettingsButton" Style="{StaticResource BareIconButton}" Width="22" Height="22" Click="SiteSettings_Click" Foreground="{DynamicResource ChromeIconMuted}" ToolTip="Параметры сайта">
+              <Path Width="13" Height="13" Stretch="Uniform" Data="{StaticResource IconSlidersHorizontal}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
             </Button>
           </StackPanel>
         </Border>
 
         <!-- window controls -->
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,16,0">
-          <Border x:Name="NowPlayingWidget" Visibility="Collapsed" Height="42" MinWidth="210" MaxWidth="282" Padding="6,0,7,0" Margin="0,0,12,0" CornerRadius="10" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Cursor="Hand" MouseLeftButtonUp="NowPlayingWidget_Click" ToolTip="Открыть медиаплеер">
-            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="32"/><ColumnDefinition Width="*"/><ColumnDefinition Width="32"/></Grid.ColumnDefinitions>
-              <Grid Width="30" Height="30"><Border CornerRadius="9" Background="{DynamicResource SurfaceRaisedBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"/><Path x:Name="NowPlayingPillFallbackIcon" Width="13" Height="13" Stretch="Uniform" Data="{StaticResource IconMusicNote}" Fill="Transparent" Stroke="{DynamicResource AccentMutedBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center"/><Image x:Name="NowPlayingPillArt" Visibility="Collapsed" Stretch="UniformToFill"><Image.Clip><RectangleGeometry Rect="0,0,30,30" RadiusX="10" RadiusY="10"/></Image.Clip></Image></Grid>
-              <StackPanel Grid.Column="1" Margin="9,0,8,0" VerticalAlignment="Center"><TextBlock x:Name="NowPlayingPillTitle" Foreground="#F6F2FA" FontSize="12.5" FontWeight="Bold" MaxWidth="165" TextTrimming="CharacterEllipsis"/><TextBlock x:Name="NowPlayingPillArtist" Foreground="#948AA1" FontSize="9.5" FontWeight="SemiBold" MaxWidth="165" TextTrimming="CharacterEllipsis" Margin="0,1,0,0"/></StackPanel>
-              <Grid Grid.Column="2" Width="30" Height="30"><Border CornerRadius="15" Background="{DynamicResource SurfaceRaisedBrush}" BorderBrush="{DynamicResource BorderStrongBrush}" BorderThickness="1"/><Path x:Name="NowPlayingToggleIcon" Width="10" Height="10" Stretch="Uniform" Data="{StaticResource IconPause}" Fill="Transparent" Stroke="#F7F3FA" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/><Button Style="{StaticResource BareIconButton}" Width="30" Height="30" Background="Transparent" Click="NowPlayingToggle_Click" ToolTip="Воспроизведение / пауза"/></Grid>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,14,0">
+          <Border x:Name="NowPlayingWidget" Visibility="Collapsed" Height="34" MinWidth="190" MaxWidth="260" Padding="5,0,6,0" Margin="0,0,10,0" CornerRadius="17" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Cursor="Hand" MouseLeftButtonUp="NowPlayingWidget_Click" ToolTip="Открыть медиаплеер">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="26"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="26"/>
+              </Grid.ColumnDefinitions>
+              <Grid Width="24" Height="24">
+                <Border CornerRadius="12" Background="{DynamicResource SurfaceRaisedBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"/>
+                <Path x:Name="NowPlayingPillFallbackIcon" Width="11" Height="11" Stretch="Uniform" Data="{StaticResource IconMusicNote}" Fill="Transparent" Stroke="{DynamicResource AccentMutedBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <Image x:Name="NowPlayingPillArt" Visibility="Collapsed" Stretch="UniformToFill">
+                  <Image.Clip>
+                    <RectangleGeometry Rect="0,0,24,24" RadiusX="12" RadiusY="12"/>
+                  </Image.Clip>
+                </Image>
+              </Grid>
+              <StackPanel Grid.Column="1" Margin="8,0,7,0" VerticalAlignment="Center">
+                <TextBlock x:Name="NowPlayingPillTitle" Foreground="#F6F2FA" FontSize="11.5" FontWeight="Bold" MaxWidth="150" TextTrimming="CharacterEllipsis"/>
+                <TextBlock x:Name="NowPlayingPillArtist" Foreground="#948AA1" FontSize="9" FontWeight="SemiBold" MaxWidth="150" TextTrimming="CharacterEllipsis" Margin="0,1,0,0"/>
+              </StackPanel>
+              <Grid Grid.Column="2" Width="24" Height="24">
+                <Border CornerRadius="12" Background="{DynamicResource SurfaceRaisedBrush}" BorderBrush="{DynamicResource BorderStrongBrush}" BorderThickness="1"/>
+                <Path x:Name="NowPlayingToggleIcon" Width="9" Height="9" Stretch="Uniform" Data="{StaticResource IconPause}" Fill="Transparent" Stroke="#F7F3FA" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                <Button Style="{StaticResource BareIconButton}" Width="24" Height="24" Background="Transparent" Click="NowPlayingToggle_Click" ToolTip="Воспроизведение / пауза"/>
+              </Grid>
             </Grid>
           </Border>
-          <Button x:Name="TelegramAiButton" Style="{StaticResource BareIconButton}" Width="30" Height="30" Margin="0,0,5,0" Click="TelegramAi_Click" ToolTip="Режим ИИ-автоответа (F10 - ВКЛ, F12 - ВЫКЛ)" Visibility="Collapsed">
-            <Grid Width="30" Height="30">
-              <Path Width="16" Height="16" Stretch="Uniform" Data="{StaticResource IconWandSparkles}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.8" StrokeLineJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-              <Ellipse x:Name="TelegramAiStatusDot" Width="8" Height="8" Fill="#FF4D4D" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,2,2,0" Stroke="{DynamicResource TopBrush}" StrokeThickness="1.5"/>
-            </Grid>
-          </Button>
-          <Button x:Name="DownloadButton" Style="{StaticResource BareIconButton}" Width="30" Height="30" Margin="0,0,10,0" Click="Downloads_Click" ToolTip="Загрузки">
-            <Grid Width="30" Height="30">
-              <Path x:Name="DownloadIdleIcon" Width="16" Height="16" Stretch="Uniform" Data="{StaticResource IconDownload}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.9" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-              <Grid x:Name="DownloadActivityIndicator" Width="25" Height="25" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
+          <Button x:Name="DownloadButton" Style="{StaticResource BareIconButton}" Width="28" Height="28" Margin="0,0,8,0" Click="Downloads_Click" ToolTip="Загрузки">
+            <Grid Width="28" Height="28">
+              <Path x:Name="DownloadIdleIcon" Width="15" Height="15" Stretch="Uniform" Data="{StaticResource IconDownload}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.9" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              <Grid x:Name="DownloadActivityIndicator" Width="22" Height="22" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
                 <Ellipse Margin="1" Stroke="{DynamicResource AccentSoftBrush}" StrokeThickness="2" Opacity=".75"/>
-                <Grid Width="25" Height="25" RenderTransformOrigin=".5,.5"><Grid.RenderTransform><RotateTransform x:Name="DownloadActivityRotate"/></Grid.RenderTransform><Path Data="M 12.5 1 A 11.5 11.5 0 0 1 24 12.5" Stroke="{DynamicResource AccentMutedBrush}" StrokeThickness="2.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Stretch="None" HorizontalAlignment="Left" VerticalAlignment="Top"/></Grid>
+                <Grid Width="22" Height="22" RenderTransformOrigin=".5,.5">
+                  <Grid.RenderTransform>
+                    <RotateTransform x:Name="DownloadActivityRotate"/>
+                  </Grid.RenderTransform>
+                  <Path Data="M 11 1 A 10 10 0 0 1 21 11" Stroke="{DynamicResource AccentMutedBrush}" StrokeThickness="2.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Stretch="None" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                </Grid>
               </Grid>
-              <Border x:Name="DownloadBadge" Visibility="Collapsed" MinWidth="15" Height="15" CornerRadius="7.5" Background="{DynamicResource AccentBrush}" BorderBrush="{DynamicResource TopBrush}" BorderThickness="1.5" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-3,-3,0">
-                <TextBlock x:Name="DownloadBadgeText" Text="1" Foreground="White" FontSize="8" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="3,0"/>
+              <Border x:Name="DownloadBadge" Visibility="Collapsed" MinWidth="14" Height="14" CornerRadius="7" Background="{DynamicResource AccentBrush}" BorderBrush="{DynamicResource TopBrush}" BorderThickness="1.5" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-2,-2,0">
+                <TextBlock x:Name="DownloadBadgeText" Text="1" Foreground="White" FontSize="7.5" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="2.5,0"/>
               </Border>
             </Grid>
           </Button>
-          <Button x:Name="AssistantButton" Style="{StaticResource AssistantPill}" Margin="0,0,12,0" Click="Assistant_Click" ToolTip="Открыть LumaAI (Ctrl+J)"><StackPanel Orientation="Horizontal" VerticalAlignment="Center"><Border Width="24" Height="24" CornerRadius="8" Background="{DynamicResource AccentSoftBrush}" Margin="0,0,9,0"><Image Source="Assets/luma-assistant.png" Width="20" Height="20" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><StackPanel VerticalAlignment="Center"><TextBlock Text="Спросить LumaAI" FontFamily="Segoe UI Variable Display, Segoe UI" FontSize="12" FontWeight="SemiBold" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/><TextBlock Text="по текущей странице" FontFamily="Segoe UI Variable Display, Segoe UI" FontSize="8.5" Foreground="{DynamicResource ChromeMuted}" Margin="0,-1,0,0"/></StackPanel></StackPanel></Button>
-          <Border Width="1" Height="18" Background="{DynamicResource BorderBrush}" Margin="0,0,12,0" VerticalAlignment="Center"/>
-          <Button Style="{StaticResource BareIconButton}" Width="24" Height="24" Margin="0,0,8,0" Click="MinimizeWindow_Click" ToolTip="&#x421;&#x432;&#x435;&#x440;&#x43D;&#x443;&#x442;&#x44C;">
-            <Path Width="16" Height="16" Stretch="Uniform" Data="{StaticResource IconMinus}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+          <Button x:Name="AssistantButton" Style="{StaticResource AssistantPill}" Margin="0,0,10,0" Click="Assistant_Click" ToolTip="Открыть LumaAI (Ctrl+J)">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+              <Border Width="22" Height="22" CornerRadius="11" Background="{DynamicResource AccentSoftBrush}" Margin="0,0,7,0">
+                <Image Source="Assets/luma-assistant.png" Width="16" Height="16" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              </Border>
+              <TextBlock Text="LumaAI" FontFamily="Segoe UI Variable Display, Segoe UI" FontSize="12" FontWeight="SemiBold" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" VerticalAlignment="Center"/>
+            </StackPanel>
           </Button>
-          <Button Style="{StaticResource BareIconButton}" Width="24" Height="24" Margin="0,0,8,0" Click="MaximizeWindow_Click" ToolTip="&#x420;&#x430;&#x437;&#x432;&#x435;&#x440;&#x43D;&#x443;&#x442;&#x44C;">
-            <Path Width="16" Height="16" Stretch="Uniform" Data="{StaticResource IconSquare}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeLineJoin="Round"/>
+          <Border Width="1" Height="16" Background="{DynamicResource BorderBrush}" Margin="2,0,8,0" VerticalAlignment="Center"/>
+          <Button Style="{StaticResource BareIconButton}" Width="26" Height="26" Margin="0,0,5,0" Click="MinimizeWindow_Click" ToolTip="Свернуть">
+            <Path Width="14" Height="14" Stretch="Uniform" Data="{StaticResource IconMinus}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
           </Button>
-          <Button Style="{StaticResource BareIconButton}" Width="24" Height="24" Click="CloseWindow_Click" ToolTip="&#x417;&#x430;&#x43A;&#x440;&#x44B;&#x442;&#x44C;">
-            <Path Width="16" Height="16" Stretch="Uniform" Data="{StaticResource IconX}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+          <Button Style="{StaticResource BareIconButton}" Width="26" Height="26" Margin="0,0,5,0" Click="MaximizeWindow_Click" ToolTip="Развернуть">
+            <Path Width="14" Height="14" Stretch="Uniform" Data="{StaticResource IconSquare}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeLineJoin="Round"/>
+          </Button>
+          <Button Style="{StaticResource WindowCloseButton}" Width="26" Height="26" Click="CloseWindow_Click" ToolTip="Закрыть">
+            <Path Width="14" Height="14" Stretch="Uniform" Data="{StaticResource IconX}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
           </Button>
         </StackPanel>
       </Grid>
@@ -606,25 +718,150 @@
           <Rectangle IsHitTestVisible="False"><Rectangle.Fill><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#0CFFFFFF"/><GradientStop Color="#00000000" Offset=".42"/><GradientStop Color="#12000000" Offset="1"/></LinearGradientBrush></Rectangle.Fill></Rectangle>
           <Image Source="Assets/noise.png" Stretch="UniformToFill" Opacity=".032" IsHitTestVisible="False"/>
 
-          <Grid x:Name="HomeSurfaceContent" MaxWidth="1040" Margin="46" HorizontalAlignment="Center" VerticalAlignment="Center">
-            <StackPanel MaxWidth="850">
-              <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><Border Width="52" Height="52" CornerRadius="17" Background="{DynamicResource AccentSoftBrush}" BorderBrush="{DynamicResource BorderStrongBrush}" BorderThickness="1"><Image Source="Assets/luma-mark.png" Width="34" Height="34"/></Border><TextBlock Text="Luma" Foreground="#FAF8FC" FontSize="29" FontWeight="Bold" Margin="15,0,0,0" VerticalAlignment="Center"/></StackPanel>
-              <TextBlock Text="Куда отправимся?" Foreground="#FAF8FC" FontFamily="Segoe UI Variable Display, Segoe UI" FontSize="43" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,29,0,0"/>
-              <Border Height="64" Width="760" CornerRadius="20" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderStrongBrush}" BorderThickness="1.2" Margin="0,27,0,0" Padding="19,0">
-                <Border.Effect><DropShadowEffect Color="#000000" BlurRadius="26" ShadowDepth="8" Opacity=".34"/></Border.Effect>
-                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="34"/><ColumnDefinition/><ColumnDefinition Width="50"/></Grid.ColumnDefinitions><Path Stretch="Uniform" Width="19" Height="19" Data="{StaticResource IconSearch}" Stroke="{DynamicResource AccentMutedBrush}" StrokeThickness="2"/><Grid Grid.Column="1"><TextBlock x:Name="HomeSearchPlaceholder" Text="Поиск или адрес сайта" Foreground="{DynamicResource ChromeMuted}" FontSize="16" VerticalAlignment="Center" IsHitTestVisible="False"/><TextBox x:Name="HomeSearchBox" Background="Transparent" BorderThickness="0" Foreground="#FAF8FC" CaretBrush="{DynamicResource AccentMutedBrush}" FontSize="17" FontWeight="Medium" VerticalContentAlignment="Center" TextChanged="HomeSearchBox_TextChanged" KeyDown="HomeSearchBox_KeyDown"/></Grid><Button Grid.Column="2" Width="42" Height="42" Background="{DynamicResource AccentBrush}" BorderThickness="0" FocusVisualStyle="{x:Null}" OverridesDefaultStyle="True" Cursor="Hand" Click="HomeSearchSubmit_Click" ToolTip="Искать"><Button.Template><ControlTemplate TargetType="Button"><Border x:Name="SearchGo" Background="{TemplateBinding Background}" CornerRadius="13"><Path Stretch="Uniform" Width="17" Height="17" Data="{StaticResource IconArrowRight}" Stroke="White" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="SearchGo" Property="Opacity" Value=".88"/></Trigger><Trigger Property="IsPressed" Value="True"><Setter TargetName="SearchGo" Property="Opacity" Value=".68"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Button.Template></Button></Grid>
+          <Grid x:Name="HomeSurfaceContent" MaxWidth="820" Margin="40,20" HorizontalAlignment="Center" VerticalAlignment="Center">
+            <StackPanel MaxWidth="660" HorizontalAlignment="Center">
+              <!-- Minimalist Logo & Brand -->
+              <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,16">
+                <Border Width="44" Height="44" CornerRadius="13" Background="{DynamicResource AccentSoftBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+                  <Border.Effect>
+                    <DropShadowEffect Color="#7468C7" BlurRadius="20" ShadowDepth="0" Opacity=".22"/>
+                  </Border.Effect>
+                  <Image Source="Assets/luma-mark.png" Width="26" Height="26" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <TextBlock Text="Luma" Foreground="#FAF8FC" FontSize="26" FontWeight="SemiBold" Margin="14,0,0,0" VerticalAlignment="Center"/>
+              </StackPanel>
+
+              <!-- Elegant Minimalist Headline -->
+              <TextBlock Text="Куда отправимся?" Foreground="#ECE7F5" FontFamily="Segoe UI Variable Display, Segoe UI" FontSize="35" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,0,0,24">
+                <TextBlock.Effect>
+                  <DropShadowEffect Color="#000000" BlurRadius="14" ShadowDepth="2" Opacity=".3"/>
+                </TextBlock.Effect>
+              </TextBlock>
+
+              <!-- Minimalist Search Capsule -->
+              <Border Height="54" Width="640" CornerRadius="27" Background="#161322" BorderBrush="{DynamicResource BorderStrongBrush}" BorderThickness="1" Margin="0,0,0,16" Padding="18,0,9,0">
+                <Border.Effect>
+                  <DropShadowEffect Color="#000000" BlurRadius="24" ShadowDepth="6" Opacity=".3"/>
+                </Border.Effect>
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="26"/>
+                    <ColumnDefinition/>
+                    <ColumnDefinition Width="40"/>
+                  </Grid.ColumnDefinitions>
+                  <Path Stretch="Uniform" Width="16" Height="16" Data="{StaticResource IconSearch}" Stroke="{DynamicResource AccentMutedBrush}" StrokeThickness="2" VerticalAlignment="Center"/>
+                  <Grid Grid.Column="1" Margin="8,0,10,0">
+                    <TextBlock x:Name="HomeSearchPlaceholder" Text="Поиск в интернете или адрес сайта..." Foreground="{DynamicResource ChromeMuted}" FontSize="15" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                    <TextBox x:Name="HomeSearchBox" Background="Transparent" BorderThickness="0" Foreground="#FAF8FC" CaretBrush="{DynamicResource AccentMutedBrush}" FontSize="15" FontWeight="Normal" VerticalContentAlignment="Center" TextChanged="HomeSearchBox_TextChanged" KeyDown="HomeSearchBox_KeyDown"/>
+                  </Grid>
+                  <Button Grid.Column="2" Width="36" Height="36" Background="{DynamicResource AccentBrush}" BorderThickness="0" FocusVisualStyle="{x:Null}" OverridesDefaultStyle="True" Cursor="Hand" Click="HomeSearchSubmit_Click" ToolTip="Искать">
+                    <Button.Template>
+                      <ControlTemplate TargetType="Button">
+                        <Border x:Name="SearchGo" Background="{TemplateBinding Background}" CornerRadius="18">
+                          <Path Stretch="Uniform" Width="14" Height="14" Data="{StaticResource IconArrowRight}" Stroke="White" StrokeThickness="2.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                          <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="SearchGo" Property="Opacity" Value=".88"/>
+                          </Trigger>
+                          <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="SearchGo" Property="Opacity" Value=".68"/>
+                          </Trigger>
+                        </ControlTemplate.Triggers>
+                      </ControlTemplate>
+                    </Button.Template>
+                  </Button>
+                </Grid>
               </Border>
-              <Grid Width="760" Margin="0,18,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition/></Grid.ColumnDefinitions>
-                <Button Grid.Column="0" Style="{StaticResource AccountGhost}" Height="52" Click="Assistant_Click"><StackPanel Orientation="Horizontal"><Path Stretch="Uniform" Width="17" Height="17" Data="{StaticResource IconSpark}" Fill="Transparent" Stroke="{DynamicResource AccentMutedBrush}" StrokeThickness="1.8" StrokeLineJoin="Round"/><TextBlock Text="LumaAI" Margin="8,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
-                <Button Grid.Column="2" Style="{StaticResource AccountGhost}" Height="52" Click="History_Click"><StackPanel Orientation="Horizontal"><Path Stretch="Uniform" Width="17" Height="17" Data="{StaticResource IconHistory}" Fill="Transparent" Stroke="{DynamicResource AccentMutedBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round"/><TextBlock Text="История" Margin="8,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
-                <Button Grid.Column="4" Style="{StaticResource AccountGhost}" Height="52" Click="Settings_Click"><StackPanel Orientation="Horizontal"><Path Stretch="Uniform" Width="17" Height="17" Data="{StaticResource IconGear}" Fill="Transparent" Stroke="{DynamicResource AccentMutedBrush}" StrokeThickness="1.7" StrokeLineJoin="Round"/><TextBlock Text="Настройки" Margin="8,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
-                <Button Grid.Column="6" Style="{StaticResource AccountGhost}" Height="52" Click="Account_Click"><StackPanel Orientation="Horizontal"><Path Stretch="Uniform" Width="17" Height="17" Data="{StaticResource IconUserRound}" Fill="Transparent" Stroke="{DynamicResource AccentMutedBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round"/><TextBlock Text="Аккаунт" Margin="8,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
+
+              <!-- Quick Action Pills Row -->
+              <Grid Width="640">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition/>
+                  <ColumnDefinition Width="10"/>
+                  <ColumnDefinition/>
+                  <ColumnDefinition Width="10"/>
+                  <ColumnDefinition/>
+                  <ColumnDefinition Width="10"/>
+                  <ColumnDefinition/>
+                </Grid.ColumnDefinitions>
+                <Button Grid.Column="0" Style="{StaticResource HomeQuickPill}" Click="Assistant_Click">
+                  <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                    <Path Stretch="Uniform" Width="15" Height="15" Data="{StaticResource IconSpark}" Fill="Transparent" Stroke="{DynamicResource AccentMutedBrush}" StrokeThickness="1.8" StrokeLineJoin="Round"/>
+                    <TextBlock Text="LumaAI" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                  </StackPanel>
+                </Button>
+                <Button Grid.Column="2" Style="{StaticResource HomeQuickPill}" Click="History_Click">
+                  <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                    <Path Stretch="Uniform" Width="15" Height="15" Data="{StaticResource IconHistory}" Fill="Transparent" Stroke="{DynamicResource AccentMutedBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round"/>
+                    <TextBlock Text="История" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                  </StackPanel>
+                </Button>
+                <Button Grid.Column="4" Style="{StaticResource HomeQuickPill}" Click="Settings_Click">
+                  <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                    <Path Stretch="Uniform" Width="15" Height="15" Data="{StaticResource IconGear}" Fill="Transparent" Stroke="{DynamicResource AccentMutedBrush}" StrokeThickness="1.7" StrokeLineJoin="Round"/>
+                    <TextBlock Text="Настройки" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                  </StackPanel>
+                </Button>
+                <Button Grid.Column="6" Style="{StaticResource HomeQuickPill}" Click="Account_Click">
+                  <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                    <Path Stretch="Uniform" Width="15" Height="15" Data="{StaticResource IconUserRound}" Fill="Transparent" Stroke="{DynamicResource AccentMutedBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round"/>
+                    <TextBlock Text="Аккаунт" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                  </StackPanel>
+                </Button>
               </Grid>
-              <Grid x:Name="HomeRecentSitesGrid" Width="760" Margin="0,20,0,0" Visibility="Collapsed"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition/></Grid.ColumnDefinitions>
-                <Button x:Name="HomeRecentButton1" Grid.Column="0" Style="{StaticResource AccountGhost}" Height="112" Click="HomeRecentSite_Click"><StackPanel Margin="13,10"><Grid Width="32" Height="32" HorizontalAlignment="Left"><Border CornerRadius="9" Background="{DynamicResource SurfaceInsetBrush}"/><Image x:Name="HomeRecentIcon1" Width="18" Height="18" ImageFailed="HomeRecentIcon_Failed"/></Grid><TextBlock x:Name="HomeRecentTitle1" Foreground="#F2EFF5" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="0,10,0,0"/><TextBlock x:Name="HomeRecentDomain1" Foreground="{DynamicResource ChromeMuted}" FontSize="10.5" TextTrimming="CharacterEllipsis" Margin="0,3,0,0"/></StackPanel></Button>
-                <Button x:Name="HomeRecentButton2" Grid.Column="2" Style="{StaticResource AccountGhost}" Height="112" Click="HomeRecentSite_Click"><StackPanel Margin="13,10"><Grid Width="32" Height="32" HorizontalAlignment="Left"><Border CornerRadius="9" Background="{DynamicResource SurfaceInsetBrush}"/><Image x:Name="HomeRecentIcon2" Width="18" Height="18" ImageFailed="HomeRecentIcon_Failed"/></Grid><TextBlock x:Name="HomeRecentTitle2" Foreground="#F2EFF5" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="0,10,0,0"/><TextBlock x:Name="HomeRecentDomain2" Foreground="{DynamicResource ChromeMuted}" FontSize="10.5" TextTrimming="CharacterEllipsis" Margin="0,3,0,0"/></StackPanel></Button>
-                <Button x:Name="HomeRecentButton3" Grid.Column="4" Style="{StaticResource AccountGhost}" Height="112" Click="HomeRecentSite_Click"><StackPanel Margin="13,10"><Grid Width="32" Height="32" HorizontalAlignment="Left"><Border CornerRadius="9" Background="{DynamicResource SurfaceInsetBrush}"/><Image x:Name="HomeRecentIcon3" Width="18" Height="18" ImageFailed="HomeRecentIcon_Failed"/></Grid><TextBlock x:Name="HomeRecentTitle3" Foreground="#F2EFF5" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="0,10,0,0"/><TextBlock x:Name="HomeRecentDomain3" Foreground="{DynamicResource ChromeMuted}" FontSize="10.5" TextTrimming="CharacterEllipsis" Margin="0,3,0,0"/></StackPanel></Button>
-                <Button x:Name="HomeRecentButton4" Grid.Column="6" Style="{StaticResource AccountGhost}" Height="112" Click="HomeRecentSite_Click"><StackPanel Margin="13,10"><Grid Width="32" Height="32" HorizontalAlignment="Left"><Border CornerRadius="9" Background="{DynamicResource SurfaceInsetBrush}"/><Image x:Name="HomeRecentIcon4" Width="18" Height="18" ImageFailed="HomeRecentIcon_Failed"/></Grid><TextBlock x:Name="HomeRecentTitle4" Foreground="#F2EFF5" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="0,10,0,0"/><TextBlock x:Name="HomeRecentDomain4" Foreground="{DynamicResource ChromeMuted}" FontSize="10.5" TextTrimming="CharacterEllipsis" Margin="0,3,0,0"/></StackPanel></Button>
+
+              <!-- Recent Sites Modern Grid -->
+              <Grid x:Name="HomeRecentSitesGrid" Width="640" Margin="0,20,0,0" Visibility="Collapsed">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition/>
+                  <ColumnDefinition Width="10"/>
+                  <ColumnDefinition/>
+                  <ColumnDefinition Width="10"/>
+                  <ColumnDefinition/>
+                  <ColumnDefinition Width="10"/>
+                  <ColumnDefinition/>
+                </Grid.ColumnDefinitions>
+                <Button x:Name="HomeRecentButton1" Grid.Column="0" Style="{StaticResource HomeRecentTile}" Click="HomeRecentSite_Click">
+                  <StackPanel Margin="12,11">
+                    <Grid Width="28" Height="28" HorizontalAlignment="Left">
+                      <Border CornerRadius="8" Background="{DynamicResource SurfaceInsetBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"/>
+                      <Image x:Name="HomeRecentIcon1" Width="16" Height="16" ImageFailed="HomeRecentIcon_Failed"/>
+                    </Grid>
+                    <TextBlock x:Name="HomeRecentTitle1" Foreground="#FAF8FC" FontSize="12.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="0,8,0,0"/>
+                    <TextBlock x:Name="HomeRecentDomain1" Foreground="{DynamicResource ChromeMuted}" FontSize="10.5" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
+                  </StackPanel>
+                </Button>
+                <Button x:Name="HomeRecentButton2" Grid.Column="2" Style="{StaticResource HomeRecentTile}" Click="HomeRecentSite_Click">
+                  <StackPanel Margin="12,11">
+                    <Grid Width="28" Height="28" HorizontalAlignment="Left">
+                      <Border CornerRadius="8" Background="{DynamicResource SurfaceInsetBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"/>
+                      <Image x:Name="HomeRecentIcon2" Width="16" Height="16" ImageFailed="HomeRecentIcon_Failed"/>
+                    </Grid>
+                    <TextBlock x:Name="HomeRecentTitle2" Foreground="#FAF8FC" FontSize="12.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="0,8,0,0"/>
+                    <TextBlock x:Name="HomeRecentDomain2" Foreground="{DynamicResource ChromeMuted}" FontSize="10.5" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
+                  </StackPanel>
+                </Button>
+                <Button x:Name="HomeRecentButton3" Grid.Column="4" Style="{StaticResource HomeRecentTile}" Click="HomeRecentSite_Click">
+                  <StackPanel Margin="12,11">
+                    <Grid Width="28" Height="28" HorizontalAlignment="Left">
+                      <Border CornerRadius="8" Background="{DynamicResource SurfaceInsetBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"/>
+                      <Image x:Name="HomeRecentIcon3" Width="16" Height="16" ImageFailed="HomeRecentIcon_Failed"/>
+                    </Grid>
+                    <TextBlock x:Name="HomeRecentTitle3" Foreground="#FAF8FC" FontSize="12.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="0,8,0,0"/>
+                    <TextBlock x:Name="HomeRecentDomain3" Foreground="{DynamicResource ChromeMuted}" FontSize="10.5" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
+                  </StackPanel>
+                </Button>
+                <Button x:Name="HomeRecentButton4" Grid.Column="6" Style="{StaticResource HomeRecentTile}" Click="HomeRecentSite_Click">
+                  <StackPanel Margin="12,11">
+                    <Grid Width="28" Height="28" HorizontalAlignment="Left">
+                      <Border CornerRadius="8" Background="{DynamicResource SurfaceInsetBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"/>
+                      <Image x:Name="HomeRecentIcon4" Width="16" Height="16" ImageFailed="HomeRecentIcon_Failed"/>
+                    </Grid>
+                    <TextBlock x:Name="HomeRecentTitle4" Foreground="#FAF8FC" FontSize="12.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="0,8,0,0"/>
+                    <TextBlock x:Name="HomeRecentDomain4" Foreground="{DynamicResource ChromeMuted}" FontSize="10.5" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
+                  </StackPanel>
+                </Button>
               </Grid>
             </StackPanel>
           </Grid>
@@ -754,40 +991,6 @@
         <Grid x:Name="AssistantHost" Background="{DynamicResource PanelBrush}"/>
       </Border>
     </Grid>
-
-    <Popup x:Name="TelegramAiPopup" AllowsTransparency="True" PopupAnimation="Slide" Placement="Bottom" PlacementTarget="{Binding ElementName=TelegramAiButton}" StaysOpen="False" HorizontalOffset="-364" VerticalOffset="10">
-      <Border Width="380" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="15">
-        <Border.Effect><DropShadowEffect BlurRadius="25" ShadowDepth="10" Direction="270" Color="Black" Opacity="0.5"/></Border.Effect>
-        <StackPanel>
-          <Grid Margin="0,0,0,12">
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-              <Ellipse x:Name="TelegramAiPopupStatusDot" Width="10" Height="10" Fill="#FF4D4D" Margin="0,0,8,0"/>
-              <TextBlock x:Name="TelegramAiPopupStatusText" Text="Статус: Не работает" Foreground="{DynamicResource ChromeForeground}" FontSize="13" FontWeight="Bold"/>
-            </StackPanel>
-          </Grid>
-          
-          <Grid Margin="0,0,0,15">
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="*"/>
-              <ColumnDefinition Width="8"/>
-              <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-            <Button x:Name="TelegramAiStartBtn" Grid.Column="0" Content="Включить (F10)" Height="32" Click="TelegramAiStart_Click" Background="{DynamicResource AccentBrush}" Foreground="White" FontWeight="SemiBold" BorderThickness="0">
-              <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="6"/></Style></Button.Resources>
-            </Button>
-            <Button x:Name="TelegramAiStopBtn" Grid.Column="2" Content="Выключить (F12)" Height="32" Click="TelegramAiStop_Click" Background="{DynamicResource SurfaceInsetBrush}" Foreground="{DynamicResource ChromeForeground}" FontWeight="SemiBold" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
-              <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="6"/></Style></Button.Resources>
-            </Button>
-          </Grid>
-
-          <TextBlock Text="Промпт для ИИ" Foreground="{DynamicResource ChromeMuted}" FontSize="12" Margin="0,0,0,5"/>
-          <Border CornerRadius="8" BorderThickness="1" BorderBrush="{DynamicResource BorderBrush}">
-            <TextBox x:Name="TelegramAiPromptBox" Text="{Binding TelegramAiPrompt, Mode=TwoWay}" TextWrapping="Wrap" AcceptsReturn="True" Height="100" Padding="10" Background="{DynamicResource SurfaceInsetBrush}" BorderThickness="0" Foreground="{DynamicResource ChromeForeground}" FontSize="13" TextChanged="TelegramAiPromptBox_TextChanged"/>
-          </Border>
-          <TextBlock Text="ИИ автоматически отслеживает новые входящие сообщения в Telegram и отвечает от вашего имени." Foreground="{DynamicResource ChromeMuted}" FontSize="11" TextWrapping="Wrap" Margin="0,12,0,0"/>
-        </StackPanel>
-      </Border>
-    </Popup>
 
     <Popup x:Name="DownloadPopup" AllowsTransparency="True" PopupAnimation="Slide" Placement="Bottom" PlacementTarget="{Binding ElementName=DownloadButton}" StaysOpen="False" HorizontalOffset="-384" VerticalOffset="10">
       <Border Width="448" MaxHeight="590" CornerRadius="22" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderStrongBrush}" BorderThickness="1" Padding="14">

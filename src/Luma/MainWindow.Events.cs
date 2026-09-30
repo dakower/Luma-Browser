@@ -292,7 +292,7 @@ public partial class MainWindow
         var isNew = _folderBeingNamed is null;
         var name = string.IsNullOrWhiteSpace(NewFolderNameBox.Text) ? "Новая папка" : NewFolderNameBox.Text.Trim();
         if (isNew) _spaces[_activeSpace].State.Folders.Add(new FolderState { Name = name });
-        else _folderBeingNamed.Name = name;
+        else _folderBeingNamed!.Name = name;
         _folderBeingNamed = null;
         NewFolderPopup.IsOpen = false;
         Save(); RefreshFolders();
@@ -474,18 +474,7 @@ public partial class MainWindow
         else if (ctrl && e.Key == Key.D9) { SelectTabByIndex(Tabs.Count - 1); e.Handled = true; }
         else if ((ctrl && e.Key == Key.L) || (alt && e.Key == Key.D) || e.Key == Key.F6) { FocusAddressBar(); e.Handled = true; }
         else if (ctrl && e.Key == Key.H) { History_Click(this, new RoutedEventArgs()); e.Handled = true; }
-        else if (e.Key == Key.F10) { 
-            TelegramAiPopup.IsOpen = true;
-            ToggleTelegramAiMode(true);
-            e.Handled = true; 
-        }
-        else if (e.Key == Key.F12) { 
-            if (CurrentTab?.Domain.Contains("telegram.org", StringComparison.OrdinalIgnoreCase) == true) { 
-                ToggleTelegramAiMode(false);
-                e.Handled = true; 
-            }
-            else { if (CurrentTab is { IsHome: false } tab12) tab12.ActiveView.CoreWebView2?.OpenDevToolsWindow(); e.Handled = true; }
-        }
+        else if (e.Key == Key.F12) { if (CurrentTab is { IsHome: false } tab12) tab12.ActiveView.CoreWebView2?.OpenDevToolsWindow(); e.Handled = true; }
         else if (alt && e.Key == Key.Home) { OpenNewHomeTab(); e.Handled = true; }
         else if (alt && e.Key == Key.Left) { if (CurrentTab is { IsHome: false } tabBack && tabBack.ActiveView.CanGoBack) { tabBack.ActiveView.GoBack(); e.Handled = true; } }
         else if (alt && e.Key == Key.Right) { if (CurrentTab is { IsHome: false } tabFwd && tabFwd.ActiveView.CanGoForward) { tabFwd.ActiveView.GoForward(); e.Handled = true; } }
@@ -542,45 +531,6 @@ public partial class MainWindow
         // clicking the domain pill in the toolbar.
         OpenSearch(SearchPurpose.Navigate, CurrentTab?.ActiveUrl);
     }
-
-    private void TelegramAi_Click(object sender, RoutedEventArgs e) => TelegramAiPopup.IsOpen = !TelegramAiPopup.IsOpen;
-    private void TelegramAiStart_Click(object sender, RoutedEventArgs e) => ToggleTelegramAiMode(true);
-    private void TelegramAiStop_Click(object sender, RoutedEventArgs e) => ToggleTelegramAiMode(false);
-
-    public void ToggleTelegramAiMode(bool enable)
-    {
-        _state.TelegramAiEnabled = enable;
-        Save();
-        UpdateTelegramAiIndicator(enable ? "green" : "red");
-        if (CurrentTab?.Domain.Contains("telegram.org", StringComparison.OrdinalIgnoreCase) == true)
-        {
-            CurrentTab.ActiveView.CoreWebView2?.ExecuteScriptAsync($"window.lumaTgAiEnabled = {enable.ToString().ToLower()};");
-        }
-    }
-
-    public void UpdateTelegramAiIndicator(string status, string? customMessage = null)
-    {
-        if (!Dispatcher.CheckAccess()) { Dispatcher.Invoke(() => UpdateTelegramAiIndicator(status, customMessage)); return; }
-        Color color = status switch
-        {
-            "green" => Color.FromRgb(0x4C, 0xAF, 0x50),  // Working / Active
-            "yellow" => Color.FromRgb(0xFF, 0xC1, 0x07), // Processing / Warning
-            "red" or "error" => Color.FromRgb(0xFF, 0x4D, 0x4D), // Off / Error
-            _ => Color.FromRgb(0xFF, 0x4D, 0x4D)
-        };
-        var brush = new SolidColorBrush(color);
-        TelegramAiStatusDot.Fill = brush;
-        TelegramAiPopupStatusDot.Fill = brush;
-        TelegramAiPopupStatusText.Text = customMessage ?? status switch
-        {
-            "green" => "Статус: Работает",
-            "yellow" => "Статус: Отвечает...",
-            "error" => "Статус: Ошибка API/DOM",
-            _ => "Статус: Отключен"
-        };
-    }
-
-    private void TelegramAiPromptBox_TextChanged(object sender, TextChangedEventArgs e) => Save();
 
     private void OnChanged([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }

@@ -48,10 +48,6 @@ public sealed class LumaState
     public HashSet<string> ForgetOnExitDomains { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public List<HistoryEntry> RecentlyClosed { get; set; } = [];
     public int SleepAfterMinutes { get; set; } = 5;
-    
-    // Telegram AI feature
-    public bool TelegramAiEnabled { get; set; }
-    public string TelegramAiPrompt { get; set; } = "общайся как кошкомальчик милый нежный сладкий и пошлый очень любишь виртить заниматься сексом и писать пакости и еще ты очень глупый отсталый такой";
 
     public List<SpaceState> Spaces { get; set; } = [new SpaceState()];
     public static string DirectoryPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Luma");

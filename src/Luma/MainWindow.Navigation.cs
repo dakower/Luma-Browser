@@ -95,7 +95,6 @@ public partial class MainWindow
             AmbientLightToggle.IsChecked = _state.AmbientLight.TryGetValue(tab.Domain, out var amb) ? amb : isYt;
             _suppressAmbient = false;
             if (Uri.TryCreate(tab.ActiveUrl, UriKind.Absolute, out var uri)) { var secure = uri.Scheme == "https"; SecurityText.Text = secure ? "Защищено" : "Не защищено"; SecurityIcon.Data = (Geometry)FindResource(secure ? "IconShieldCheck" : "IconInfo"); SecurityIcon.Stroke = secure ? new SolidColorBrush(Color.FromRgb(97, 196, 84)) : new SolidColorBrush(Color.FromRgb(224, 138, 147)); }
-            TelegramAiButton.Visibility = tab.Domain.Contains("telegram.org", StringComparison.OrdinalIgnoreCase) ? Visibility.Visible : Visibility.Collapsed;
         }
     }
 

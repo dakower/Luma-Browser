@@ -125,7 +125,7 @@ public partial class MainWindow
         else
         {
             TitleBar.Visibility = Visibility.Visible;
-            RootShell.RowDefinitions[0].Height = new GridLength(64);
+            RootShell.RowDefinitions[0].Height = new GridLength(52);
             Left = _fsBounds.Left; Top = _fsBounds.Top; Width = _fsBounds.Width; Height = _fsBounds.Height;
             _manualMaximized = _fsWasMaximized;
             SetSidebar(_fsSidebarWasVisible, false, false);
