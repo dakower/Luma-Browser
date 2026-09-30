@@ -396,8 +396,8 @@ public partial class MainWindow
     private void Exit_Click(object sender, RoutedEventArgs e) => ((App)Application.Current).ExitCompletely();
     // Kept for the WPF chrome, but the cursor poll above is what actually drives the reveal,
     // because the page area cannot deliver these events at all.
-    private void EdgeReveal_MouseEnter(object sender, MouseEventArgs e) { }
-    private void Sidebar_MouseLeave(object sender, MouseEventArgs e) { }
+    private void EdgeReveal_MouseEnter(object sender, MouseEventArgs e) => EdgeWatchTick();
+    private void Sidebar_MouseLeave(object sender, MouseEventArgs e) => EdgeWatchTick();
     private void Sidebar_MouseEnterOverlay(object sender, MouseEventArgs e) => _hoverHideTimer.Stop();
     private void MinimizeWindow_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
     private void ToggleMaximize()

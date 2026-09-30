@@ -205,7 +205,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void EdgeWatchTick()
     {
         if (!IsLoaded || WindowState == WindowState.Minimized) return;
-        if (_sidebarAutoShown && (!IsActive || _fullscreen)) SetSidebar(false, true, false, true);
+        if (!GetCursorPos(out var native)) return;
+        Point local;
+        try { local = PointFromScreen(new Point(native.X, native.Y)); }
+        catch { return; }
+        var insideWindow = local.X >= -2 && local.Y >= -2 && local.X <= ActualWidth + 2 && local.Y <= ActualHeight + 2;
+        if (!_sidebarVisible && !_sidebarAutoShown && !_fullscreen && insideWindow && IsActive && local.X <= 8)
+        {
+            SetSidebar(true, true, false, true);
+        }
+        else if (_sidebarAutoShown && (!insideWindow || !IsActive || _fullscreen || local.X > SidebarWidth + 24))
+        {
+            SetSidebar(false, true, false, true);
+        }
         if (_peekActive) SyncPeekBounds();
     }
     private Rect _fsBounds = new(0, 0, 1280, 800);

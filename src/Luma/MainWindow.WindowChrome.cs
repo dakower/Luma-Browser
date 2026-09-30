@@ -56,14 +56,13 @@ public partial class MainWindow
     private void SetSidebar(bool visible, bool animate, bool persist = true, bool peek = false)
     {
         _hoverHideTimer.Stop();
-        _sidebarVisible = visible;
-        if (persist) { _state.SidebarVisible = visible; _stateStore.Save(); _sidebarAutoShown = false; }
+        if (persist) { _sidebarVisible = visible; _state.SidebarVisible = visible; _stateStore.Save(); _sidebarAutoShown = false; }
         else _sidebarAutoShown = visible;
 
         if (peek)
         {
             if (visible) ShowPeek(animate); else HidePeek(animate);
-            EdgeReveal.Visibility = Visibility.Collapsed;
+            EdgeReveal.Visibility = _sidebarVisible || _fullscreen ? Visibility.Collapsed : Visibility.Visible;
             return;
         }
         // A pinned open/close owns the layout again, so drop any floating peek first.
@@ -96,7 +95,7 @@ public partial class MainWindow
             Sidebar.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
             Sidebar.IsHitTestVisible = visible;
         }
-        EdgeReveal.Visibility = Visibility.Collapsed;
+        EdgeReveal.Visibility = _sidebarVisible || _fullscreen ? Visibility.Collapsed : Visibility.Visible;
     }
 
     /// <summary>Real fullscreen for any site: the titlebar and sidebar fold away and the window
