@@ -200,7 +200,7 @@ public partial class MainWindow
     private void MainMenu_Click(object sender, RoutedEventArgs e)
     {
         CloseMenusExcept(MainMenuPopup);
-        MenuVersionText.Text = "Версия " + AppVersion;
+        MenuVersionText.Text = L("Версия ", "Version ", "Версія ") + AppVersion;
         UpdateAccountMenu();
         MainMenuPopup.IsOpen = !MainMenuPopup.IsOpen;
     }

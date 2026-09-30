@@ -225,7 +225,10 @@ internal static class InterfaceTranslationService
             {
                 var values = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(path)) ?? [];
                 foreach (var pair in values.Where(pair => !string.IsNullOrWhiteSpace(pair.Value) && !string.Equals(pair.Key, pair.Value, StringComparison.Ordinal)))
+                {
+                    if (pair.Value.Contains("[[[LUMA") || pair.Value.StartsWith("- «") || pair.Value == "One Click Demo Import") continue;
                     if (!merged.ContainsKey(pair.Key)) merged[pair.Key] = pair.Value;
+                }
             }
             return new(merged, StringComparer.Ordinal);
         }

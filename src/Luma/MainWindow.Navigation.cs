@@ -82,7 +82,7 @@ public partial class MainWindow
         if (!home) _showAccountSurface = false;
         if (home) ShowHomeSurface(_showAccountSurface);
         else AccountSurfaceCloseButton.Visibility = Visibility.Collapsed;
-        DomainText.Text = home ? "Luma" : present ? tab!.Domain : "Новая вкладка";
+        DomainText.Text = home ? "Luma" : present ? tab!.Domain : L("Новая вкладка", "New tab", "Нова вкладка");
         CopyUrlButton.IsEnabled = present; SiteSettingsButton.IsEnabled = present;
         TranslateButton.IsEnabled = present && !tab!.IsInternal; SplitButton.IsEnabled = present && !tab!.IsInternal;
         BackButton.IsEnabled = present && (tab!.ActiveView.CanGoBack || !string.IsNullOrWhiteSpace(tab.BackFallbackInternalUrl)); ForwardButton.IsEnabled = present && tab!.ActiveView.CanGoForward;

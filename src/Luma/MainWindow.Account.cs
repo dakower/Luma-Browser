@@ -41,12 +41,12 @@ public partial class MainWindow
     private void UpdateAccountMenu()
     {
         var user = _auth.CurrentUser;
-        AccountMenuText.Text = user?.DisplayName ?? "Аккаунт Luma";
+        AccountMenuText.Text = user?.DisplayName ?? L("Аккаунт Luma", "Luma account", "Акаунт Luma");
         AccountMenuStatus.Text = user is null ? L("Войти или зарегистрироваться", "Sign in or create an account", "Увійти або зареєструватися") : _auth.Access?.IsAdmin == true ? L("Администратор Luma", "Luma administrator", "Адміністратор Luma") : _auth.Access?.HasBeta == true ? L("Тестер Luma", "Luma tester", "Тестувальник Luma") : user.Email;
         var letter = user is null || string.IsNullOrWhiteSpace(user.DisplayName) ? "L" : user.DisplayName.Trim()[..1].ToUpperInvariant();
         AccountMenuAvatar.Text = letter;
         SidebarProfileFallback.Text = letter;
-        SidebarProfileName.Text = user?.DisplayName ?? "Аккаунт Luma";
+        SidebarProfileName.Text = user?.DisplayName ?? L("Аккаунт Luma", "Luma account", "Акаунт Luma");
         SidebarProfileStatus.Text = user is null ? L("Войти или зарегистрироваться", "Sign in or create an account", "Увійти або зареєструватися") : _auth.Access?.IsAdmin == true ? L("Администратор Luma", "Luma administrator", "Адміністратор Luma") : _auth.Access?.HasBeta == true ? L("Тестер Luma", "Luma tester", "Тестувальник Luma") : user.Email;
         RefreshAvatarVisuals();
         _ = SyncAvatarForCurrentAccountAsync();

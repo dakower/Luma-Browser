@@ -58,18 +58,37 @@ public partial class MainWindow
             var webLocalization = ApplyOpenWebInterfaceLanguageAsync();
             if (language == "ru")
             {
-                foreach (var target in targets) target.Node.SetCurrentValue(target.Property, target.Source);
+                foreach (var target in targets)
+                {
+                    var cur = target.Node.GetValue(target.Property) as string;
+                    if (cur != target.Source) target.Node.SetCurrentValue(target.Property, target.Source);
+                }
             }
             else
             {
                 var known = InterfaceTranslationService.GetKnownTranslations(targets.Select(x => x.Source), language);
                 foreach (var target in targets)
-                    if (known.TryGetValue(target.Source.Trim(), out var ready)) target.Node.SetCurrentValue(target.Property, ready);
+                {
+                    if (known.TryGetValue(target.Source.Trim(), out var ready))
+                    {
+                        var cur = target.Node.GetValue(target.Property) as string;
+                        if (cur != ready) target.Node.SetCurrentValue(target.Property, ready);
+                    }
+                }
                 var translations = await InterfaceTranslationService.TranslateManyAsync(targets.Select(x => x.Source), language, token);
                 if (token.IsCancellationRequested || language != EffectiveLanguage) return;
                 foreach (var target in targets)
-                    if (translations.TryGetValue(target.Source.Trim(), out var translated)) target.Node.SetCurrentValue(target.Property, translated);
+                {
+                    if (translations.TryGetValue(target.Source.Trim(), out var translated))
+                    {
+                        var cur = target.Node.GetValue(target.Property) as string;
+                        if (cur != translated) target.Node.SetCurrentValue(target.Property, translated);
+                    }
+                }
             }
+            UpdateAccountMenu();
+            UpdateChrome();
+            if (MenuVersionText is not null) MenuVersionText.Text = L("Версия ", "Version ", "Версія ") + AppVersion;
             await webLocalization;
         }
         catch (OperationCanceledException) { }
@@ -107,9 +126,36 @@ public partial class MainWindow
         if (tasks.Count > 0) await Task.WhenAll(tasks);
     }
 
+    private static readonly HashSet<string> DynamicElementNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "DomainText",
+        "MenuVersionText",
+        "AccountMenuText",
+        "AccountMenuStatus",
+        "AccountMenuAvatar",
+        "SidebarProfileName",
+        "SidebarProfileStatus",
+        "SidebarProfileFallback",
+        "NowPlayingPillTitle",
+        "NowPlayingPillArtist",
+        "SiteMenuDomain",
+        "TranslateDomainText",
+        "FeedbackChatTitle",
+        "FeedbackChatStatus",
+        "FeedbackAttachmentName",
+        "SearchScopeText",
+        "SearchCountText"
+    };
+
     private void CollectUiText(DependencyObject node, List<(DependencyObject, DependencyProperty, string)> targets, HashSet<DependencyObject> visited)
     {
         if (!visited.Add(node)) return;
+        if (node is FrameworkElement fe)
+        {
+            if (!string.IsNullOrEmpty(fe.Name) && DynamicElementNames.Contains(fe.Name)) return;
+            if (Equals(fe.Tag, "no-localize")) return;
+            if (fe.DataContext is BrowserTab or HistoryEntry or SavedSite or SearchSuggestion) return;
+        }
         var original = _originalUi.GetOrCreateValue(node);
         if (node is TextBlock text)
         {
