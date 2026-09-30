@@ -18,7 +18,7 @@ public partial class SetupWindow : Window
 {
     private static string ProductVersion => Assembly.GetExecutingAssembly().GetName().Version is { } version
         ? $"{version.Major}.{version.Minor}.{version.Build}"
-        : "2.1.2";
+        : "2.1.3";
     private static readonly string DefaultUserDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Luma");
     private static readonly string DefaultMachineDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Luma");
     private FrameworkElement _current = null!;
@@ -695,3 +695,4 @@ internal static class RegistryExtensions
 {
     public static RegistryKey DefaultIcon(this RegistryKey key) => key.CreateSubKey("DefaultIcon")!;
 }
+

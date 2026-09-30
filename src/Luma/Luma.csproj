@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>WinExe</OutputType><TargetFramework>net8.0-windows10.0.19041.0</TargetFramework><UseWPF>true</UseWPF><UseWindowsForms>true</UseWindowsForms><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><ApplicationIcon>Assets\luma.ico</ApplicationIcon><ApplicationManifest>app.manifest</ApplicationManifest><ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode><AssemblyName>Luma</AssemblyName><RootNamespace>Luma</RootNamespace><Version>2.1.2</Version><RuntimeIdentifier>win-x64</RuntimeIdentifier><SelfContained>true</SelfContained></PropertyGroup><ItemGroup><ProjectReference Include="..\Luma.Core\Luma.Core.csproj" /></ItemGroup><ItemGroup><PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2792.45" />
+<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>WinExe</OutputType><TargetFramework>net8.0-windows10.0.19041.0</TargetFramework><UseWPF>true</UseWPF><UseWindowsForms>true</UseWindowsForms><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><ApplicationIcon>Assets\luma.ico</ApplicationIcon><ApplicationManifest>app.manifest</ApplicationManifest><ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode><AssemblyName>Luma</AssemblyName><RootNamespace>Luma</RootNamespace><Version>2.1.3</Version><RuntimeIdentifier>win-x64</RuntimeIdentifier><SelfContained>true</SelfContained></PropertyGroup><ItemGroup><ProjectReference Include="..\Luma.Core\Luma.Core.csproj" /></ItemGroup><ItemGroup><PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2792.45" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.10" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />  
     <Resource Include="Assets\luma-mark.png" />
@@ -19,3 +19,4 @@
     <EmbeddedResource Include="Assets\Locales\uk.json" LogicalName="Luma.Assets.Locales.uk.json" />
     <Resource Include="Fonts\Inter.ttf" Condition="Exists('Fonts\Inter.ttf')" />
   </ItemGroup></Project>
+

@@ -18,8 +18,7 @@ foreach ($file in @(
   (Join-Path $root 'src\Luma\Updates\UpdateSystem.cs')
 )) {
   $content = Get-Content $file -Raw
-  $content = $content.Replace($oldText, $newText)
-  Set-Content $file $content -Encoding utf8NoBOM
+  [System.IO.File]::WriteAllText($file, $content, (New-Object System.Text.UTF8Encoding($false)))
 }
 
 Write-Host "Luma patch version: $oldText -> $newText" -ForegroundColor Green

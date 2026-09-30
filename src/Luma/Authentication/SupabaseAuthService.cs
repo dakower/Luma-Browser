@@ -37,7 +37,7 @@ public sealed class SupabaseAuthService : IAuthService
     public SupabaseAuthService(SupabaseOptions options, IAuthSessionStore store)
     {
         this.options = options; this.store = store;
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("Luma-Browser/2.1.2");
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("Luma-Browser/2.1.3");
     }
     public bool IsConfigured => options.IsConfigured;
     public AuthUser? CurrentUser => session?.User;
@@ -259,3 +259,4 @@ public sealed class SupabaseAuthService : IAuthService
     private static AuthSession Need(AuthResponse response) { var value = response.ToSession(); if (string.IsNullOrWhiteSpace(value.AccessToken) || string.IsNullOrWhiteSpace(value.RefreshToken)) throw new AuthException("Сессия не создана."); return value; }
     private static string NormalizeEmail(string value) => value.Trim().ToLowerInvariant();
 }
+
