@@ -124,13 +124,55 @@ Deno.serve(async (request) => {
         .order("created_at");
 
       if (error) throw error;
-      return json({ threadId, messages: msgs ?? [] });
+      const formatted = (msgs ?? []).map((m: any) => {
+        let text = m.body || "";
+        let imgUrl: string | null = null;
+        const imgMatch = text.match(/\[image:(https?:\/\/[^\]]+)\]/);
+        if (imgMatch) {
+          imgUrl = imgMatch[1];
+          text = text.replace(/\[image:[^\]]+\]/, "").trim();
+        }
+        return {
+          id: m.id,
+          thread_id: m.thread_id,
+          sender_type: m.sender_type,
+          sender_name: m.sender_name,
+          body: text,
+          image_url: imgUrl,
+          created_at: m.created_at,
+        };
+      });
+      return json({ threadId, messages: formatted });
     }
 
     // 2. Send message to dakower
     if (action === "send") {
-      const body = clean(input?.body, 6000);
-      if (!body) return json({ error: "message_empty" }, 400);
+      let body = clean(input?.body, 6000);
+      const attachment = input?.attachment;
+
+      let signedImageUrl = "";
+      if (attachment?.data) {
+        try {
+          const raw = String(attachment.data).replace(/^data:[^;]+;base64,/, "");
+          const bytes = Uint8Array.from(atob(raw), (c) => c.charCodeAt(0));
+          const mime = clean(attachment.mime, 60).toLowerCase() || "image/jpeg";
+          const ext = mime.includes("png") ? "png" : mime.includes("webp") ? "webp" : "jpg";
+          const path = `support/${threadId || crypto.randomUUID()}/${crypto.randomUUID()}.${ext}`;
+          const uploadRes = await admin.storage.from("feedback-files").upload(path, bytes, { contentType: mime, upsert: true });
+          if (!uploadRes.error) {
+            const signed = await admin.storage.from("feedback-files").createSignedUrl(path, 86400 * 30);
+            signedImageUrl = signed.data?.signedUrl ?? "";
+          }
+        } catch (uploadErr) {
+          console.error("attachment upload error", uploadErr);
+        }
+      }
+
+      if (!body && !signedImageUrl) return json({ error: "message_empty" }, 400);
+
+      const dbBody = signedImageUrl
+        ? (body ? `${body}\n[image:${signedImageUrl}]` : `[image:${signedImageUrl}]`)
+        : body;
 
       let threadId = clean(input?.threadId, 40);
       let thread: any = null;
@@ -161,7 +203,7 @@ Deno.serve(async (request) => {
         thread_id: threadId,
         sender_type: "user",
         sender_name: displayName,
-        body,
+        body: dbBody,
       }).select("*").single();
 
       if (msgIns.error) throw msgIns.error;
@@ -229,28 +271,40 @@ Deno.serve(async (request) => {
             parse_mode: "HTML",
             reply_markup: card.reply_markup,
           });
+        }
 
-          // Deliver message directly
-          const prefix = activeSession?.is_active
-            ? `💬 <b>${escapeHtml(displayName)}:</b>\n`
-            : `💬 <b>${escapeHtml(displayName)}</b> · #${threadId.slice(0, 8).toUpperCase()}\n`;
+        // Deliver message directly
+        const prefix = activeSession?.is_active
+          ? `💬 <b>${escapeHtml(displayName)}:</b>\n`
+          : `💬 <b>${escapeHtml(displayName)}</b> · #${threadId.slice(0, 8).toUpperCase()}\n`;
 
-          const sentFollow = await telegram("sendMessage", {
+        let sentFollow: any = null;
+        if (signedImageUrl) {
+          const caption = `${prefix}${escapeHtml(body || "Изображение от пользователя")}`.slice(0, 1024);
+          sentFollow = await telegram("sendPhoto", {
+            chat_id: chatId,
+            reply_to_message_id: activeSession?.is_active ? undefined : thread.telegram_message_id,
+            photo: signedImageUrl,
+            caption,
+            parse_mode: "HTML",
+          });
+        } else {
+          sentFollow = await telegram("sendMessage", {
             chat_id: chatId,
             reply_to_message_id: activeSession?.is_active ? undefined : thread.telegram_message_id,
             text: `${prefix}${escapeHtml(body)}`,
             parse_mode: "HTML",
           });
+        }
 
-          const followId = sentFollow?.result?.message_id;
-          if (followId) {
-            try {
-              await admin.from("telegram_support_messages").upsert({
-                telegram_message_id: followId,
-                thread_id: threadId,
-              });
-            } catch { }
-          }
+        const followId = sentFollow?.result?.message_id;
+        if (followId) {
+          try {
+            await admin.from("telegram_support_messages").upsert({
+              telegram_message_id: followId,
+              thread_id: threadId,
+            });
+          } catch { }
         }
       }
 

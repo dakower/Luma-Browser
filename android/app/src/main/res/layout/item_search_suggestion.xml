@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="52dp"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:background="@drawable/selector_icon_button"
+    android:paddingStart="14dp"
+    android:paddingEnd="14dp"
+    android:clickable="true"
+    android:focusable="true">
+
+    <ImageView
+        android:id="@+id/suggIcon"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:src="@drawable/ic_search"
+        android:layout_marginEnd="12dp"/>
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/suggTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:singleLine="true"
+            android:ellipsize="end"/>
+
+        <TextView
+            android:id="@+id/suggSubtitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#716C82"
+            android:textSize="11.5sp"
+            android:singleLine="true"
+            android:ellipsize="end"
+            android:visibility="gone"/>
+    </LinearLayout>
+
+    <ImageView
+        android:id="@+id/suggActionIcon"
+        android:layout_width="16dp"
+        android:layout_height="16dp"
+        android:src="@drawable/ic_arrow_right"
+        android:rotation="-45"
+        android:contentDescription="Перейти"/>
+
+</LinearLayout>

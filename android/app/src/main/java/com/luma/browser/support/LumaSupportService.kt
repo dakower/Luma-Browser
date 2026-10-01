@@ -16,6 +16,8 @@ data class SupportChatMessage(
     val id: String = UUID.randomUUID().toString(),
     val isUser: Boolean,
     val text: String,
+    val imageBase64: String? = null,
+    val imageUrl: String? = null,
     val timestamp: Long = System.currentTimeMillis()
 )
 
@@ -26,13 +28,18 @@ data class SupportChatMessage(
 class LumaSupportService {
 
     private val client = OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(20, TimeUnit.SECONDS)
+        .connectTimeout(12, TimeUnit.SECONDS)
+        .readTimeout(25, TimeUnit.SECONDS)
         .build()
 
     var threadId: String? = null
 
-    suspend fun sendMessage(text: String): Boolean = withContext(Dispatchers.IO) {
+    suspend fun sendMessage(
+        text: String,
+        imageBase64: String? = null,
+        imageName: String? = null,
+        imageMime: String? = null
+    ): Boolean = withContext(Dispatchers.IO) {
         val prefs = LumaPreferences.get()
         val gid = prefs.userId.ifBlank { "android_guest" }
         val name = prefs.displayName.ifBlank { "Пользователь Android" }
@@ -43,6 +50,13 @@ class LumaSupportService {
             put("displayName", name)
             put("version", "${LumaApp.APP_VERSION}-Android")
             put("body", text)
+            if (!imageBase64.isNullOrBlank()) {
+                put("attachment", JSONObject().apply {
+                    put("name", imageName ?: "image.jpg")
+                    put("mime", imageMime ?: "image/jpeg")
+                    put("data", imageBase64)
+                })
+            }
             if (!threadId.isNullOrBlank()) {
                 put("threadId", threadId)
             }
@@ -99,10 +113,20 @@ class LumaSupportService {
             val msgs = json.optJSONArray("messages") ?: return@withContext emptyList()
             (0 until msgs.length()).map { idx ->
                 val obj = msgs.getJSONObject(idx)
+                var bodyText = obj.optString("body", "")
+                var imgUrl = obj.optString("image_url", "").ifBlank { null }
+                if (imgUrl == null) {
+                    val match = Regex("""\[image:(https?://[^\]]+)\]""").find(bodyText)
+                    if (match != null) {
+                        imgUrl = match.groupValues[1]
+                        bodyText = bodyText.replace(match.value, "").trim()
+                    }
+                }
                 SupportChatMessage(
                     id = obj.optString("id", UUID.randomUUID().toString()),
                     isUser = obj.optString("sender_type", "user") == "user",
-                    text = obj.optString("body", ""),
+                    text = bodyText,
+                    imageUrl = imgUrl,
                     timestamp = System.currentTimeMillis()
                 )
             }

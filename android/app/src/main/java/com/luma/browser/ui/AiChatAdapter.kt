@@ -61,6 +61,27 @@ class AiChatAdapter(private val messages: MutableList<AiMessage>) :
         holder.text.layoutParams = params
     }
 
+    override fun onBindViewHolder(holder: VH, position: Int, payloads: MutableList<Any>) {
+        if (payloads.isNotEmpty()) {
+            val msg = messages[position]
+            val isUser = msg.role == "user"
+            if (!isUser && msg.content.isBlank()) {
+                holder.text.text = "LumaAI думает..."
+                holder.text.setTextColor(0xFF716C82.toInt())
+            } else {
+                holder.text.setTextColor(0xFFFFFFFF.toInt())
+                val m = markwon
+                if (!isUser && m != null && msg.content.isNotBlank()) {
+                    m.setMarkdown(holder.text, msg.content)
+                } else {
+                    holder.text.text = msg.content
+                }
+            }
+            return
+        }
+        super.onBindViewHolder(holder, position, payloads)
+    }
+
     override fun getItemCount() = messages.size
 
     fun appendToLastAssistant(chunk: String) {
@@ -68,7 +89,7 @@ class AiChatAdapter(private val messages: MutableList<AiMessage>) :
         if (lastIdx >= 0) {
             val old = messages[lastIdx]
             messages[lastIdx] = old.copy(content = old.content + chunk)
-            notifyItemChanged(lastIdx, Unit)
+            notifyItemChanged(lastIdx, PAYLOAD_UPDATE)
         }
     }
 
@@ -80,5 +101,9 @@ class AiChatAdapter(private val messages: MutableList<AiMessage>) :
     fun clear() {
         messages.clear()
         notifyDataSetChanged()
+    }
+
+    companion object {
+        private const val PAYLOAD_UPDATE = "PAYLOAD_UPDATE"
     }
 }

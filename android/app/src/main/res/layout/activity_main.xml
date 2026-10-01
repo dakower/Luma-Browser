@@ -337,7 +337,7 @@
         android:paddingEnd="10dp"
         android:elevation="12dp">
 
-        <!-- Search/Address Capsule (Screenshot 2: logo + "Новая вкладка") -->
+        <!-- Search/Address Capsule (Safari-style: logo + title/domain) -->
         <LinearLayout
             android:id="@+id/bottomAddressPill"
             android:layout_width="0dp"
@@ -346,8 +346,10 @@
             android:background="@drawable/bg_glass_pill"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp">
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:clickable="true"
+            android:focusable="true">
 
             <!-- Luma Logo -->
             <ImageView
@@ -357,21 +359,18 @@
                 android:src="@drawable/luma_logo"
                 android:layout_marginEnd="8dp"/>
 
-            <!-- URL / Search text field -->
-            <EditText
+            <!-- URL / Search text display -->
+            <TextView
                 android:id="@+id/bottomAddressBar"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:background="@null"
+                android:gravity="center_vertical"
                 android:text="Новая вкладка"
                 android:textColor="#FFFFFF"
-                android:textColorHint="#716C82"
                 android:textSize="13.5sp"
                 android:singleLine="true"
-                android:imeOptions="actionGo"
-                android:inputType="textUri"
-                android:selectAllOnFocus="true"/>
+                android:ellipsize="middle"/>
 
             <!-- Reload / Stop button -->
             <ImageButton
@@ -434,6 +433,106 @@
             android:src="@drawable/ic_menu"
             android:padding="7dp"
             android:contentDescription="Меню"/>
+
+    </LinearLayout>
+ 
+    <!-- ===== SAFARI-STYLE SEARCH & NAVIGATION OVERLAY ===== -->
+    <LinearLayout
+        android:id="@+id/searchOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#FA0A0812"
+        android:orientation="vertical"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true"
+        android:elevation="30dp">
+
+        <!-- Top Input & Action Bar -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingTop="12dp"
+            android:paddingBottom="10dp"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp">
+
+            <!-- Search Pill Capsule -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_glass_pill"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="12dp"
+                android:paddingEnd="8dp">
+
+                <ImageView
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@drawable/ic_search"
+                    android:layout_marginEnd="8dp"/>
+
+                <EditText
+                    android:id="@+id/overlaySearchInput"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:background="@null"
+                    android:hint="Поиск или веб-адрес"
+                    android:textColor="#FFFFFF"
+                    android:textColorHint="#716C82"
+                    android:textSize="14.5sp"
+                    android:singleLine="true"
+                    android:imeOptions="actionGo"
+                    android:inputType="textUri"
+                    android:selectAllOnFocus="true"/>
+
+                <ImageButton
+                    android:id="@+id/overlaySearchClear"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:background="@null"
+                    android:src="@drawable/ic_close"
+                    android:padding="6dp"
+                    android:contentDescription="Очистить"
+                    android:visibility="gone"/>
+            </LinearLayout>
+
+            <!-- Cancel Button -->
+            <TextView
+                android:id="@+id/overlaySearchCancel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingStart="12dp"
+                android:paddingEnd="4dp"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp"
+                android:text="Отмена"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:clickable="true"
+                android:focusable="true"/>
+        </LinearLayout>
+
+        <!-- Divider -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#1F1A2C"/>
+
+        <!-- Suggestions & Recent History Recycler -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/searchSuggestionsRecycler"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:paddingTop="6dp"
+            android:paddingBottom="24dp"/>
 
     </LinearLayout>
 

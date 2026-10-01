@@ -31,12 +31,73 @@
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/supportMessages"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:minHeight="120dp"
-        android:maxHeight="260dp"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:minHeight="140dp"
         android:paddingStart="16dp"
         android:paddingEnd="16dp"
-        android:paddingTop="8dp"/>
+        android:paddingTop="8dp"
+        android:clipToPadding="false"/>
+
+    <!-- Attachment Preview Bar -->
+    <LinearLayout
+        android:id="@+id/supportAttachmentBar"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="@drawable/bg_surface_raised"
+        android:paddingStart="10dp"
+        android:paddingEnd="10dp"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:layout_marginBottom="6dp"
+        android:visibility="gone">
+
+        <ImageView
+            android:id="@+id/supportAttachmentThumb"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:scaleType="centerCrop"
+            android:background="@drawable/bg_glass_card"
+            android:contentDescription="Превью"/>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginStart="10dp"
+            android:layout_marginEnd="6dp">
+
+            <TextView
+                android:id="@+id/supportAttachmentName"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Изображение прикреплено"
+                android:textColor="@color/luma_text_primary"
+                android:textSize="12sp"
+                android:singleLine="true"
+                android:ellipsize="middle"/>
+
+            <TextView
+                android:id="@+id/supportAttachmentSize"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Готово к отправке"
+                android:textColor="@color/luma_text_muted"
+                android:textSize="10.5sp"/>
+        </LinearLayout>
+
+        <ImageButton
+            android:id="@+id/supportAttachmentRemove"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:background="@null"
+            android:src="@drawable/ic_close"
+            android:padding="6dp"
+            android:contentDescription="Удалить вложение"/>
+    </LinearLayout>
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -45,6 +106,17 @@
         android:gravity="center_vertical"
         android:paddingStart="12dp"
         android:paddingEnd="12dp">
+
+        <ImageButton
+            android:id="@+id/supportAttachBtn"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@drawable/bg_surface_raised"
+            android:src="@drawable/ic_image"
+            android:padding="9dp"
+            android:layout_marginEnd="8dp"
+            android:contentDescription="Прикрепить изображение"/>
+
         <EditText
             android:id="@+id/supportInput"
             android:layout_width="0dp"
@@ -59,14 +131,18 @@
             android:hint="Написать сообщение..."
             android:singleLine="true"
             android:imeOptions="actionSend"/>
+
         <FrameLayout
             android:id="@+id/supportSendBtn"
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:layout_marginStart="8dp"
             android:background="@drawable/selector_accent_button">
-            <ImageView android:layout_width="18dp" android:layout_height="18dp"
-                android:layout_gravity="center" android:src="@drawable/ic_arrow_right"/>
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_arrow_right"/>
         </FrameLayout>
     </LinearLayout>
 </LinearLayout>

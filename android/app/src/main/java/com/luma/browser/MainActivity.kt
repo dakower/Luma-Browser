@@ -9,14 +9,19 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowInsetsController
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
+import android.graphics.BitmapFactory
+import android.util.Base64
 import android.webkit.*
 import android.widget.*
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -38,6 +43,9 @@ import com.luma.browser.ui.*
 import kotlinx.coroutines.*
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.ByteArrayOutputStream
+import java.net.HttpURLConnection
+import java.net.URL
 import java.net.URLEncoder
 import java.util.*
 
@@ -56,6 +64,14 @@ class MainActivity : AppCompatActivity() {
     private val aiService = LumaAiService()
     private val supportService = LumaSupportService()
     private val prefs by lazy { LumaPreferences.get() }
+
+    // ====== SUPPORT IMAGE ATTACHMENT ======
+    private var onSupportImagePicked: ((Uri) -> Unit)? = null
+    private val pickSupportImageLauncher = registerForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let { onSupportImagePicked?.invoke(it) }
+    }
 
     // ====== AI CHAT STATE ======
     private val aiMessages = mutableListOf<AiMessage>()
@@ -80,13 +96,23 @@ class MainActivity : AppCompatActivity() {
 
     // Safari-style Bottom Bar
     private lateinit var bottomBar: LinearLayout
+    private lateinit var bottomAddressPill: LinearLayout
     private lateinit var bottomBarLogo: ImageView
-    private lateinit var bottomAddressBar: EditText
+    private lateinit var bottomAddressBar: TextView
     private lateinit var btnReload: ImageButton
     private lateinit var btnBottomAi: FrameLayout
     private lateinit var btnTabCount: FrameLayout
     private lateinit var tabCountText: TextView
     private lateinit var btnMenu: ImageButton
+
+    // Safari-style Search & Navigation Overlay
+    private lateinit var searchOverlay: LinearLayout
+    private lateinit var overlaySearchInput: EditText
+    private lateinit var overlaySearchClear: ImageButton
+    private lateinit var overlaySearchCancel: TextView
+    private lateinit var searchSuggestionsRecycler: RecyclerView
+    private lateinit var searchSuggestionAdapter: SearchSuggestionAdapter
+    private var searchDebounceJob: Job? = null
 
     // Reader Mode
     private lateinit var readerOverlay: LinearLayout
@@ -146,6 +172,7 @@ class MainActivity : AppCompatActivity() {
         homePillsContainer = findViewById(R.id.homePillsContainer)
 
         bottomBar = findViewById(R.id.bottomBar)
+        bottomAddressPill = findViewById(R.id.bottomAddressPill)
         bottomBarLogo = findViewById(R.id.bottomBarLogo)
         bottomAddressBar = findViewById(R.id.bottomAddressBar)
         btnReload = findViewById(R.id.btnReload)
@@ -159,6 +186,26 @@ class MainActivity : AppCompatActivity() {
         readerByline = findViewById(R.id.readerByline)
         readerBody = findViewById(R.id.readerBody)
         btnReaderClose = findViewById(R.id.btnReaderClose)
+
+        searchOverlay = findViewById(R.id.searchOverlay)
+        overlaySearchInput = findViewById(R.id.overlaySearchInput)
+        overlaySearchClear = findViewById(R.id.overlaySearchClear)
+        overlaySearchCancel = findViewById(R.id.overlaySearchCancel)
+        searchSuggestionsRecycler = findViewById(R.id.searchSuggestionsRecycler)
+
+        searchSuggestionAdapter = SearchSuggestionAdapter(
+            onItemClick = { sugg ->
+                val target = sugg.targetUrl.ifBlank { sugg.title }
+                navigateFromInput(target)
+                closeSearchOverlay()
+            },
+            onFillClick = { sugg ->
+                overlaySearchInput.setText(sugg.title)
+                overlaySearchInput.setSelection(sugg.title.length)
+            }
+        )
+        searchSuggestionsRecycler.layoutManager = LinearLayoutManager(this)
+        searchSuggestionsRecycler.adapter = searchSuggestionAdapter
 
         bottomBarLogo.setOnClickListener { showHome() }
         btnReload.setOnClickListener {
@@ -337,45 +384,254 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupAddressBar() {
-        bottomAddressBar.setOnEditorActionListener { _, actionId, event ->
+        bottomAddressPill.setOnClickListener { openSearchOverlay() }
+        bottomAddressBar.setOnClickListener { openSearchOverlay() }
+
+        overlaySearchCancel.setOnClickListener { closeSearchOverlay() }
+        overlaySearchClear.setOnClickListener {
+            overlaySearchInput.text?.clear()
+            loadInitialSuggestions()
+        }
+
+        overlaySearchInput.setOnEditorActionListener { _, actionId, event ->
             if (actionId == EditorInfo.IME_ACTION_GO || event?.keyCode == KeyEvent.KEYCODE_ENTER) {
-                navigateFromInput(bottomAddressBar.text.toString().trim())
-                hideKeyboard()
+                val text = overlaySearchInput.text.toString().trim()
+                if (text.isNotBlank()) {
+                    navigateFromInput(text)
+                    closeSearchOverlay()
+                }
                 true
             } else false
         }
 
-        bottomAddressBar.setOnFocusChangeListener { _, hasFocus ->
-            if (hasFocus) {
-                bottomAddressBar.selectAll()
-            } else {
-                if (activeTab?.isHome == true) {
-                    bottomAddressBar.setText("Новая вкладка")
+        overlaySearchInput.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                val query = s?.toString()?.trim().orEmpty()
+                overlaySearchClear.visibility = if (query.isNotEmpty()) View.VISIBLE else View.GONE
+                searchDebounceJob?.cancel()
+                if (query.isEmpty()) {
+                    loadInitialSuggestions()
                 } else {
-                    activeTab?.url?.let { bottomAddressBar.setText(sanitizeUrl(it)) }
+                    searchDebounceJob = lifecycleScope.launch {
+                        delay(160)
+                        performSearchSuggestions(query)
+                    }
                 }
             }
-        }
+            override fun afterTextChanged(s: Editable?) {}
+        })
     }
 
     private fun setupHomeDashboard() {
-        homeSearchBox.setOnEditorActionListener { _, actionId, event ->
-            if (actionId == EditorInfo.IME_ACTION_GO || event?.keyCode == KeyEvent.KEYCODE_ENTER) {
-                navigateFromInput(homeSearchBox.text.toString().trim())
-                hideKeyboard()
-                true
-            } else false
-        }
-        homeSearchBtn.setOnClickListener {
-            navigateFromInput(homeSearchBox.text.toString().trim())
-            hideKeyboard()
-        }
+        homeSearchShell.setOnClickListener { openSearchOverlay() }
+        homeSearchBox.setOnClickListener { openSearchOverlay() }
+        homeSearchBtn.setOnClickListener { openSearchOverlay() }
+        homeSearchBox.isFocusable = false
+        homeSearchBox.isClickable = true
 
         // Quick pills on home screen
         findViewById<View>(R.id.pillHistory).setOnClickListener { showHistorySheet() }
         findViewById<View>(R.id.pillSettings).setOnClickListener { showSettingsSheet() }
         findViewById<View>(R.id.pillBookmarks).setOnClickListener { showBookmarksSheet() }
         findViewById<View>(R.id.pillSupport).setOnClickListener { showSupportSheet() }
+    }
+
+    private fun openSearchOverlay() {
+        searchOverlay.visibility = View.VISIBLE
+        val currentUrl = if (activeTab?.isHome == false) activeTab?.url.orEmpty() else ""
+        overlaySearchInput.setText(currentUrl)
+        if (currentUrl.isNotEmpty()) {
+            overlaySearchInput.selectAll()
+        }
+        overlaySearchInput.requestFocus()
+
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        overlaySearchInput.postDelayed({
+            imm.showSoftInput(overlaySearchInput, InputMethodManager.SHOW_IMPLICIT)
+        }, 120)
+
+        if (currentUrl.isBlank()) {
+            loadInitialSuggestions()
+        } else {
+            lifecycleScope.launch {
+                performSearchSuggestions(currentUrl)
+            }
+        }
+    }
+
+    private fun closeSearchOverlay() {
+        searchOverlay.visibility = View.GONE
+        hideKeyboard()
+        searchDebounceJob?.cancel()
+    }
+
+    private fun loadInitialSuggestions() {
+        val list = mutableListOf<SearchSuggestion>()
+
+        // 1. Open tabs
+        val otherTabs = tabs.filter { it != activeTab && !it.isHome && it.url.isNotBlank() }
+        for (tab in otherTabs.take(3)) {
+            list.add(
+                SearchSuggestion(
+                    title = tab.title.ifBlank { tab.url },
+                    subtitle = "Открытая вкладка • ${sanitizeUrl(tab.url)}",
+                    targetUrl = tab.url,
+                    type = SuggestionType.OPEN_TAB,
+                    iconRes = R.drawable.ic_tabs
+                )
+            )
+        }
+
+        // 2. Recent history
+        try {
+            val arr = JSONArray(prefs.historyJson)
+            val historyCount = arr.length().coerceAtMost(6)
+            for (i in 0 until historyCount) {
+                val obj = arr.getJSONObject(i)
+                val url = obj.optString("url", "")
+                val title = obj.optString("title", url)
+                if (url.isNotBlank()) {
+                    list.add(
+                        SearchSuggestion(
+                            title = title.ifBlank { url },
+                            subtitle = sanitizeUrl(url),
+                            targetUrl = url,
+                            type = SuggestionType.HISTORY,
+                            iconRes = R.drawable.ic_history
+                        )
+                    )
+                }
+            }
+        } catch (_: Exception) {}
+
+        // 3. Quick shortcuts
+        if (list.size < 6) {
+            val shortcuts = listOf(
+                Triple("YouTube", "https://youtube.com", "Видеохостинг"),
+                Triple("ВКонтакте", "https://vk.com", "Социальная сеть"),
+                Triple("Telegram Web", "https://web.telegram.org", "Мессенджер"),
+                Triple("Google", "https://google.com", "Поисковая система"),
+                Triple("GitHub", "https://github.com", "Платформа разработки")
+            )
+            for ((title, url, sub) in shortcuts) {
+                if (list.none { it.targetUrl == url }) {
+                    list.add(
+                        SearchSuggestion(
+                            title = title,
+                            subtitle = sub,
+                            targetUrl = url,
+                            type = SuggestionType.BOOKMARK,
+                            iconRes = R.drawable.ic_bookmark
+                        )
+                    )
+                }
+            }
+        }
+
+        searchSuggestionAdapter.submitList(list)
+    }
+
+    private suspend fun performSearchSuggestions(query: String) {
+        val list = mutableListOf<SearchSuggestion>()
+
+        // 1. Search engine action
+        val engineName = if (prefs.searchEngine.contains("google")) "Google" else if (prefs.searchEngine.contains("yandex")) "Яндекс" else "DuckDuckGo"
+        list.add(
+            SearchSuggestion(
+                title = query,
+                subtitle = "Искать в $engineName",
+                targetUrl = query,
+                type = SuggestionType.SEARCH_ENGINE,
+                iconRes = R.drawable.ic_search
+            )
+        )
+
+        // 2. If it's a domain/URL
+        val looksLikeUrl = query.contains(".") && !query.contains(" ")
+        if (looksLikeUrl) {
+            val cleanUrl = if (query.startsWith("http://") || query.startsWith("https://")) query else "https://$query"
+            list.add(
+                SearchSuggestion(
+                    title = query,
+                    subtitle = "Перейти по адресу",
+                    targetUrl = cleanUrl,
+                    type = SuggestionType.SUGGESTION,
+                    iconRes = R.drawable.ic_globe
+                )
+            )
+        }
+
+        // 3. Match against local history
+        try {
+            val arr = JSONArray(prefs.historyJson)
+            var matched = 0
+            for (i in 0 until arr.length()) {
+                if (matched >= 4) break
+                val obj = arr.getJSONObject(i)
+                val url = obj.optString("url", "")
+                val title = obj.optString("title", "")
+                if (url.contains(query, ignoreCase = true) || title.contains(query, ignoreCase = true)) {
+                    list.add(
+                        SearchSuggestion(
+                            title = title.ifBlank { url },
+                            subtitle = "История • ${sanitizeUrl(url)}",
+                            targetUrl = url,
+                            type = SuggestionType.HISTORY,
+                            iconRes = R.drawable.ic_history
+                        )
+                    )
+                    matched++
+                }
+            }
+        } catch (_: Exception) {}
+
+        // 4. Remote live Google suggestions
+        val remoteSuggestions = withContext(Dispatchers.IO) {
+            fetchGoogleSuggestions(query)
+        }
+        for (sugg in remoteSuggestions) {
+            if (list.none { it.title.equals(sugg, ignoreCase = true) }) {
+                list.add(
+                    SearchSuggestion(
+                        title = sugg,
+                        subtitle = null,
+                        targetUrl = sugg,
+                        type = SuggestionType.SUGGESTION,
+                        iconRes = R.drawable.ic_search
+                    )
+                )
+            }
+        }
+
+        withContext(Dispatchers.Main) {
+            searchSuggestionAdapter.submitList(list)
+        }
+    }
+
+    private fun fetchGoogleSuggestions(query: String): List<String> {
+        return try {
+            val encoded = URLEncoder.encode(query, "UTF-8")
+            val url = URL("https://suggestqueries.google.com/complete/search?client=firefox&q=$encoded")
+            val conn = url.openConnection() as HttpURLConnection
+            conn.connectTimeout = 1500
+            conn.readTimeout = 1500
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0")
+            if (conn.responseCode == 200) {
+                val json = conn.inputStream.bufferedReader().use { it.readText() }
+                val arr = JSONArray(json)
+                if (arr.length() > 1) {
+                    val list = mutableListOf<String>()
+                    val suggArr = arr.getJSONArray(1)
+                    for (i in 0 until suggArr.length().coerceAtMost(8)) {
+                        list.add(suggArr.getString(i))
+                    }
+                    list
+                } else emptyList()
+            } else emptyList()
+        } catch (_: Exception) {
+            emptyList()
+        }
     }
 
     fun openNewTab(url: String? = null) {
@@ -522,19 +778,14 @@ class MainActivity : AppCompatActivity() {
         val recycler = view.findViewById<RecyclerView>(R.id.aiMessages)
         val emptyBox = view.findViewById<View>(R.id.aiEmptyBox)
 
-        val layoutManager = LinearLayoutManager(this).apply {
-            stackFromEnd = true
-        }
+        val layoutManager = LinearLayoutManager(this)
         recycler.layoutManager = layoutManager
+        recycler.itemAnimator = null
         aiAdapter = AiChatAdapter(aiMessages)
         recycler.adapter = aiAdapter
 
         fun updateUiState() {
-            if (aiMessages.isNotEmpty()) {
-                emptyBox.visibility = View.GONE
-            } else {
-                emptyBox.visibility = View.VISIBLE
-            }
+            emptyBox.visibility = if (aiMessages.isNotEmpty()) View.GONE else View.VISIBLE
         }
         updateUiState()
 
@@ -553,14 +804,12 @@ class MainActivity : AppCompatActivity() {
 
         btnClose.setOnClickListener { dialog.dismiss() }
         btnNewChat.setOnClickListener {
-            aiMessages.clear()
             aiAdapter?.clear()
             updateUiState()
         }
 
         fun sendUserQuery(prompt: String) {
-            updateUiState()
-            sendAiMessage(prompt, input, recycler)
+            sendAiMessage(prompt, input, recycler, emptyBox)
         }
 
         // Smart Actions
@@ -608,20 +857,19 @@ class MainActivity : AppCompatActivity() {
         dialog.show()
     }
 
-    private fun sendAiMessage(text: String, input: EditText, recycler: RecyclerView) {
+    private fun sendAiMessage(text: String, input: EditText, recycler: RecyclerView, emptyBox: View) {
         if (aiStreaming) return
         input.text?.clear()
         hideKeyboard()
+        emptyBox.visibility = View.GONE
 
         val userMsg = AiMessage("user", text)
-        aiMessages.add(userMsg)
         aiAdapter?.addMessage(userMsg)
-        recycler.scrollToPosition(aiMessages.size - 1)
+        recycler.smoothScrollToPosition(aiMessages.size - 1)
 
         val assistantMsg = AiMessage("assistant", "")
-        aiMessages.add(assistantMsg)
         aiAdapter?.addMessage(assistantMsg)
-        recycler.scrollToPosition(aiMessages.size - 1)
+        recycler.smoothScrollToPosition(aiMessages.size - 1)
 
         aiStreaming = true
 
@@ -1098,6 +1346,34 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun processImageUriToBase64(uri: Uri): Pair<Bitmap, String>? {
+        return try {
+            contentResolver.openInputStream(uri)?.use { stream ->
+                val original = BitmapFactory.decodeStream(stream) ?: return null
+                val maxDim = 1280
+                val width = original.width
+                val height = original.height
+                val scaled = if (width > maxDim || height > maxDim) {
+                    val ratio = width.toFloat() / height.toFloat()
+                    val (newW, newH) = if (ratio > 1f) {
+                        maxDim to (maxDim / ratio).toInt()
+                    } else {
+                        (maxDim * ratio).toInt() to maxDim
+                    }
+                    Bitmap.createScaledBitmap(original, newW, newH, true)
+                } else original
+
+                val out = ByteArrayOutputStream()
+                scaled.compress(Bitmap.CompressFormat.JPEG, 82, out)
+                val bytes = out.toByteArray()
+                val b64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+                scaled to b64
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     // ===== REAL-TIME CREATOR SUPPORT CHAT =====
     private fun showSupportSheet() {
         val dialog = BottomSheetDialog(this, R.style.Luma_BottomSheet)
@@ -1107,16 +1383,53 @@ class MainActivity : AppCompatActivity() {
         val recycler = view.findViewById<RecyclerView>(R.id.supportMessages)
         val input = view.findViewById<EditText>(R.id.supportInput)
         val sendBtn = view.findViewById<FrameLayout>(R.id.supportSendBtn)
+        val attachBtn = view.findViewById<ImageButton>(R.id.supportAttachBtn)
+
+        val attachmentBar = view.findViewById<LinearLayout>(R.id.supportAttachmentBar)
+        val attachmentThumb = view.findViewById<ImageView>(R.id.supportAttachmentThumb)
+        val attachmentName = view.findViewById<TextView>(R.id.supportAttachmentName)
+        val attachmentSize = view.findViewById<TextView>(R.id.supportAttachmentSize)
+        val attachmentRemove = view.findViewById<ImageButton>(R.id.supportAttachmentRemove)
+
+        var currentImageBase64: String? = null
 
         recycler.layoutManager = LinearLayoutManager(this).apply { stackFromEnd = true }
         val supportMessages = mutableListOf<SupportChatMessage>()
-        val adapter = SupportChatAdapter(supportMessages)
+        val adapter = SupportChatAdapter(supportMessages) { clickedMsg ->
+            if (!clickedMsg.imageUrl.isNullOrBlank()) {
+                try {
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(clickedMsg.imageUrl)))
+                } catch (_: Exception) {}
+            }
+        }
         recycler.adapter = adapter
 
         adapter.addMessage(SupportChatMessage(
             isUser = false,
             text = "Привет! Я создатель Luma. Напиши любой вопрос или баг-репорт — отвечу прямо сюда!"
         ))
+
+        attachBtn.setOnClickListener {
+            onSupportImagePicked = { uri ->
+                val result = processImageUriToBase64(uri)
+                if (result != null) {
+                    val (bitmap, b64) = result
+                    currentImageBase64 = b64
+                    attachmentThumb.setImageBitmap(bitmap)
+                    attachmentName.text = "Изображение выбрано"
+                    attachmentSize.text = "${(b64.length * 3 / 4) / 1024} КБ"
+                    attachmentBar.visibility = View.VISIBLE
+                } else {
+                    Toast.makeText(this, "Не удалось прочитать изображение", Toast.LENGTH_SHORT).show()
+                }
+            }
+            pickSupportImageLauncher.launch("image/*")
+        }
+
+        attachmentRemove.setOnClickListener {
+            currentImageBase64 = null
+            attachmentBar.visibility = View.GONE
+        }
 
         supportPollJob = lifecycleScope.launch {
             while (isActive) {
@@ -1137,18 +1450,33 @@ class MainActivity : AppCompatActivity() {
 
         dialog.setOnDismissListener {
             supportPollJob?.cancel()
+            onSupportImagePicked = null
         }
 
         fun doSend() {
             val text = input.text.toString().trim()
-            if (text.isBlank()) return
+            val imageB64 = currentImageBase64
+            if (text.isBlank() && imageB64.isNullOrBlank()) return
+
             input.text?.clear()
-            val userMsg = SupportChatMessage(isUser = true, text = text)
+            currentImageBase64 = null
+            attachmentBar.visibility = View.GONE
+
+            val userMsg = SupportChatMessage(
+                isUser = true,
+                text = text,
+                imageBase64 = imageB64
+            )
             adapter.addMessage(userMsg)
             recycler.smoothScrollToPosition(supportMessages.size - 1)
 
             lifecycleScope.launch {
-                supportService.sendMessage(text)
+                supportService.sendMessage(
+                    text = text,
+                    imageBase64 = imageB64,
+                    imageName = "image.jpg",
+                    imageMime = "image/jpeg"
+                )
             }
         }
 
@@ -1178,7 +1506,9 @@ class MainActivity : AppCompatActivity() {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (readerOverlay.visibility == View.VISIBLE) {
+        if (searchOverlay.visibility == View.VISIBLE) {
+            closeSearchOverlay()
+        } else if (readerOverlay.visibility == View.VISIBLE) {
             readerOverlay.visibility = View.GONE
         } else if (webView.visibility == View.VISIBLE && webView.canGoBack()) {
             webView.goBack()
