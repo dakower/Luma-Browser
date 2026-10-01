@@ -247,7 +247,7 @@ public partial class App : System.Windows.Application
     public void ExitCompletely()
     {
         _exiting = true;
-        foreach (Window window in Windows) window.Close();
+        foreach (Window window in Windows.Cast<Window>().ToList()) window.Close();
         Shutdown();
     }
 

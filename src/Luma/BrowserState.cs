@@ -49,6 +49,22 @@ public sealed class LumaState
     public List<HistoryEntry> RecentlyClosed { get; set; } = [];
     public int SleepAfterMinutes { get; set; } = 5;
 
+    // Home Dashboard Customization
+    public string HomeSearchShape { get; set; } = "pill";
+    public string HomeSearchStyle { get; set; } = "solid";
+    public string HomeFontFamily { get; set; } = "Segoe UI Variable Display, Segoe UI";
+    public bool HomeShowLogo { get; set; } = true;
+    public bool HomeShowClock { get; set; } = true;
+    public bool HomeShowHeadline { get; set; } = true;
+    public bool HomeShowSearch { get; set; } = true;
+    public bool HomeShowQuickPills { get; set; } = true;
+    public bool HomeShowMedia { get; set; } = true;
+    public bool HomeShowRecent { get; set; } = true;
+    public string? HomeWallpaperPath { get; set; }
+    public double HomeWallpaperDim { get; set; } = 0.35;
+    public string? SupportGuestId { get; set; }
+    public string? SupportThreadId { get; set; }
+
     public List<SpaceState> Spaces { get; set; } = [new SpaceState()];
     public static string DirectoryPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Luma");
     public static string FilePath => Path.Combine(DirectoryPath, "state.json");
@@ -84,6 +100,9 @@ public sealed class LumaState
             if (state.SleepAfterMinutes is < 0 or > 240 || state.SleepAfterMinutes is > 0 and < 2) state.SleepAfterMinutes = 5;
             // Older builds stored a raw provider model id here.
             if (state.AssistantModel is not "fast" and not "pro") state.AssistantModel = "fast";
+            if (string.IsNullOrWhiteSpace(state.HomeSearchShape)) state.HomeSearchShape = "pill";
+            if (string.IsNullOrWhiteSpace(state.HomeSearchStyle)) state.HomeSearchStyle = "solid";
+            if (string.IsNullOrWhiteSpace(state.HomeFontFamily)) state.HomeFontFamily = "Segoe UI Variable Display, Segoe UI";
             state.Spaces ??= [];
             if (state.SchemaVersion < 3) state.SchemaVersion = 3;
             if (state.SchemaVersion < 4) state.SchemaVersion = 4;

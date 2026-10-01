@@ -144,7 +144,17 @@ public partial class MainWindow
         "FeedbackChatStatus",
         "FeedbackAttachmentName",
         "SearchScopeText",
-        "SearchCountText"
+        "SearchCountText",
+        "HomeClockText",
+        "HomeDateText",
+        "HomeHeadlineText",
+        "HomeDimPercentText",
+        "HomeMediaTitle",
+        "HomeMediaArtist",
+        "HomeSupportInputBox",
+        "HomeSupportPlaceholder",
+        "HomeSupportSendingStatus",
+        "HomeSupportEmptyPrompt"
     };
 
     private void CollectUiText(DependencyObject node, List<(DependencyObject, DependencyProperty, string)> targets, HashSet<DependencyObject> visited)

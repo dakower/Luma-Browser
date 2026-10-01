@@ -67,7 +67,16 @@ public partial class MainWindow
         if (string.IsNullOrWhiteSpace(input)) return;
         var target = Normalize(input);
         if (TryParseLumaSearchUrl(target, out var query, out var mode)) { await OpenLumaSearchTabAsync(query, mode); return; }
-        if (CurrentTab is null) await AddTabAsync(target);
+        if (CurrentTab is null || CurrentTab.IsHome)
+        {
+            var previousHome = CurrentTab is { IsHome: true } home ? home : null;
+            await AddTabAsync(target);
+            if (previousHome is not null && !ReferenceEquals(CurrentTab, previousHome))
+            {
+                _spaces[_activeSpace].Tabs.Remove(previousHome);
+                FilterTabs(); Save();
+            }
+        }
         else CurrentTab.ActiveView.CoreWebView2?.Navigate(target);
     }
 
@@ -291,7 +300,23 @@ public partial class MainWindow
         if (purpose == SearchPurpose.TabSearch) { if (item.ExistingTab is not null) ActivateTabFromUser(item.ExistingTab); return; }
         if (item.ExistingTab is not null && purpose == SearchPurpose.Navigate) { ActivateTabFromUser(item.ExistingTab); return; }
         if (TryParseLumaSearchUrl(item.Url, out var searchQuery, out var searchMode)) { await OpenLumaSearchTabAsync(searchQuery, searchMode); return; }
-        if (purpose == SearchPurpose.Navigate && CurrentTab is not null) CurrentTab.ActiveView.CoreWebView2?.Navigate(item.Url);
+        if (purpose == SearchPurpose.Navigate && CurrentTab is not null)
+        {
+            if (CurrentTab.IsHome)
+            {
+                var previousHome = CurrentTab;
+                await AddTabAsync(item.Url);
+                if (!ReferenceEquals(CurrentTab, previousHome))
+                {
+                    _spaces[_activeSpace].Tabs.Remove(previousHome);
+                    FilterTabs(); Save();
+                }
+            }
+            else
+            {
+                CurrentTab.ActiveView.CoreWebView2?.Navigate(item.Url);
+            }
+        }
         else if (purpose == SearchPurpose.Split && CurrentTab is not null) await EnableSplitAsync(CurrentTab, item.Url, true);
         else if (purpose == SearchPurpose.Folder && folder is not null) { SaveSite(folder, item.Title, item.Url); folder.Expanded = true; await AddTabAsync(item.Url, true, folder.Id); Save(); RefreshFolders(); FilterTabs(); }
         else await AddTabAsync(item.Url);

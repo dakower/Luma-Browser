@@ -64,7 +64,10 @@ public partial class MainWindow
     {
         if (e.OriginalSource is not DependencyObject source) return;
         if (ItemsControl.ContainerFromElement(HistoryList, source) is not ListBoxItem { DataContext: HistoryEntry entry }) return;
-        e.Handled = true; CloseHistory(); await AddTabAsync(entry.Url);
+        e.Handled = true;
+        CloseHistory();
+        try { await AddTabAsync(entry.Url); }
+        catch (Exception ex) { App.Log(ex); }
     }
     private void HistoryClear_Click(object sender, RoutedEventArgs e)
     {

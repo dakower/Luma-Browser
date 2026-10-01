@@ -326,7 +326,7 @@ public partial class MainWindow
             try { icons[i].Source = new BitmapImage(new Uri(entry.FaviconUrl)); }
             catch { icons[i].Source = null; icons[i].Visibility = Visibility.Collapsed; }
         }
-        HomeRecentSitesGrid.Visibility = recent.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        HomeRecentSitesGrid.Visibility = (_state.HomeShowRecent && recent.Count > 0) ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private async void HomeRecentSite_Click(object sender, RoutedEventArgs e)

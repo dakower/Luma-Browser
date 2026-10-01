@@ -143,8 +143,9 @@ public partial class MainWindow
     {
         var playingNow = _spaces.SelectMany(s => s.Tabs).FirstOrDefault(t => t.MediaPlaying);
         if (playingNow is not null) _nowPlaying = playingNow;
-        if (_nowPlaying is null) { NowPlayingWidget.Visibility = Visibility.Collapsed; SetNowPlayingTray(false, false); return; }
+        if (_nowPlaying is null) { NowPlayingWidget.Visibility = Visibility.Collapsed; if (HomeMediaCard is not null) HomeMediaCard.Visibility = Visibility.Collapsed; SetNowPlayingTray(false, false); return; }
         NowPlayingWidget.Visibility = Visibility.Visible;
+        if (HomeMediaCard is not null) HomeMediaCard.Visibility = _state.HomeShowMedia ? Visibility.Visible : Visibility.Collapsed;
         SyncNowPlayingUi();
     }
 
@@ -193,6 +194,25 @@ public partial class MainWindow
         var geometry = (Geometry)FindResource(playIcon);
         NowPlayingToggleIcon.Data = geometry;
         NowPlayingToggleIconPopup.Data = geometry;
+        if (HomeMediaCard is not null)
+        {
+            HomeMediaCard.Visibility = _state.HomeShowMedia ? Visibility.Visible : Visibility.Collapsed;
+            HomeMediaTitle.Text = displayTitle;
+            HomeMediaArtist.Text = string.IsNullOrWhiteSpace(tab.MediaArtist) ? tab.Domain : tab.MediaArtist;
+            HomeMediaToggleIcon.Data = geometry;
+            if (hasArt && NowPlayingArt.Source is not null)
+            {
+                HomeMediaArt.Source = NowPlayingArt.Source;
+                HomeMediaArt.Visibility = Visibility.Visible;
+                HomeMediaFallbackIcon.Visibility = Visibility.Collapsed;
+            }
+            else
+            {
+                HomeMediaArt.Source = null;
+                HomeMediaArt.Visibility = Visibility.Collapsed;
+                HomeMediaFallbackIcon.Visibility = Visibility.Visible;
+            }
+        }
         _floatingMusic?.Update(tab);
     }
 
@@ -203,6 +223,24 @@ public partial class MainWindow
         if (core is null) return;
         try { core.PostWebMessageAsJson(JsonSerializer.Serialize(new { kind = "luma-media-control", action, value })); }
         catch (Exception ex) { App.Log(ex); }
+    }
+
+    private void HomeMediaCard_Click(object sender, MouseButtonEventArgs e)
+    {
+        for (var source = e.OriginalSource as DependencyObject; source is not null; source = VisualTreeHelper.GetParent(source))
+            if (source is Button) return;
+        if (_nowPlaying is not null)
+        {
+            var spaceIdx = _spaces.FindIndex(s => s.Tabs.Contains(_nowPlaying));
+            if (spaceIdx >= 0 && spaceIdx != _activeSpace) SwitchSpace(spaceIdx);
+            CurrentTab = _nowPlaying;
+        }
+    }
+
+    private void HomeMediaToggle_Click(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        SendMediaCommand("toggle");
     }
 
     private void NowPlayingWidget_Click(object sender, MouseButtonEventArgs e)

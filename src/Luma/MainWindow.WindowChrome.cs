@@ -209,7 +209,7 @@ public partial class MainWindow
             if (SidebarPeekPopup.IsOpen) { SidebarPeekPopup.HorizontalOffset += 0.1; SidebarPeekPopup.HorizontalOffset -= 0.1; }
         }
     }
-    private void CloseTransientUi() { foreach (var p in Popups()) p.IsOpen = false; _openMenu?.SetCurrentValue(ContextMenu.IsOpenProperty, false); }
+    private void CloseTransientUi() { foreach (var p in Popups()) p.IsOpen = false; _openMenu?.SetCurrentValue(ContextMenu.IsOpenProperty, false); if (_homeSupportOpen) CloseSupportChat(); }
     private void CloseMenusExcept(Popup keep) { foreach (var p in Popups()) if (p != keep) p.IsOpen = false; _openMenu?.SetCurrentValue(ContextMenu.IsOpenProperty, false); }
     private Popup[] Popups() => [SearchPopup, SiteMenuPopup, TranslatePopup, SplitPopup, DeleteFolderPopup, ConfirmPopup, MainMenuPopup, NewSpacePopup, NewFolderPopup, HistoryPopup, DownloadPopup];
     // Every toast uses the same fixed card width, so they always line up in the same

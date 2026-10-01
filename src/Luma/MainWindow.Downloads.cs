@@ -374,8 +374,9 @@ public partial class MainWindow
     {
         try
         {
+            var dir = !string.IsNullOrWhiteSpace(filePath) ? Path.GetDirectoryName(filePath) : null;
             if (File.Exists(filePath)) Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{filePath}\"") { UseShellExecute = true });
-            else if (Directory.Exists(Path.GetDirectoryName(filePath))) Process.Start(new ProcessStartInfo(Path.GetDirectoryName(filePath)!) { UseShellExecute = true });
+            else if (!string.IsNullOrWhiteSpace(dir) && Directory.Exists(dir)) Process.Start(new ProcessStartInfo(dir) { UseShellExecute = true });
             else ShowToast("Файл не найден", filePath, true);
         }
         catch (Exception ex) { App.Log(ex); ShowToast("Не удалось открыть папку", ex.Message, true); }

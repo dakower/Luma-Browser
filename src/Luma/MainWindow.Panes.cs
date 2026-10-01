@@ -131,7 +131,19 @@ public partial class MainWindow
         RenderPanes(); UpdateChrome(); Save();
     }
     private void ClosePane(BrowserTab tab, string side) { if (!tab.IsSplit) return; if (side == "primary") tab.PromoteSecondary(); else tab.CloseSecondary(); RenderPanes(); UpdateChrome(); Save(); }
-    private async void PaneDetach_Click(object sender, RoutedEventArgs e) { if (sender is not Button { Tag: Tuple<BrowserTab, string> pair }) return; var url = pair.Item2 == "secondary" ? pair.Item1.SecondaryUrl : pair.Item1.FullUrl; var title = pair.Item2 == "secondary" ? pair.Item1.SecondaryTitle : pair.Item1.Title; ClosePane(pair.Item1, pair.Item2); var tab = await AddTabAsync(url); tab.Title = title; }
+    private async void PaneDetach_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (sender is not Button { Tag: Tuple<BrowserTab, string> pair }) return;
+            var url = pair.Item2 == "secondary" ? pair.Item1.SecondaryUrl : pair.Item1.FullUrl;
+            var title = pair.Item2 == "secondary" ? pair.Item1.SecondaryTitle : pair.Item1.Title;
+            ClosePane(pair.Item1, pair.Item2);
+            var tab = await AddTabAsync(url);
+            tab.Title = title;
+        }
+        catch (Exception ex) { App.Log(ex); }
+    }
     private void PaneClose_Click(object sender, RoutedEventArgs e) { if (sender is Button { Tag: Tuple<BrowserTab, string> pair }) ClosePane(pair.Item1, pair.Item2); }
 
     /// <summary>

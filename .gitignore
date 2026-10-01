@@ -3,6 +3,8 @@ bin/
 obj/
 publish/
 dist/
+!dist/updates/manifest.json
+!dist/SHA256SUMS.txt
 update-publish/
 TestResults/
 

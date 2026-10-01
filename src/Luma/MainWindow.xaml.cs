@@ -76,6 +76,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private readonly Dictionary<string, TabSessionState> _pendingTabRestores = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Task> _tabInitializationTasks = new(StringComparer.Ordinal);
     private readonly DispatcherTimer _toastTimer = new() { Interval = TimeSpan.FromSeconds(2) };
+    private readonly DispatcherTimer _homeClockTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private static readonly HttpClient TranslationHttp = CreateTranslationHttp();
     // Public translation endpoints start returning 429/empty payloads when a page fans out
     // dozens of requests. Keep one shared, deliberately small limit for every tab.
@@ -288,6 +289,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _activeSpace = Math.Clamp(_state.ActiveSpace, 0, _spaces.Count - 1);
         DataContext = this; SearchResultsList.ItemsSource = _searchResults; InitializeDownloads(); InitializeTestCenter();
         _toastTimer.Tick += (_, _) => { _toastTimer.Stop(); ToastPopup.IsOpen = false; };
+        _homeClockTimer.Tick += (_, _) => UpdateHomeClock();
+        _homeClockTimer.Start();
+        UpdateHomeClock();
+        InitializeDashboardStudio();
+        InitializeSupportChat();
         SiteShell.SizeChanged += (_, _) =>
         {
             if (ToastPopup.IsOpen) PositionToast();
@@ -423,5 +429,22 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _previewTheme = null; _previewThemeTab = null; ApplyTheme();
     }
     private static SolidColorBrush Brush(string color) => new((Color)ColorConverter.ConvertFromString(color));
+
+    private void UpdateHomeClock()
+    {
+        if (HomeClockText is null || HomeDateText is null) return;
+        var now = DateTime.Now;
+        HomeClockText.Text = now.ToString("HH:mm");
+        var culture = _state.Language switch
+        {
+            "ru" => new System.Globalization.CultureInfo("ru-RU"),
+            "uk" => new System.Globalization.CultureInfo("uk-UA"),
+            _ => new System.Globalization.CultureInfo("en-US")
+        };
+        var dateFormatted = now.ToString("dddd, d MMMM", culture);
+        if (dateFormatted.Length > 0)
+            dateFormatted = char.ToUpper(dateFormatted[0], culture) + dateFormatted[1..];
+        HomeDateText.Text = dateFormatted;
+    }
 
 }

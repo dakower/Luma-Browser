@@ -475,7 +475,10 @@ public partial class MainWindow
         var removed = _spaces[index]; foreach (var tab in removed.Tabs.ToList()) { ForgetViewState(tab.View); ForgetViewState(tab.SecondaryView); tab.Dispose(); } removed.Tabs.Clear();
         _spaces.RemoveAt(index); _state.Spaces.RemoveAt(index);
         if (_activeSpace > index) _activeSpace--; else if (_activeSpace == index) _activeSpace = Math.Min(index, _spaces.Count - 1);
-        _state.ActiveSpace = _activeSpace; OnChanged(nameof(Tabs)); CurrentTab = _spaces[_activeSpace].Current ?? Tabs.FirstOrDefault();
+        _state.ActiveSpace = _activeSpace;
+        OnChanged(nameof(Tabs));
+        if (_spaces[_activeSpace].Tabs.Count == 0) _spaces[_activeSpace].Current = EnsureHomeTab(_spaces[_activeSpace]);
+        CurrentTab = _spaces[_activeSpace].Current ?? Tabs.FirstOrDefault() ?? EnsureHomeTab(_spaces[_activeSpace]);
         RefreshSpaces(); RefreshFolders(); FilterTabs(); Save();
     }
 

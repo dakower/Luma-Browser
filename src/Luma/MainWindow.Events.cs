@@ -341,15 +341,44 @@ public partial class MainWindow
         if (CurrentTab.ActiveView?.CoreWebView2 is not null)
             await ApplyAmbientLightAsync(CurrentTab.ActiveView, on);
     }
-    private async void ClearCache_Click(object sender, RoutedEventArgs e) { if (CurrentTab?.ActiveView.CoreWebView2 is null) return; await CurrentTab.ActiveView.CoreWebView2.Profile.ClearBrowsingDataAsync(CoreWebView2BrowsingDataKinds.DiskCache); ShowToast("Кеш очищен"); }
-    private async void ClearCookies_Click(object sender, RoutedEventArgs e) { if (CurrentTab?.ActiveView.CoreWebView2 is null) return; var m = CurrentTab.ActiveView.CoreWebView2.CookieManager; foreach (var c in await m.GetCookiesAsync(CurrentTab.ActiveUrl)) m.DeleteCookie(c); ShowToast("Cookie удалены"); }
+    private async void ClearCache_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (CurrentTab?.ActiveView.CoreWebView2 is null) return;
+            await CurrentTab.ActiveView.CoreWebView2.Profile.ClearBrowsingDataAsync(CoreWebView2BrowsingDataKinds.DiskCache);
+            ShowToast("Кеш очищен");
+        }
+        catch (Exception ex) { App.Log(ex); ShowToast("Ошибка", ex.Message, true); }
+    }
+    private async void ClearCookies_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (CurrentTab?.ActiveView.CoreWebView2 is null) return;
+            var m = CurrentTab.ActiveView.CoreWebView2.CookieManager;
+            if (Uri.TryCreate(CurrentTab.ActiveUrl, UriKind.Absolute, out var uri) && (uri.Scheme == "http" || uri.Scheme == "https"))
+            {
+                var cookies = await m.GetCookiesAsync(CurrentTab.ActiveUrl);
+                foreach (var c in cookies) m.DeleteCookie(c);
+            }
+            else
+            {
+                await CurrentTab.ActiveView.CoreWebView2.Profile.ClearBrowsingDataAsync(CoreWebView2BrowsingDataKinds.Cookies);
+            }
+            ShowToast("Cookie удалены");
+        }
+        catch (Exception ex) { App.Log(ex); ShowToast("Ошибка", ex.Message, true); }
+    }
     private void TranslateButton_Click(object sender, RoutedEventArgs e)
     {
         CloseMenusExcept(TranslatePopup);
         var domain = CurrentTab is null ? null : TranslateDomain(CurrentTab.ActiveUrl);
+        var langName = _state.Language switch { "uk" => L("на украинский", "to Ukrainian", "на українську"), "en" => L("на английский", "to English", "на англійську"), _ => L("на русский", "to Russian", "на російську") };
+        var alwaysText = L(" - переводится всегда", " - always translated", " - перекладається завжди");
         TranslateDomainText.Text = domain is null
-            ? "на русский"
-            : (_state.AlwaysTranslateDomains.Contains(domain) ? domain + " - переводится всегда" : domain + " - на русский");
+            ? langName
+            : (_state.AlwaysTranslateDomains.Contains(domain) ? domain + alwaysText : domain + " - " + langName);
         TranslatePopup.IsOpen = !TranslatePopup.IsOpen;
     }
 
@@ -391,7 +420,7 @@ public partial class MainWindow
     private void DefaultBrowser_Click(object sender, RoutedEventArgs e) { CloseTransientUi(); BrowserRegistry.OpenDefaultAppsSettings(); }
     private async void CheckUpdates_Click(object sender, RoutedEventArgs e) { CloseTransientUi(); await CheckForUpdatesManuallyAsync(); }
     private async void AboutMenu_Click(object sender, RoutedEventArgs e) { CloseTransientUi(); await OpenAboutAsync(); }
-    public static string AppVersion => System.Reflection.Assembly.GetExecutingAssembly().GetName().Version is { } v ? $"{v.Major}.{v.Minor}.{v.Build}" : "2.1.3";
+    public static string AppVersion => System.Reflection.Assembly.GetExecutingAssembly().GetName().Version is { } v ? $"{v.Major}.{v.Minor}.{v.Build}" : "2.1.4";
     private async void Import_Click(object sender, RoutedEventArgs e) { CloseTransientUi(); await OpenImportAsync(); }
     private void Exit_Click(object sender, RoutedEventArgs e) => ((App)Application.Current).ExitCompletely();
     // Kept for the WPF chrome, but the cursor poll above is what actually drives the reveal,
@@ -494,7 +523,31 @@ public partial class MainWindow
         else if (ctrl && e.Key == Key.R) { if (CurrentTab is { IsHome: false } tabR) tabR.ActiveView.Reload(); }
         else if (ctrl && e.Key == Key.J) { _ = ToggleAssistantAsync(); e.Handled = true; }
     }
-    private void OnClosing(object? sender, CancelEventArgs e) { if (_closing) return; _closing = true; _auth.SessionChanged -= AccountSessionChanged; CloseFloatingVideoForShutdown(); _floatingMusic?.Close(); _floatingMusic = null; _downloadWatchdog?.Stop(); _tabInputWatch.Stop(); _edgeWatch.Stop(); _sleepWatch.Stop(); _feedbackRefreshTimer.Stop(); StopUpdateLoop(); StopAccountUsageTracking(); Save(); foreach (var s in _spaces) foreach (var t in s.Tabs) t.Dispose(); if (!((App)Application.Current).IsExiting && !((App)Application.Current).KeepInBackground) Application.Current.Shutdown(); }
+    private void OnClosing(object? sender, CancelEventArgs e)
+    {
+        if (_closing) return;
+        _closing = true;
+        _auth.SessionChanged -= AccountSessionChanged;
+        CloseFloatingVideoForShutdown();
+        _floatingMusic?.Close();
+        _floatingMusic = null;
+        _downloadWatchdog?.Stop();
+        _tabInputWatch.Stop();
+        _edgeWatch.Stop();
+        _sleepWatch.Stop();
+        _feedbackRefreshTimer.Stop();
+        _supportChatRealtimeTimer.Stop();
+        _supportChatBackgroundTimer.Stop();
+        _homeClockTimer.Stop();
+        _toastTimer.Stop();
+        _hoverHideTimer.Stop();
+        _interfaceLanguageTimer?.Stop();
+        StopUpdateLoop();
+        StopAccountUsageTracking();
+        Save();
+        foreach (var s in _spaces) foreach (var t in s.Tabs) t.Dispose();
+        if (!((App)Application.Current).IsExiting && !((App)Application.Current).KeepInBackground) Application.Current.Shutdown();
+    }
     /// <summary>Cycles through spaces by the given delta (+1 right, -1 left).</summary>
     private void CycleSpace(int delta)
     {
