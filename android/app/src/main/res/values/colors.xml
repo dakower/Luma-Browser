@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- === LUMA AUTHENTIC PALETTE (mirrored from MainWindow.xaml) === -->
+
+    <!-- Core backgrounds -->
+    <color name="luma_bg">#0B0912</color>
+    <color name="luma_panel">#12101A</color>
+    <color name="luma_top">#0A0810</color>
+    <color name="luma_surface">#202123</color>
+    <color name="luma_surface_raised">#27282B</color>
+    <color name="luma_surface_inset">#17181A</color>
+
+    <!-- Text -->
+    <color name="luma_text_primary">#FAF8FC</color>
+    <color name="luma_text_secondary">#C7C3D1</color>
+    <color name="luma_text_muted">#716C82</color>
+    <color name="luma_text_icon_muted">#8B8691</color>
+
+    <!-- Accent (Luma Purple) -->
+    <color name="luma_accent">#7468C7</color>
+    <color name="luma_accent_soft">#2F2B47</color>
+    <color name="luma_accent_muted">#A9A2D8</color>
+
+    <!-- Borders -->
+    <color name="luma_border">#323338</color>
+    <color name="luma_border_strong">#45464E</color>
+
+    <!-- Active Tab Gradient (start/end approx as solid for Android) -->
+    <color name="luma_active_tab_start">#4B2E78</color>
+    <color name="luma_active_tab_mid">#32245D</color>
+    <color name="luma_active_tab_end">#1F3554</color>
+
+    <!-- Glow colors -->
+    <color name="luma_glow">#565B64</color>
+    <color name="luma_glow_soft">#343840</color>
+
+    <!-- Functional -->
+    <color name="transparent">#00000000</color>
+    <color name="luma_green">#3AB87E</color>
+    <color name="luma_red">#E05252</color>
+    <color name="luma_yellow">#C9A227</color>
+</resources>

@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@color/luma_panel"
+    android:paddingBottom="20dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="20dp"
+        android:paddingEnd="16dp">
+        <ImageView android:layout_width="22dp" android:layout_height="22dp"
+            android:src="@drawable/ic_support" android:layout_marginEnd="10dp"/>
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:orientation="vertical">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Чат с создателем" android:textColor="@color/luma_text_primary"
+                android:textSize="17sp" android:textStyle="bold"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Ответ в реальном времени" android:textColor="@color/luma_text_muted"
+                android:textSize="11.5sp"/>
+        </LinearLayout>
+    </LinearLayout>
+
+    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/luma_border"/>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/supportMessages"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="120dp"
+        android:maxHeight="260dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="8dp"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp">
+        <EditText
+            android:id="@+id/supportInput"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_glass_card"
+            android:paddingStart="14dp"
+            android:paddingEnd="10dp"
+            android:textColor="@color/luma_text_primary"
+            android:textColorHint="@color/luma_text_muted"
+            android:textSize="14sp"
+            android:hint="Написать сообщение..."
+            android:singleLine="true"
+            android:imeOptions="actionSend"/>
+        <FrameLayout
+            android:id="@+id/supportSendBtn"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/selector_accent_button">
+            <ImageView android:layout_width="18dp" android:layout_height="18dp"
+                android:layout_gravity="center" android:src="@drawable/ic_arrow_right"/>
+        </FrameLayout>
+    </LinearLayout>
+</LinearLayout>

@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tabs Bottom Sheet — mirroring desktop Luma tab list -->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@color/luma_panel"
+    android:paddingBottom="16dp">
+
+    <!-- Header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="20dp"
+        android:paddingEnd="16dp">
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Вкладки"
+            android:textColor="@color/luma_text_primary"
+            android:textSize="17sp"
+            android:textStyle="bold"/>
+        <Button
+            android:id="@+id/btnNewTab"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:text="+ Новая"
+            android:textColor="@color/luma_accent"
+            android:textSize="13sp"
+            android:textAllCaps="false"
+            android:background="@drawable/bg_pill_button"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"/>
+    </LinearLayout>
+
+    <!-- Divider -->
+    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/luma_border"/>
+
+    <!-- Tab list -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/tabsRecycler"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="8dp"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:maxHeight="400dp"/>
+
+    <!-- Close all -->
+    <Button
+        android:id="@+id/btnCloseAll"
+        android:layout_width="match_parent"
+        android:layout_height="42dp"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:layout_marginTop="8dp"
+        android:text="Закрыть все"
+        android:textColor="@color/luma_red"
+        android:textSize="14sp"
+        android:textAllCaps="false"
+        android:background="@drawable/bg_surface_raised"
+        android:insetTop="0dp"
+        android:insetBottom="0dp"/>
+
+</LinearLayout>

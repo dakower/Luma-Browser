@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Luma</string>
+    <string name="search_hint">Поиск в интернете или адрес сайта…</string>
+    <string name="home_headline">Куда отправимся?</string>
+
+    <!-- Navigation -->
+    <string name="go_back">Назад</string>
+    <string name="go_forward">Вперёд</string>
+    <string name="reload">Обновить</string>
+    <string name="stop">Остановить</string>
+    <string name="new_tab">Новая вкладка</string>
+    <string name="tabs">Вкладки</string>
+    <string name="close_tab">Закрыть вкладку</string>
+    <string name="close_all">Закрыть все</string>
+
+    <!-- Spaces -->
+    <string name="space_main">Основное</string>
+    <string name="space_work">Работа</string>
+    <string name="space_study">Учёба</string>
+    <string name="space_media">Медиа</string>
+
+    <!-- Tools -->
+    <string name="menu_bookmarks">Закладки</string>
+    <string name="menu_history">История</string>
+    <string name="menu_downloads">Загрузки</string>
+    <string name="menu_find">Найти на странице</string>
+    <string name="menu_reader">Режим чтения</string>
+    <string name="menu_desktop">Версия для ПК</string>
+    <string name="menu_translate">Перевести страницу</string>
+    <string name="menu_adblock">Блокировка рекламы</string>
+    <string name="menu_settings">Настройки</string>
+    <string name="menu_support">Чат с создателем</string>
+    <string name="menu_incognito">Инкогнито</string>
+
+    <!-- LumaAI -->
+    <string name="ai_name">LumaAI</string>
+    <string name="ai_subtitle">Ваш интеллектуальный ассистент</string>
+    <string name="ai_hint">Задайте любой вопрос…</string>
+    <string name="ai_chip_summary">📑 Краткая выжимка</string>
+    <string name="ai_chip_explain">💡 Объясни просто</string>
+    <string name="ai_chip_points">🎯 Ключевые тезисы</string>
+    <string name="ai_chip_translate">🌐 Перевести</string>
+
+    <!-- Dashboard Quick Pills (matching desktop) -->
+    <string name="pill_lumaai">LumaAI</string>
+    <string name="pill_history">История</string>
+    <string name="pill_settings">Настройки</string>
+    <string name="pill_account">Аккаунт</string>
+
+    <!-- Common -->
+    <string name="save">Сохранить</string>
+    <string name="cancel">Отмена</string>
+    <string name="ok">ОК</string>
+    <string name="add">Добавить</string>
+    <string name="delete">Удалить</string>
+    <string name="share">Поделиться</string>
+    <string name="copy_link">Копировать ссылку</string>
+    <string name="open_in_new_tab">Открыть в новой вкладке</string>
+</resources>

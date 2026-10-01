@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingStart="4dp"
+    android:paddingEnd="4dp"
+    android:paddingTop="6dp"
+    android:paddingBottom="6dp">
+
+    <!-- Role label (Вы / LumaAI) -->
+    <TextView
+        android:id="@+id/msgRole"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@color/luma_text_muted"
+        android:textSize="10.5sp"
+        android:textAllCaps="true"
+        android:letterSpacing="0.08"
+        android:layout_marginBottom="4dp"/>
+
+    <!-- Message bubble -->
+    <TextView
+        android:id="@+id/msgText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@color/luma_text_primary"
+        android:textSize="13.5sp"
+        android:background="@drawable/bg_glass_card"
+        android:padding="10dp"
+        android:maxWidth="290dp"/>
+
+</LinearLayout>

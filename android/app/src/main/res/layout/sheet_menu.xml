@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Page menu bottom sheet — mirrors desktop right-click/toolbar menu -->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@color/luma_panel"
+    android:paddingBottom="16dp">
+
+    <!-- Page info header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="20dp"
+        android:paddingEnd="16dp">
+        <ImageView
+            android:id="@+id/menuSecurity"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:src="@drawable/ic_lock"
+            android:layout_marginEnd="10dp"/>
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+            <TextView
+                android:id="@+id/menuPageTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Новая вкладка"
+                android:textColor="@color/luma_text_primary"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:singleLine="true"/>
+            <TextView
+                android:id="@+id/menuPageUrl"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/luma_text_muted"
+                android:textSize="11sp"
+                android:singleLine="true"/>
+        </LinearLayout>
+    </LinearLayout>
+
+    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/luma_border"/>
+
+    <!-- Menu items -->
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:layout_marginTop="8dp" android:paddingStart="12dp" android:paddingEnd="12dp">
+        <LinearLayout android:id="@+id/menuShare" android:layout_width="0dp" android:layout_height="60dp" android:layout_weight="1" android:orientation="vertical" android:gravity="center" android:background="@drawable/selector_icon_button">
+            <ImageView android:layout_width="22dp" android:layout_height="22dp" android:src="@drawable/ic_share"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Поделиться" android:textColor="@color/luma_text_secondary" android:textSize="10.5sp" android:layout_marginTop="4dp"/>
+        </LinearLayout>
+        <LinearLayout android:id="@+id/menuBookmark" android:layout_width="0dp" android:layout_height="60dp" android:layout_weight="1" android:orientation="vertical" android:gravity="center" android:background="@drawable/selector_icon_button">
+            <ImageView android:id="@+id/menuBookmarkIcon" android:layout_width="22dp" android:layout_height="22dp" android:src="@drawable/ic_bookmark"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Закладка" android:textColor="@color/luma_text_secondary" android:textSize="10.5sp" android:layout_marginTop="4dp"/>
+        </LinearLayout>
+        <LinearLayout android:id="@+id/menuFind" android:layout_width="0dp" android:layout_height="60dp" android:layout_weight="1" android:orientation="vertical" android:gravity="center" android:background="@drawable/selector_icon_button">
+            <ImageView android:layout_width="22dp" android:layout_height="22dp" android:src="@drawable/ic_search"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Найти" android:textColor="@color/luma_text_secondary" android:textSize="10.5sp" android:layout_marginTop="4dp"/>
+        </LinearLayout>
+        <LinearLayout android:id="@+id/menuDownload" android:layout_width="0dp" android:layout_height="60dp" android:layout_weight="1" android:orientation="vertical" android:gravity="center" android:background="@drawable/selector_icon_button">
+            <ImageView android:layout_width="22dp" android:layout_height="22dp" android:src="@drawable/ic_download"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Скачать" android:textColor="@color/luma_text_secondary" android:textSize="10.5sp" android:layout_marginTop="4dp"/>
+        </LinearLayout>
+    </LinearLayout>
+
+    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/luma_border" android:layout_marginTop="8dp"/>
+
+    <!-- Reader, Desktop, Settings -->
+    <LinearLayout android:id="@+id/menuReader" android:layout_width="match_parent" android:layout_height="48dp" android:orientation="horizontal" android:gravity="center_vertical" android:paddingStart="20dp" android:paddingEnd="20dp" android:background="@drawable/selector_icon_button">
+        <ImageView android:layout_width="20dp" android:layout_height="20dp" android:src="@drawable/ic_book_open" android:layout_marginEnd="14dp"/>
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/menu_reader" android:textColor="@color/luma_text_primary" android:textSize="14sp"/>
+    </LinearLayout>
+    <LinearLayout android:id="@+id/menuDesktop" android:layout_width="match_parent" android:layout_height="48dp" android:orientation="horizontal" android:gravity="center_vertical" android:paddingStart="20dp" android:paddingEnd="20dp" android:background="@drawable/selector_icon_button">
+        <ImageView android:layout_width="20dp" android:layout_height="20dp" android:src="@drawable/ic_moon" android:layout_marginEnd="14dp"/>
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/menu_desktop" android:textColor="@color/luma_text_primary" android:textSize="14sp"/>
+    </LinearLayout>
+    <LinearLayout android:id="@+id/menuSettings" android:layout_width="match_parent" android:layout_height="48dp" android:orientation="horizontal" android:gravity="center_vertical" android:paddingStart="20dp" android:paddingEnd="20dp" android:background="@drawable/selector_icon_button">
+        <ImageView android:layout_width="20dp" android:layout_height="20dp" android:src="@drawable/ic_gear" android:layout_marginEnd="14dp"/>
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/menu_settings" android:textColor="@color/luma_text_primary" android:textSize="14sp"/>
+    </LinearLayout>
+    <LinearLayout android:id="@+id/menuSupport" android:layout_width="match_parent" android:layout_height="48dp" android:orientation="horizontal" android:gravity="center_vertical" android:paddingStart="20dp" android:paddingEnd="20dp" android:background="@drawable/selector_icon_button">
+        <ImageView android:layout_width="20dp" android:layout_height="20dp" android:src="@drawable/ic_support" android:layout_marginEnd="14dp"/>
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/menu_support" android:textColor="@color/luma_text_primary" android:textSize="14sp"/>
+    </LinearLayout>
+
+</LinearLayout>

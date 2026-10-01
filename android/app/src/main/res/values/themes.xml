@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Base Luma Theme — no action bar, full dark, matching desktop color #0B0912 -->
+    <style name="Theme.Luma" parent="Theme.Material3.Dark.NoActionBar">
+        <!-- Window colors -->
+        <item name="android:statusBarColor">@color/transparent</item>
+        <item name="android:navigationBarColor">@color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowBackground">@color/luma_bg</item>
+
+        <!-- Material3 Theming with Luma Accent #7468C7 -->
+        <item name="colorPrimary">@color/luma_accent</item>
+        <item name="colorOnPrimary">@color/luma_text_primary</item>
+        <item name="colorSecondary">@color/luma_accent_muted</item>
+        <item name="colorSurface">@color/luma_surface</item>
+        <item name="colorOnSurface">@color/luma_text_primary</item>
+        <item name="android:colorBackground">@color/luma_bg</item>
+        <item name="colorControlHighlight">#222F2B47</item>
+        <item name="android:fontFamily">@font/inter</item>
+        <item name="fontFamily">@font/inter</item>
+    </style>
+
+    <!-- Splash -->
+    <style name="Theme.Luma.Splash" parent="Theme.Luma">
+        <item name="android:windowBackground">@color/luma_bg</item>
+    </style>
+
+    <!-- Bottom sheet dialog -->
+    <style name="Luma.BottomSheet" parent="Theme.Material3.Dark.BottomSheetDialog">
+        <item name="android:windowBackground">@color/transparent</item>
+        <item name="bottomSheetStyle">@style/Luma.BottomSheetStyle</item>
+    </style>
+
+    <style name="Luma.BottomSheetStyle" parent="Widget.Material3.BottomSheet">
+        <item name="backgroundTint">@color/luma_panel</item>
+        <item name="android:elevation">16dp</item>
+    </style>
+
+</resources>

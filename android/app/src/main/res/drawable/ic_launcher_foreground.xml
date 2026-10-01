@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Luma App Launcher Icon — the real Luma spark logo on dark purple background -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Background: Luma's AccentSoft #2F2B47 -->
+    <path
+        android:fillColor="#2F2B47"
+        android:pathData="M0,0 L108,0 L108,108 L0,108 Z"/>
+
+    <!-- The Luma spark icon — using IconSpark path from Icons.xaml, scaled and centered on 108dp canvas -->
+    <!-- Original SVG viewBox=24x24, scaling to center on 108dp: translate by 30dp, scale by 2 -->
+    <path
+        android:strokeColor="#7468C7"
+        android:strokeWidth="2.4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#7468C7"
+        android:pathData="
+M 54 18
+L 57.8 29.2
+L 70 32
+L 57.8 34.8
+L 54 46
+L 50.2 34.8
+L 38 32
+L 50.2 29.2 Z
+"/>
+    <!-- small sparkle dots bottom right -->
+    <path
+        android:strokeColor="#A9A2D8"
+        android:strokeWidth="2.4"
+        android:strokeLineCap="round"
+        android:fillColor="#A9A2D8"
+        android:pathData="
+M 72 60 L 72 68
+M 68 64 L 76 64
+M 48 60 L 48 64
+M 46 62 L 50 62
+"/>
+</vector>

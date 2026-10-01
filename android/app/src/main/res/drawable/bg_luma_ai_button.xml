@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Luma AI vibrant gradient button matching media_1790866441976.png -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient
+        android:type="linear"
+        android:angle="0"
+        android:startColor="#FF5E97"
+        android:centerColor="#FFA34D"
+        android:endColor="#43E97B" />
+    <corners android:radius="24dp" />
+</shape>
