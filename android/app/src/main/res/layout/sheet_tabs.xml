@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Luma Tabs Bottom Sheet with Spaces and Incognito -->
+<!-- Clean, fast Luma Tabs Bottom Sheet without spaces clutter -->
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -55,74 +55,6 @@
         </FrameLayout>
     </LinearLayout>
 
-    <!-- SPACES BAR (Основное | Работа | Учёба | Медиа) -->
-    <HorizontalScrollView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:scrollbars="none"
-        android:layout_marginBottom="12dp">
-
-        <LinearLayout
-            android:id="@+id/spacesContainer"
-            android:layout_width="wrap_content"
-            android:layout_height="34dp"
-            android:orientation="horizontal">
-
-            <TextView
-                android:id="@+id/spaceBtnMain"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:gravity="center"
-                android:text="✦ Основное"
-                android:textColor="#FFFFFF"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                android:paddingStart="12dp"
-                android:paddingEnd="12dp"
-                android:background="@drawable/bg_surface_raised"
-                android:layout_marginEnd="6dp"/>
-
-            <TextView
-                android:id="@+id/spaceBtnWork"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:gravity="center"
-                android:text="💼 Работа"
-                android:textColor="#716C82"
-                android:textSize="12sp"
-                android:paddingStart="12dp"
-                android:paddingEnd="12dp"
-                android:background="@drawable/bg_glass_card"
-                android:layout_marginEnd="6dp"/>
-
-            <TextView
-                android:id="@+id/spaceBtnStudy"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:gravity="center"
-                android:text="📚 Учёба"
-                android:textColor="#716C82"
-                android:textSize="12sp"
-                android:paddingStart="12dp"
-                android:paddingEnd="12dp"
-                android:background="@drawable/bg_glass_card"
-                android:layout_marginEnd="6dp"/>
-
-            <TextView
-                android:id="@+id/spaceBtnMedia"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:gravity="center"
-                android:text="🎵 Медиа"
-                android:textColor="#716C82"
-                android:textSize="12sp"
-                android:paddingStart="12dp"
-                android:paddingEnd="12dp"
-                android:background="@drawable/bg_glass_card"/>
-
-        </LinearLayout>
-    </HorizontalScrollView>
-
     <!-- Tabs RecyclerView -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/tabsRecycler"
@@ -131,21 +63,15 @@
         android:layout_weight="1"/>
 
     <!-- Bottom Actions: Close All -->
-    <LinearLayout
+    <Button
+        android:id="@+id/btnCloseAll"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginTop="8dp">
-
-        <Button
-            android:id="@+id/btnCloseAll"
-            android:layout_width="match_parent"
-            android:layout_height="40dp"
-            android:background="@drawable/bg_surface_raised"
-            android:text="Закрыть все вкладки"
-            android:textColor="#E05252"
-            android:textSize="13sp"
-            android:textAllCaps="false"/>
-    </LinearLayout>
+        android:layout_height="40dp"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/bg_surface_raised"
+        android:text="Закрыть все вкладки"
+        android:textColor="#E05252"
+        android:textSize="13sp"
+        android:textAllCaps="false"/>
 
 </LinearLayout>

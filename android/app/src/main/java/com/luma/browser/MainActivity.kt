@@ -23,6 +23,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.luma.browser.ai.AiMessage
@@ -32,7 +33,6 @@ import com.luma.browser.browser.PageTools
 import com.luma.browser.storage.LumaPreferences
 import com.luma.browser.support.LumaSupportService
 import com.luma.browser.support.SupportChatMessage
-import com.luma.browser.tabs.LumaSpace
 import com.luma.browser.tabs.LumaTab
 import com.luma.browser.ui.*
 import kotlinx.coroutines.*
@@ -43,24 +43,14 @@ import java.util.*
 
 /**
  * MainActivity — Luma Browser for Android.
- * Full-scale native mobile browser matching desktop Luma architecture:
- * - Minimalist dark styling (#0B0912, Inter typography, compact refined buttons)
- * - Custom address bar with instant domain sanitization
- * - Home customization (headline toggle, pills toggle, search shapes)
- * - Workspaces (Spaces): Main, Work, Study, Media
- * - Full Bookmarks & History with search and management
- * - Reader Mode with readability DOM extraction
- * - In-page Translation engine
- * - Rock-solid LumaAI with active tab context extraction & SSE streaming
- * - Direct Creator Support Chat (Telegram bot integration)
- * - Offline 70,000+ domain Ad & Tracker Blocker
+ * iOS Safari-style bottom navigation bar, harmonious home screen,
+ * non-blocking real-time LumaAI assistant, and complete desktop feature parity.
  */
 class MainActivity : AppCompatActivity() {
 
-    // ====== TABS & SPACES ======
+    // ====== TABS ======
     private val tabs = mutableListOf<LumaTab>()
     private var activeTab: LumaTab? = null
-    private var currentSpaceId = "main"
 
     // ====== SERVICES ======
     private val aiService = LumaAiService()
@@ -79,24 +69,26 @@ class MainActivity : AppCompatActivity() {
     private var touchStartX = 0f
 
     // ====== VIEW REFS ======
-    private lateinit var topBar: LinearLayout
-    private lateinit var topBarLogo: ImageView
     private lateinit var webView: WebView
-    private lateinit var homeDashboard: ScrollView
-    private lateinit var addressBar: EditText
-    private lateinit var btnReload: ImageButton
-    private lateinit var btnMenu: ImageButton
-    private lateinit var btnTabCount: FrameLayout
-    private lateinit var tabCountText: TextView
     private lateinit var pageProgress: ProgressBar
+    private lateinit var homeDashboard: ScrollView
     private lateinit var homeHeadline: TextView
     private lateinit var homeSearchShell: LinearLayout
     private lateinit var homeSearchBox: EditText
     private lateinit var homeSearchBtn: FrameLayout
     private lateinit var homePillsContainer: LinearLayout
-    private lateinit var btnFloatingAi: LinearLayout
 
-    // Reader Mode views
+    // Safari-style Bottom Bar
+    private lateinit var bottomBar: LinearLayout
+    private lateinit var bottomBarLogo: ImageView
+    private lateinit var bottomAddressBar: EditText
+    private lateinit var btnReload: ImageButton
+    private lateinit var btnBottomAi: FrameLayout
+    private lateinit var btnTabCount: FrameLayout
+    private lateinit var tabCountText: TextView
+    private lateinit var btnMenu: ImageButton
+
+    // Reader Mode
     private lateinit var readerOverlay: LinearLayout
     private lateinit var readerTitle: TextView
     private lateinit var readerByline: TextView
@@ -116,14 +108,12 @@ class MainActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_main)
 
-        // Window insets
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.topBar)) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.statusBars())
-            v.setPadding(v.paddingLeft, systemBars.top + 4, v.paddingRight, v.paddingBottom)
+        // Insets handling for bottom bar
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.bottomBar)) { v, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, systemBars.bottom.coerceAtLeast(0) + 4)
             insets
         }
-
-        currentSpaceId = prefs.activeSpaceId
 
         bindViews()
         setupWebView()
@@ -131,7 +121,7 @@ class MainActivity : AppCompatActivity() {
         setupHomeDashboard()
         applyHomeCustomizations()
 
-        // Background offline adblocker loading
+        // Background offline adblocker
         lifecycleScope.launch {
             AdBlocker.init(applicationContext)
         }
@@ -139,29 +129,30 @@ class MainActivity : AppCompatActivity() {
         // Open initial tab
         openNewTab()
 
-        // Handle external intent URL
+        // External intent URL
         intent?.data?.toString()?.let { url ->
             if (url.startsWith("http")) navigate(url)
         }
     }
 
     private fun bindViews() {
-        topBar = findViewById(R.id.topBar)
-        topBarLogo = findViewById(R.id.topBarLogo)
         webView = findViewById(R.id.webView)
-        homeDashboard = findViewById(R.id.homeDashboard)
-        addressBar = findViewById(R.id.addressBar)
-        btnReload = findViewById(R.id.btnReload)
-        btnMenu = findViewById(R.id.btnMenu)
-        btnTabCount = findViewById(R.id.btnTabCount)
-        tabCountText = findViewById(R.id.tabCountText)
         pageProgress = findViewById(R.id.pageProgress)
+        homeDashboard = findViewById(R.id.homeDashboard)
         homeHeadline = findViewById(R.id.homeHeadline)
         homeSearchShell = findViewById(R.id.homeSearchShell)
         homeSearchBox = findViewById(R.id.homeSearchBox)
         homeSearchBtn = findViewById(R.id.homeSearchBtn)
         homePillsContainer = findViewById(R.id.homePillsContainer)
-        btnFloatingAi = findViewById(R.id.btnFloatingAi)
+
+        bottomBar = findViewById(R.id.bottomBar)
+        bottomBarLogo = findViewById(R.id.bottomBarLogo)
+        bottomAddressBar = findViewById(R.id.bottomAddressBar)
+        btnReload = findViewById(R.id.btnReload)
+        btnBottomAi = findViewById(R.id.btnBottomAi)
+        btnTabCount = findViewById(R.id.btnTabCount)
+        tabCountText = findViewById(R.id.tabCountText)
+        btnMenu = findViewById(R.id.btnMenu)
 
         readerOverlay = findViewById(R.id.readerOverlay)
         readerTitle = findViewById(R.id.readerTitle)
@@ -169,14 +160,14 @@ class MainActivity : AppCompatActivity() {
         readerBody = findViewById(R.id.readerBody)
         btnReaderClose = findViewById(R.id.btnReaderClose)
 
-        topBarLogo.setOnClickListener { showHome() }
+        bottomBarLogo.setOnClickListener { showHome() }
         btnReload.setOnClickListener {
             if (activeTab?.isLoading == true) webView.stopLoading()
             else webView.reload()
         }
-        btnMenu.setOnClickListener { showMenuSheet() }
+        btnBottomAi.setOnClickListener { showAiSheet() }
         btnTabCount.setOnClickListener { showTabsSheet() }
-        btnFloatingAi.setOnClickListener { showAiSheet() }
+        btnMenu.setOnClickListener { showMenuSheet() }
         btnReaderClose.setOnClickListener { readerOverlay.visibility = View.GONE }
     }
 
@@ -184,7 +175,6 @@ class MainActivity : AppCompatActivity() {
         homeHeadline.visibility = if (prefs.homeHeadlineVisible) View.VISIBLE else View.GONE
         homePillsContainer.visibility = if (prefs.homePillsVisible) View.VISIBLE else View.GONE
 
-        // Search shape
         when (prefs.homeSearchShape) {
             "square" -> homeSearchShell.setBackgroundResource(R.drawable.bg_surface_raised)
             "rounded" -> homeSearchShell.setBackgroundResource(R.drawable.bg_glass_card)
@@ -215,7 +205,6 @@ class MainActivity : AppCompatActivity() {
         webView.webViewClient = LumaWebViewClient()
         webView.webChromeClient = LumaWebChromeClient()
 
-        // System DownloadManager
         webView.setDownloadListener { url, userAgent, contentDisposition, mimetype, _ ->
             try {
                 val request = DownloadManager.Request(Uri.parse(url)).apply {
@@ -236,7 +225,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Swipe gestures
+        // Swipe navigation
         webView.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> touchStartX = event.x
@@ -286,7 +275,7 @@ class MainActivity : AppCompatActivity() {
                 tab.isLoading = true
                 tab.isHome = false
             }
-            addressBar.setText(sanitizeUrl(url))
+            bottomAddressBar.setText(sanitizeUrl(url))
             pageProgress.visibility = View.VISIBLE
             btnReload.visibility = View.VISIBLE
             btnReload.setImageResource(R.drawable.ic_close)
@@ -303,7 +292,7 @@ class MainActivity : AppCompatActivity() {
             pageProgress.visibility = View.INVISIBLE
             btnReload.visibility = View.VISIBLE
             btnReload.setImageResource(R.drawable.ic_reload)
-            addressBar.setText(sanitizeUrl(url))
+            bottomAddressBar.setText(sanitizeUrl(url))
 
             val title = view.title ?: url
             if (url.isNotBlank() && !url.startsWith("about:") && !url.startsWith("file:///android_asset")) {
@@ -348,22 +337,22 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupAddressBar() {
-        addressBar.setOnEditorActionListener { _, actionId, event ->
+        bottomAddressBar.setOnEditorActionListener { _, actionId, event ->
             if (actionId == EditorInfo.IME_ACTION_GO || event?.keyCode == KeyEvent.KEYCODE_ENTER) {
-                navigateFromInput(addressBar.text.toString().trim())
+                navigateFromInput(bottomAddressBar.text.toString().trim())
                 hideKeyboard()
                 true
             } else false
         }
 
-        addressBar.setOnFocusChangeListener { _, hasFocus ->
+        bottomAddressBar.setOnFocusChangeListener { _, hasFocus ->
             if (hasFocus) {
-                addressBar.selectAll()
+                bottomAddressBar.selectAll()
             } else {
                 if (activeTab?.isHome == true) {
-                    addressBar.setText("Новая вкладка")
+                    bottomAddressBar.setText("Новая вкладка")
                 } else {
-                    activeTab?.url?.let { addressBar.setText(sanitizeUrl(it)) }
+                    activeTab?.url?.let { bottomAddressBar.setText(sanitizeUrl(it)) }
                 }
             }
         }
@@ -382,15 +371,15 @@ class MainActivity : AppCompatActivity() {
             hideKeyboard()
         }
 
-        // Quick pills
-        findViewById<View>(R.id.pillLumaAI).setOnClickListener { showAiSheet() }
+        // Quick pills on home screen
         findViewById<View>(R.id.pillHistory).setOnClickListener { showHistorySheet() }
         findViewById<View>(R.id.pillSettings).setOnClickListener { showSettingsSheet() }
-        findViewById<View>(R.id.pillAccount).setOnClickListener { showSettingsSheet() }
+        findViewById<View>(R.id.pillBookmarks).setOnClickListener { showBookmarksSheet() }
+        findViewById<View>(R.id.pillSupport).setOnClickListener { showSupportSheet() }
     }
 
-    fun openNewTab(url: String? = null, spaceId: String = currentSpaceId) {
-        val tab = LumaTab(isHome = url == null, spaceId = spaceId)
+    fun openNewTab(url: String? = null) {
+        val tab = LumaTab(isHome = url == null)
         tabs.add(tab)
         setActiveTab(tab)
         updateTabCount()
@@ -400,7 +389,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun setActiveTab(tab: LumaTab) {
         activeTab = tab
-        currentSpaceId = tab.spaceId
         if (tab.isHome) {
             showHome()
         } else {
@@ -413,19 +401,17 @@ class MainActivity : AppCompatActivity() {
     private fun closeTab(tab: LumaTab) {
         val idx = tabs.indexOf(tab)
         tabs.remove(tab)
-        val spaceTabs = tabs.filter { it.spaceId == currentSpaceId }
-        if (spaceTabs.isEmpty()) {
-            openNewTab(spaceId = currentSpaceId)
+        if (tabs.isEmpty()) {
+            openNewTab()
         } else if (tab == activeTab) {
-            val newIdx = (idx - 1).coerceAtLeast(0).coerceAtMost(spaceTabs.size - 1)
-            setActiveTab(spaceTabs[newIdx])
+            val newIdx = (idx - 1).coerceAtLeast(0).coerceAtMost(tabs.size - 1)
+            setActiveTab(tabs[newIdx])
         }
         updateTabCount()
     }
 
     private fun updateTabCount() {
-        val count = tabs.count { it.spaceId == currentSpaceId }
-        tabCountText.text = count.toString()
+        tabCountText.text = tabs.size.toString()
     }
 
     fun navigate(url: String) {
@@ -436,7 +422,7 @@ class MainActivity : AppCompatActivity() {
             it.url = url
             it.isHome = false
         }
-        addressBar.setText(sanitizeUrl(url))
+        bottomAddressBar.setText(sanitizeUrl(url))
         btnReload.visibility = View.VISIBLE
     }
 
@@ -470,8 +456,7 @@ class MainActivity : AppCompatActivity() {
         readerOverlay.visibility = View.GONE
         webView.visibility = View.GONE
         homeDashboard.visibility = View.VISIBLE
-        btnFloatingAi.visibility = View.VISIBLE
-        addressBar.setText("Новая вкладка")
+        bottomAddressBar.setText("Новая вкладка")
         btnReload.visibility = View.GONE
         activeTab?.isHome = true
     }
@@ -479,11 +464,10 @@ class MainActivity : AppCompatActivity() {
     private fun showWebView() {
         readerOverlay.visibility = View.GONE
         homeDashboard.visibility = View.GONE
-        btnFloatingAi.visibility = View.GONE
         webView.visibility = View.VISIBLE
     }
 
-    // ===== SPACES & TABS BOTTOM SHEET =====
+    // ===== TABS BOTTOM SHEET =====
     private fun showTabsSheet() {
         val dialog = BottomSheetDialog(this, R.style.Luma_BottomSheet)
         val view = layoutInflater.inflate(R.layout.sheet_tabs, null)
@@ -492,7 +476,7 @@ class MainActivity : AppCompatActivity() {
         val recycler = view.findViewById<RecyclerView>(R.id.tabsRecycler)
         recycler.layoutManager = LinearLayoutManager(this)
 
-        val adapter = TabsAdapter(tabs, activeTab?.id, currentSpaceId,
+        val adapter = TabsAdapter(tabs, activeTab?.id,
             onTabClick = { tab ->
                 setActiveTab(tab)
                 dialog.dismiss()
@@ -504,44 +488,13 @@ class MainActivity : AppCompatActivity() {
         )
         recycler.adapter = adapter
 
-        // Spaces buttons
-        val btnMain = view.findViewById<TextView>(R.id.spaceBtnMain)
-        val btnWork = view.findViewById<TextView>(R.id.spaceBtnWork)
-        val btnStudy = view.findViewById<TextView>(R.id.spaceBtnStudy)
-        val btnMedia = view.findViewById<TextView>(R.id.spaceBtnMedia)
-
-        val spaceBtns = mapOf("main" to btnMain, "work" to btnWork, "study" to btnStudy, "media" to btnMedia)
-
-        fun updateSpacePills(activeId: String) {
-            spaceBtns.forEach { (id, btn) ->
-                if (id == activeId) {
-                    btn.setBackgroundResource(R.drawable.bg_surface_raised)
-                    btn.setTextColor(0xFFFFFFFF.toInt())
-                } else {
-                    btn.setBackgroundResource(R.drawable.bg_glass_card)
-                    btn.setTextColor(0xFF716C82.toInt())
-                }
-            }
-        }
-        updateSpacePills(currentSpaceId)
-
-        spaceBtns.forEach { (id, btn) ->
-            btn.setOnClickListener {
-                currentSpaceId = id
-                prefs.activeSpaceId = id
-                updateSpacePills(id)
-                adapter.setSpaceId(id)
-                updateTabCount()
-            }
-        }
-
         view.findViewById<TextView>(R.id.btnNewTab).setOnClickListener {
-            openNewTab(spaceId = currentSpaceId)
+            openNewTab()
             dialog.dismiss()
         }
         view.findViewById<Button>(R.id.btnCloseAll).setOnClickListener {
-            tabs.removeAll { it.spaceId == currentSpaceId }
-            openNewTab(spaceId = currentSpaceId)
+            tabs.clear()
+            openNewTab()
             dialog.dismiss()
         }
         view.findViewById<View>(R.id.btnTabsClose).setOnClickListener { dialog.dismiss() }
@@ -549,42 +502,41 @@ class MainActivity : AppCompatActivity() {
         dialog.show()
     }
 
-    // ===== LUMAAI BOTTOM SHEET (Full desktop parity) =====
+    // ===== LUMAAI BOTTOM SHEET (Non-blocking, smooth scrolling) =====
     private fun showAiSheet() {
         val dialog = BottomSheetDialog(this, R.style.Luma_BottomSheet)
         val view = layoutInflater.inflate(R.layout.sheet_ai, null)
         dialog.setContentView(view)
 
+        // Expand sheet so it doesn't jitter on soft input
+        dialog.behavior.state = BottomSheetBehavior.STATE_EXPANDED
+        dialog.behavior.skipCollapsed = true
+
         val subtitle = view.findViewById<TextView>(R.id.aiTabSubtitle)
         if (activeTab?.isHome == false && !activeTab?.title.isNullOrBlank()) {
             subtitle.text = activeTab?.title
         } else {
-            subtitle.text = "Нет активной вкладки"
+            subtitle.text = "Контекст активной вкладки"
         }
 
         val recycler = view.findViewById<RecyclerView>(R.id.aiMessages)
         val emptyBox = view.findViewById<View>(R.id.aiEmptyBox)
-        val actionsSection = view.findViewById<View>(R.id.aiActionsSection)
-        val recentSection = view.findViewById<View>(R.id.aiRecentSection)
 
-        recycler.layoutManager = LinearLayoutManager(this)
+        val layoutManager = LinearLayoutManager(this).apply {
+            stackFromEnd = true
+        }
+        recycler.layoutManager = layoutManager
         aiAdapter = AiChatAdapter(aiMessages)
         recycler.adapter = aiAdapter
 
-        fun updateChatVisibility() {
+        fun updateUiState() {
             if (aiMessages.isNotEmpty()) {
-                recycler.visibility = View.VISIBLE
                 emptyBox.visibility = View.GONE
-                actionsSection.visibility = View.GONE
-                recentSection.visibility = View.GONE
             } else {
-                recycler.visibility = View.GONE
                 emptyBox.visibility = View.VISIBLE
-                actionsSection.visibility = View.VISIBLE
-                recentSection.visibility = View.VISIBLE
             }
         }
-        updateChatVisibility()
+        updateUiState()
 
         val input = view.findViewById<EditText>(R.id.aiInput)
         val sendBtn = view.findViewById<FrameLayout>(R.id.aiSendBtn)
@@ -603,11 +555,11 @@ class MainActivity : AppCompatActivity() {
         btnNewChat.setOnClickListener {
             aiMessages.clear()
             aiAdapter?.clear()
-            updateChatVisibility()
+            updateUiState()
         }
 
         fun sendUserQuery(prompt: String) {
-            updateChatVisibility()
+            updateUiState()
             sendAiMessage(prompt, input, recycler)
         }
 
@@ -625,7 +577,7 @@ class MainActivity : AppCompatActivity() {
             sendUserQuery("Улучши, структурируй и перепиши яснее данный текст")
         }
 
-        // Quick suggestions
+        // Quick chips
         view.findViewById<View>(R.id.chipExample).setOnClickListener {
             sendUserQuery("Приведи наглядный пример к теме")
         }
@@ -664,16 +616,16 @@ class MainActivity : AppCompatActivity() {
         val userMsg = AiMessage("user", text)
         aiMessages.add(userMsg)
         aiAdapter?.addMessage(userMsg)
-        recycler.smoothScrollToPosition(aiMessages.size - 1)
+        recycler.scrollToPosition(aiMessages.size - 1)
 
         val assistantMsg = AiMessage("assistant", "")
         aiMessages.add(assistantMsg)
         aiAdapter?.addMessage(assistantMsg)
+        recycler.scrollToPosition(aiMessages.size - 1)
 
         aiStreaming = true
 
         lifecycleScope.launch {
-            // Extract live page context from active webview
             val pageContext = if (activeTab?.isHome == false) {
                 PageTools.extractPageContext(webView)
             } else null
@@ -687,16 +639,19 @@ class MainActivity : AppCompatActivity() {
                 onChunk = { chunk ->
                     withContext(Dispatchers.Main) {
                         aiAdapter?.appendToLastAssistant(chunk)
-                        recycler.smoothScrollToPosition(aiMessages.size - 1)
                     }
                 },
                 onDone = {
-                    withContext(Dispatchers.Main) { aiStreaming = false }
+                    withContext(Dispatchers.Main) {
+                        aiStreaming = false
+                        recycler.scrollToPosition(aiMessages.size - 1)
+                    }
                 },
                 onError = { err ->
                     withContext(Dispatchers.Main) {
                         aiStreaming = false
                         aiAdapter?.appendToLastAssistant("\n\n[Ошибка: $err]")
+                        recycler.scrollToPosition(aiMessages.size - 1)
                     }
                 }
             )
@@ -821,7 +776,6 @@ class MainActivity : AppCompatActivity() {
 
         view.findViewById<View>(R.id.btnSettingsClose).setOnClickListener { dialog.dismiss() }
 
-        // Search engine buttons
         val btnGoogle = view.findViewById<TextView>(R.id.btnSearchGoogle)
         val btnYandex = view.findViewById<TextView>(R.id.btnSearchYandex)
         val btnDuck = view.findViewById<TextView>(R.id.btnSearchDuck)
@@ -897,7 +851,6 @@ class MainActivity : AppCompatActivity() {
             applyHomeCustomizations()
         }
 
-        // Switches
         val switchHeadline = view.findViewById<MaterialSwitch>(R.id.switchHeadline)
         val switchPills = view.findViewById<MaterialSwitch>(R.id.switchPills)
         val switchAdBlock = view.findViewById<MaterialSwitch>(R.id.switchAdBlock)
@@ -923,7 +876,6 @@ class MainActivity : AppCompatActivity() {
             prefs.trackerBlockEnabled = isChecked
         }
 
-        // Clear data
         view.findViewById<Button>(R.id.btnClearData).setOnClickListener {
             prefs.historyJson = "[]"
             webView.clearCache(true)
@@ -931,7 +883,6 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "История и кэш очищены", Toast.LENGTH_SHORT).show()
         }
 
-        // AI Model in settings
         val btnModelFast = view.findViewById<TextView>(R.id.btnModelFast)
         val btnModelPro = view.findViewById<TextView>(R.id.btnModelPro)
         fun updateModelBtns(m: String) {
@@ -1167,7 +1118,6 @@ class MainActivity : AppCompatActivity() {
             text = "Привет! Я создатель Luma. Напиши любой вопрос или баг-репорт — отвечу прямо сюда!"
         ))
 
-        // Background polling every 2.5s
         supportPollJob = lifecycleScope.launch {
             while (isActive) {
                 val incoming = supportService.pollMessages()

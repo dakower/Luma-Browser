@@ -5,7 +5,6 @@ import java.util.UUID
 
 data class LumaTab(
     val id: String = UUID.randomUUID().toString(),
-    var spaceId: String = "main",
     var url: String = "",
     var title: String = "Новая вкладка",
     var favicon: Bitmap? = null,

@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    sheet_ai.xml — 100% faithful replication of media_1790866502361.png
-    Complete desktop LumaAI panel ported to Android bottom sheet.
+    sheet_ai.xml — LumaAI Panel
+    Direct RecyclerView with native smooth scrolling (no ScrollView wrapper conflicts).
+    Header + Context + Actions + Direct Chat List + Input Bar.
 -->
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -20,12 +21,11 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:layout_marginBottom="12dp">
+        android:layout_marginBottom="10dp">
 
-        <!-- Luma Logo -->
         <ImageView
-            android:layout_width="28dp"
-            android:layout_height="28dp"
+            android:layout_width="26dp"
+            android:layout_height="26dp"
             android:src="@drawable/luma_logo"
             android:layout_marginEnd="10dp"/>
 
@@ -47,16 +47,18 @@
                 android:id="@+id/aiTabSubtitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Нет активной вкладки"
+                android:text="Контекст активной вкладки"
                 android:textColor="#716C82"
-                android:textSize="11.5sp"/>
+                android:textSize="11.5sp"
+                android:singleLine="true"
+                android:ellipsize="end"/>
         </LinearLayout>
 
-        <!-- New Chat Icon Button -->
+        <!-- New Chat Button -->
         <FrameLayout
             android:id="@+id/btnAiNewChat"
-            android:layout_width="34dp"
-            android:layout_height="34dp"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
             android:background="@drawable/bg_surface_raised"
             android:layout_marginEnd="8dp">
             <ImageView
@@ -66,11 +68,11 @@
                 android:src="@drawable/ic_plus"/>
         </FrameLayout>
 
-        <!-- Close Icon Button -->
+        <!-- Close Button -->
         <FrameLayout
             android:id="@+id/btnAiClose"
-            android:layout_width="34dp"
-            android:layout_height="34dp"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
             android:background="@drawable/bg_surface_raised">
             <ImageView
                 android:layout_width="14dp"
@@ -81,385 +83,126 @@
 
     </LinearLayout>
 
-    <!-- ===== SEGMENTED TABS (Ассистент | История | Сохранённое) ===== -->
-    <LinearLayout
+    <!-- ===== TOP SMART ACTIONS (Pills) ===== -->
+    <HorizontalScrollView
+        android:id="@+id/aiActionsScroll"
         android:layout_width="match_parent"
-        android:layout_height="36dp"
-        android:orientation="horizontal"
-        android:background="#16171B"
-        android:padding="3dp"
-        android:layout_marginBottom="14dp">
+        android:layout_height="wrap_content"
+        android:scrollbars="none"
+        android:layout_marginBottom="8dp">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/cardActionSummarize"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:text="Суммаризация"
+                android:textColor="#FFFFFF"
+                android:textSize="11.5sp"
+                android:background="@drawable/bg_surface_raised"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:layout_marginEnd="6dp"
+                android:clickable="true"
+                android:focusable="true"/>
+
+            <TextView
+                android:id="@+id/cardActionExplain"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:text="Объяснение"
+                android:textColor="#C7C3D1"
+                android:textSize="11.5sp"
+                android:background="@drawable/bg_glass_card"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:layout_marginEnd="6dp"
+                android:clickable="true"
+                android:focusable="true"/>
+
+            <TextView
+                android:id="@+id/cardActionPlan"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:text="План действий"
+                android:textColor="#C7C3D1"
+                android:textSize="11.5sp"
+                android:background="@drawable/bg_glass_card"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:layout_marginEnd="6dp"
+                android:clickable="true"
+                android:focusable="true"/>
+
+            <TextView
+                android:id="@+id/cardActionImprove"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:text="Улучшить текст"
+                android:textColor="#C7C3D1"
+                android:textSize="11.5sp"
+                android:background="@drawable/bg_glass_card"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:clickable="true"
+                android:focusable="true"/>
+
+        </LinearLayout>
+    </HorizontalScrollView>
+
+    <!-- ===== EMPTY STATE PLACEHOLDER ===== -->
+    <LinearLayout
+        android:id="@+id/aiEmptyBox"
+        android:layout_width="match_parent"
+        android:layout_height="70dp"
+        android:background="@drawable/bg_glass_card"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="10dp"
+        android:layout_marginBottom="6dp">
 
         <TextView
-            android:id="@+id/tabBtnAssistant"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:background="@drawable/bg_surface_raised"
-            android:text="Ассистент"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="LumaAI готов ответить на любые вопросы"
             android:textColor="#FFFFFF"
-            android:textSize="12sp"
+            android:textSize="13sp"
             android:textStyle="bold"/>
 
         <TextView
-            android:id="@+id/tabBtnHistory"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:text="История"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Видит текст и контекст активной вкладки"
             android:textColor="#716C82"
-            android:textSize="12sp"/>
-
-        <TextView
-            android:id="@+id/tabBtnSaved"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:text="Сохранённое"
-            android:textColor="#716C82"
-            android:textSize="12sp"/>
-
+            android:textSize="11sp"
+            android:layout_marginTop="2dp"/>
     </LinearLayout>
 
-    <ScrollView
-        android:id="@+id/aiScrollContent"
+    <!-- ===== DIRECT RECYCLERVIEW (Native smooth scrolling without conflicts) ===== -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/aiMessages"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:scrollbars="none">
+        android:clipToPadding="false"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp"
+        android:scrollbars="vertical"/>
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical">
-
-            <!-- ===== "ТЕКУЩАЯ СТРАНИЦА" CARD ===== -->
-            <LinearLayout
-                android:id="@+id/aiPageContextCard"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:background="@drawable/bg_glass_card"
-                android:padding="12dp"
-                android:layout_marginBottom="16dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:layout_marginBottom="8dp">
-
-                    <ImageView
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
-                        android:src="@drawable/ic_book_open"
-                        android:layout_marginEnd="8dp"/>
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Текущая страница"
-                            android:textColor="#FFFFFF"
-                            android:textSize="13sp"
-                            android:textStyle="bold"/>
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Контекст вкладки подключён"
-                            android:textColor="#716C82"
-                            android:textSize="11sp"/>
-                    </LinearLayout>
-
-                    <!-- Green "Подключено" Badge -->
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Подключено"
-                        android:textColor="#3AB87E"
-                        android:textSize="11sp"
-                        android:textStyle="bold"
-                        android:background="#152B1E"
-                        android:paddingStart="8dp"
-                        android:paddingEnd="8dp"
-                        android:paddingTop="3dp"
-                        android:paddingBottom="3dp"/>
-
-                </LinearLayout>
-
-                <!-- Inner box -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:background="#111215"
-                    android:padding="10dp">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="LumaAI видит текст и изображения активной вкладки."
-                        android:textColor="#C7C3D1"
-                        android:textSize="12sp"/>
-                </LinearLayout>
-
-            </LinearLayout>
-
-            <!-- ===== "ЧТО СДЕЛАТЬ? / УМНЫЕ ДЕЙСТВИЯ" SECTION ===== -->
-            <LinearLayout
-                android:id="@+id/aiActionsSection"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:layout_marginBottom="16dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:layout_marginBottom="10dp">
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Что сделать?"
-                        android:textColor="#FFFFFF"
-                        android:textSize="15sp"
-                        android:textStyle="bold"/>
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Умные действия"
-                        android:textColor="#716C82"
-                        android:textSize="11.5sp"/>
-                </LinearLayout>
-
-                <!-- 2x2 Grid of Actions -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:layout_marginBottom="8dp">
-
-                    <!-- Action 1: Суммаризация -->
-                    <LinearLayout
-                        android:id="@+id/cardActionSummarize"
-                        android:layout_width="0dp"
-                        android:layout_height="84dp"
-                        android:layout_weight="1"
-                        android:layout_marginEnd="8dp"
-                        android:background="@drawable/bg_glass_card"
-                        android:orientation="vertical"
-                        android:padding="10dp"
-                        android:clickable="true"
-                        android:focusable="true">
-
-                        <ImageView
-                            android:layout_width="16dp"
-                            android:layout_height="16dp"
-                            android:src="@drawable/ic_search"
-                            android:layout_marginBottom="6dp"/>
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Суммаризация"
-                            android:textColor="#FFFFFF"
-                            android:textSize="12.5sp"
-                            android:textStyle="bold"/>
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Кратко выделить главное"
-                            android:textColor="#716C82"
-                            android:textSize="10.5sp"/>
-                    </LinearLayout>
-
-                    <!-- Action 2: Объяснение -->
-                    <LinearLayout
-                        android:id="@+id/cardActionExplain"
-                        android:layout_width="0dp"
-                        android:layout_height="84dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/bg_glass_card"
-                        android:orientation="vertical"
-                        android:padding="10dp"
-                        android:clickable="true"
-                        android:focusable="true">
-
-                        <ImageView
-                            android:layout_width="16dp"
-                            android:layout_height="16dp"
-                            android:src="@drawable/ic_spark"
-                            android:layout_marginBottom="6dp"/>
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Объяснение"
-                            android:textColor="#FFFFFF"
-                            android:textSize="12.5sp"
-                            android:textStyle="bold"/>
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Разобрать сложные места"
-                            android:textColor="#716C82"
-                            android:textSize="10.5sp"/>
-                    </LinearLayout>
-
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal">
-
-                    <!-- Action 3: План действий -->
-                    <LinearLayout
-                        android:id="@+id/cardActionPlan"
-                        android:layout_width="0dp"
-                        android:layout_height="84dp"
-                        android:layout_weight="1"
-                        android:layout_marginEnd="8dp"
-                        android:background="@drawable/bg_glass_card"
-                        android:orientation="vertical"
-                        android:padding="10dp"
-                        android:clickable="true"
-                        android:focusable="true">
-
-                        <ImageView
-                            android:layout_width="16dp"
-                            android:layout_height="16dp"
-                            android:src="@drawable/ic_tabs"
-                            android:layout_marginBottom="6dp"/>
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="План действий"
-                            android:textColor="#FFFFFF"
-                            android:textSize="12.5sp"
-                            android:textStyle="bold"/>
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Превратить текст в задачи"
-                            android:textColor="#716C82"
-                            android:textSize="10.5sp"/>
-                    </LinearLayout>
-
-                    <!-- Action 4: Улучшить текст -->
-                    <LinearLayout
-                        android:id="@+id/cardActionImprove"
-                        android:layout_width="0dp"
-                        android:layout_height="84dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/bg_glass_card"
-                        android:orientation="vertical"
-                        android:padding="10dp"
-                        android:clickable="true"
-                        android:focusable="true">
-
-                        <ImageView
-                            android:layout_width="16dp"
-                            android:layout_height="16dp"
-                            android:src="@drawable/ic_wand"
-                            android:layout_marginBottom="6dp"/>
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Улучшить текст"
-                            android:textColor="#FFFFFF"
-                            android:textSize="12.5sp"
-                            android:textStyle="bold"/>
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Переписать яснее и лучше"
-                            android:textColor="#716C82"
-                            android:textSize="10.5sp"/>
-                    </LinearLayout>
-
-                </LinearLayout>
-
-            </LinearLayout>
-
-            <!-- ===== "НЕДАВНЕЕ / ТЕКУЩАЯ СЕССИЯ" SECTION ===== -->
-            <LinearLayout
-                android:id="@+id/aiRecentSection"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:layout_marginBottom="16dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:layout_marginBottom="8dp">
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Недавнее"
-                        android:textColor="#FFFFFF"
-                        android:textSize="15sp"
-                        android:textStyle="bold"/>
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Текущая сессия"
-                        android:textColor="#716C82"
-                        android:textSize="11.5sp"/>
-                </LinearLayout>
-
-                <!-- Box with empty state text -->
-                <LinearLayout
-                    android:id="@+id/aiEmptyBox"
-                    android:layout_width="match_parent"
-                    android:layout_height="52dp"
-                    android:background="@drawable/bg_glass_card"
-                    android:gravity="center">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Здесь появятся ваши последние вопросы"
-                        android:textColor="#716C82"
-                        android:textSize="12.5sp"/>
-                </LinearLayout>
-
-            </LinearLayout>
-
-            <!-- Active Messages RecyclerView -->
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/aiMessages"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:minHeight="40dp"
-                android:nestedScrollingEnabled="false"
-                android:visibility="gone"/>
-
-        </LinearLayout>
-    </ScrollView>
-
-    <!-- ===== CHIPS SUGGESTIONS (matching reference image) ===== -->
+    <!-- ===== CHIPS SUGGESTIONS ROW ===== -->
     <HorizontalScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:scrollbars="none"
+        android:layout_marginTop="6dp"
         android:layout_marginBottom="8dp">
 
         <LinearLayout
@@ -470,7 +213,7 @@
             <TextView
                 android:id="@+id/chipExample"
                 android:layout_width="wrap_content"
-                android:layout_height="32dp"
+                android:layout_height="30dp"
                 android:background="@drawable/bg_surface_raised"
                 android:gravity="center"
                 android:paddingStart="12dp"
@@ -478,12 +221,14 @@
                 android:text="Приведи пример"
                 android:textColor="#C7C3D1"
                 android:textSize="11.5sp"
-                android:layout_marginEnd="6dp"/>
+                android:layout_marginEnd="6dp"
+                android:clickable="true"
+                android:focusable="true"/>
 
             <TextView
                 android:id="@+id/chipDetails"
                 android:layout_width="wrap_content"
-                android:layout_height="32dp"
+                android:layout_height="30dp"
                 android:background="@drawable/bg_surface_raised"
                 android:gravity="center"
                 android:paddingStart="12dp"
@@ -491,12 +236,14 @@
                 android:text="Объясни подробнее"
                 android:textColor="#C7C3D1"
                 android:textSize="11.5sp"
-                android:layout_marginEnd="6dp"/>
+                android:layout_marginEnd="6dp"
+                android:clickable="true"
+                android:focusable="true"/>
 
             <TextView
                 android:id="@+id/chipCompare"
                 android:layout_width="wrap_content"
-                android:layout_height="32dp"
+                android:layout_height="30dp"
                 android:background="@drawable/bg_surface_raised"
                 android:gravity="center"
                 android:paddingStart="12dp"
@@ -504,27 +251,31 @@
                 android:text="Сравни варианты"
                 android:textColor="#C7C3D1"
                 android:textSize="11.5sp"
-                android:layout_marginEnd="6dp"/>
+                android:layout_marginEnd="6dp"
+                android:clickable="true"
+                android:focusable="true"/>
 
             <TextView
                 android:id="@+id/chipSoundcloud"
                 android:layout_width="wrap_content"
-                android:layout_height="32dp"
+                android:layout_height="30dp"
                 android:background="@drawable/bg_surface_raised"
                 android:gravity="center"
                 android:paddingStart="12dp"
                 android:paddingEnd="12dp"
                 android:text="открой саундклауд"
                 android:textColor="#C7C3D1"
-                android:textSize="11.5sp"/>
+                android:textSize="11.5sp"
+                android:clickable="true"
+                android:focusable="true"/>
 
         </LinearLayout>
     </HorizontalScrollView>
 
-    <!-- ===== INPUT CAPSULE (matching reference image) ===== -->
+    <!-- ===== INPUT CAPSULE ===== -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="48dp"
+        android:layout_height="46dp"
         android:background="@drawable/bg_glass_card"
         android:orientation="horizontal"
         android:gravity="center_vertical"
@@ -561,7 +312,9 @@
             android:id="@+id/aiSendBtn"
             android:layout_width="34dp"
             android:layout_height="34dp"
-            android:background="@drawable/bg_surface_raised">
+            android:background="@drawable/bg_surface_raised"
+            android:clickable="true"
+            android:focusable="true">
             <ImageView
                 android:layout_width="16dp"
                 android:layout_height="16dp"
@@ -572,14 +325,13 @@
 
     </LinearLayout>
 
-    <!-- ===== FOOTER (LumaAI быстрый | Безлимитный доступ) ===== -->
+    <!-- ===== FOOTER ===== -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical">
 
-        <!-- LumaAI быстрый pill -->
         <TextView
             android:id="@+id/aiModelPill"
             android:layout_width="wrap_content"
@@ -590,14 +342,15 @@
             android:paddingEnd="10dp"
             android:text="LumaAI быстрый"
             android:textColor="#C7C3D1"
-            android:textSize="11sp"/>
+            android:textSize="11sp"
+            android:clickable="true"
+            android:focusable="true"/>
 
         <View
             android:layout_width="0dp"
             android:layout_height="1dp"
             android:layout_weight="1"/>
 
-        <!-- Безлимитный доступ -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

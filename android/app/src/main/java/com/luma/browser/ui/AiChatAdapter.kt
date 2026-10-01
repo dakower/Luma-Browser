@@ -29,26 +29,33 @@ class AiChatAdapter(private val messages: MutableList<AiMessage>) :
 
     override fun onBindViewHolder(holder: VH, position: Int) {
         val msg = messages[position]
-        holder.role.text = if (msg.role == "user") "Вы" else "✦ LumaAI"
+        val isUser = msg.role == "user"
 
-        val m = markwon
-        if (msg.role != "user" && m != null && msg.content.isNotBlank()) {
-            m.setMarkdown(holder.text, msg.content)
+        holder.role.text = if (isUser) "ВЫ" else "✦ LUMAAI"
+
+        if (!isUser && msg.content.isBlank()) {
+            holder.text.text = "LumaAI думает..."
+            holder.text.setTextColor(0xFF716C82.toInt())
         } else {
-            holder.text.text = msg.content
+            holder.text.setTextColor(0xFFFFFFFF.toInt())
+            val m = markwon
+            if (!isUser && m != null && msg.content.isNotBlank()) {
+                m.setMarkdown(holder.text, msg.content)
+            } else {
+                holder.text.text = msg.content
+            }
         }
 
-        // Align user messages right, assistant messages left
         val params = holder.text.layoutParams as? ViewGroup.MarginLayoutParams
-        if (msg.role == "user") {
+        if (isUser) {
             holder.role.textAlignment = View.TEXT_ALIGNMENT_TEXT_END
-            params?.marginStart = 60
+            params?.marginStart = 80
             params?.marginEnd = 0
             holder.text.setBackgroundResource(R.drawable.bg_surface_raised)
         } else {
             holder.role.textAlignment = View.TEXT_ALIGNMENT_TEXT_START
             params?.marginStart = 0
-            params?.marginEnd = 60
+            params?.marginEnd = 40
             holder.text.setBackgroundResource(R.drawable.bg_glass_card)
         }
         holder.text.layoutParams = params
@@ -59,9 +66,9 @@ class AiChatAdapter(private val messages: MutableList<AiMessage>) :
     fun appendToLastAssistant(chunk: String) {
         val lastIdx = messages.indexOfLast { it.role == "assistant" }
         if (lastIdx >= 0) {
-            val updated = messages[lastIdx].copy(content = messages[lastIdx].content + chunk)
-            messages[lastIdx] = updated
-            notifyItemChanged(lastIdx)
+            val old = messages[lastIdx]
+            messages[lastIdx] = old.copy(content = old.content + chunk)
+            notifyItemChanged(lastIdx, Unit)
         }
     }
 

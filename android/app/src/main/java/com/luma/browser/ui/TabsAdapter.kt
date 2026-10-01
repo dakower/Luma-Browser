@@ -12,28 +12,11 @@ import com.luma.browser.R
 import com.luma.browser.tabs.LumaTab
 
 class TabsAdapter(
-    private val allTabs: MutableList<LumaTab>,
+    private val tabs: MutableList<LumaTab>,
     private val activeTabId: String?,
-    private var currentSpaceId: String,
     private val onTabClick: (LumaTab) -> Unit,
     private val onTabClose: (LumaTab) -> Unit
 ) : RecyclerView.Adapter<TabsAdapter.VH>() {
-
-    private var visibleTabs = mutableListOf<LumaTab>()
-
-    init {
-        updateVisibleTabs()
-    }
-
-    private fun updateVisibleTabs() {
-        visibleTabs = allTabs.filter { it.spaceId == currentSpaceId }.toMutableList()
-    }
-
-    fun setSpaceId(spaceId: String) {
-        currentSpaceId = spaceId
-        updateVisibleTabs()
-        notifyDataSetChanged()
-    }
 
     inner class VH(view: View) : RecyclerView.ViewHolder(view) {
         val favicon: ImageView = view.findViewById(R.id.tabFavicon)
@@ -48,7 +31,7 @@ class TabsAdapter(
     }
 
     override fun onBindViewHolder(holder: VH, position: Int) {
-        val tab = visibleTabs[position]
+        val tab = tabs[position]
         val isActive = tab.id == activeTabId
 
         if (isActive) {
@@ -76,10 +59,9 @@ class TabsAdapter(
         holder.itemView.setOnClickListener { onTabClick(tab) }
         holder.close.setOnClickListener {
             onTabClose(tab)
-            updateVisibleTabs()
             notifyDataSetChanged()
         }
     }
 
-    override fun getItemCount() = visibleTabs.size
+    override fun getItemCount() = tabs.size
 }

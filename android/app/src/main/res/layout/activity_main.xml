@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    activity_main.xml — Luma Mobile Browser
-    Sleek minimalist proportions, custom top search bar, home dashboard, floating LumaAI button, reader mode.
+    activity_main.xml — Luma Mobile Browser (Safari-style Bottom Bar)
+    Matches Screenshot 2 docked at the bottom with Luma logo pill, AI button, tab badge, and hamburger menu.
+    Harmonious home screen with centered Luma brand and search box.
 -->
 <FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -9,127 +10,35 @@
     android:layout_height="match_parent"
     android:background="@color/luma_bg">
 
-    <!-- ===== WEBVIEW (for web pages) ===== -->
+    <!-- ===== WEBVIEW (Full Screen Content) ===== -->
     <WebView
         android:id="@+id/webView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_marginTop="50dp"
+        android:layout_marginBottom="62dp"
         android:visibility="gone"/>
 
-    <!-- ===== PROGRESS BAR ===== -->
+    <!-- ===== PROGRESS BAR (Docked right above bottom bar) ===== -->
     <ProgressBar
         android:id="@+id/pageProgress"
         style="@android:style/Widget.ProgressBar.Horizontal"
         android:layout_width="match_parent"
         android:layout_height="2dp"
-        android:layout_marginTop="50dp"
+        android:layout_gravity="bottom"
+        android:layout_marginBottom="62dp"
         android:progressTint="@color/luma_accent"
         android:progressBackgroundTint="@color/transparent"
         android:max="100"
         android:progress="0"
         android:visibility="invisible"/>
 
-    <!-- ===== TOP APP BAR (Custom sleek search bar) ===== -->
-    <LinearLayout
-        android:id="@+id/topBar"
-        android:layout_width="match_parent"
-        android:layout_height="50dp"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:elevation="6dp">
-
-        <!-- Address Bar Pill (contains Luma logo + text) -->
-        <LinearLayout
-            android:id="@+id/topAddressPill"
-            android:layout_width="0dp"
-            android:layout_height="36dp"
-            android:layout_weight="1"
-            android:background="@drawable/bg_glass_pill"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingStart="8dp"
-            android:paddingEnd="10dp">
-
-            <!-- Luma Logo inside the pill -->
-            <ImageView
-                android:id="@+id/topBarLogo"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
-                android:src="@drawable/luma_logo"
-                android:layout_marginEnd="8dp"/>
-
-            <!-- URL or page title -->
-            <EditText
-                android:id="@+id/addressBar"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:background="@null"
-                android:text="Новая вкладка"
-                android:textColor="@color/luma_text_primary"
-                android:textColorHint="@color/luma_text_muted"
-                android:textSize="13sp"
-                android:singleLine="true"
-                android:imeOptions="actionGo"
-                android:inputType="textUri"
-                android:selectAllOnFocus="true"/>
-
-            <!-- Reload / Stop Button -->
-            <ImageButton
-                android:id="@+id/btnReload"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:background="@null"
-                android:src="@drawable/ic_reload"
-                android:padding="3dp"
-                android:contentDescription="Обновить"
-                android:visibility="gone"/>
-
-        </LinearLayout>
-
-        <!-- Tab Count Badge Button -->
-        <FrameLayout
-            android:id="@+id/btnTabCount"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:layout_marginStart="8dp"
-            android:background="@drawable/selector_icon_button">
-            <TextView
-                android:id="@+id/tabCountText"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
-                android:layout_gravity="center"
-                android:background="@drawable/bg_surface_raised"
-                android:gravity="center"
-                android:text="1"
-                android:textColor="@color/luma_text_primary"
-                android:textSize="10.5sp"
-                android:textStyle="bold"/>
-        </FrameLayout>
-
-        <!-- Three dots Menu Button -->
-        <ImageButton
-            android:id="@+id/btnMenu"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:layout_marginStart="4dp"
-            android:background="@drawable/selector_icon_button"
-            android:src="@drawable/ic_menu"
-            android:padding="6dp"
-            android:contentDescription="Меню"/>
-
-    </LinearLayout>
-
-    <!-- ===== HOME DASHBOARD (Minimalist, elegant) ===== -->
+    <!-- ===== HOME DASHBOARD (Minimalist, harmonious) ===== -->
     <ScrollView
         android:id="@+id/homeDashboard"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:layout_marginBottom="62dp"
         android:fillViewport="true"
-        android:paddingTop="50dp"
         android:scrollbars="none">
 
         <LinearLayout
@@ -139,8 +48,8 @@
             android:gravity="center_horizontal"
             android:paddingStart="24dp"
             android:paddingEnd="24dp"
-            android:paddingTop="70dp"
-            android:paddingBottom="90dp">
+            android:paddingTop="100dp"
+            android:paddingBottom="40dp">
 
             <!-- Luma Logo + Title Header -->
             <LinearLayout
@@ -178,7 +87,7 @@
                 android:gravity="center"
                 android:layout_marginBottom="22dp"/>
 
-            <!-- Search Capsule -->
+            <!-- Center Search Capsule -->
             <LinearLayout
                 android:id="@+id/homeSearchShell"
                 android:layout_width="match_parent"
@@ -227,7 +136,7 @@
 
             </LinearLayout>
 
-            <!-- Quick Action Pills Row: LumaAI, История, Настройки, Аккаунт -->
+            <!-- Quick Action Pills Row: История, Настройки, Закладки, Поддержка -->
             <LinearLayout
                 android:id="@+id/homePillsContainer"
                 android:layout_width="match_parent"
@@ -235,30 +144,6 @@
                 android:orientation="horizontal"
                 android:gravity="center"
                 android:layout_marginBottom="28dp">
-
-                <!-- ✦ LumaAI -->
-                <LinearLayout
-                    android:id="@+id/pillLumaAI"
-                    android:layout_width="0dp"
-                    android:layout_height="32dp"
-                    android:layout_weight="1"
-                    android:layout_marginEnd="6dp"
-                    android:background="@drawable/bg_glass_pill"
-                    android:gravity="center"
-                    android:clickable="true"
-                    android:focusable="true">
-                    <ImageView
-                        android:layout_width="11dp"
-                        android:layout_height="11dp"
-                        android:src="@drawable/ic_spark"
-                        android:layout_marginEnd="4dp"/>
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="LumaAI"
-                        android:textColor="@color/luma_text_secondary"
-                        android:textSize="11sp"/>
-                </LinearLayout>
 
                 <!-- 🕒 История -->
                 <LinearLayout
@@ -308,9 +193,33 @@
                         android:textSize="11sp"/>
                 </LinearLayout>
 
-                <!-- 👤 Аккаунт -->
+                <!-- 🔖 Закладки -->
                 <LinearLayout
-                    android:id="@+id/pillAccount"
+                    android:id="@+id/pillBookmarks"
+                    android:layout_width="0dp"
+                    android:layout_height="32dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="6dp"
+                    android:background="@drawable/bg_glass_pill"
+                    android:gravity="center"
+                    android:clickable="true"
+                    android:focusable="true">
+                    <ImageView
+                        android:layout_width="11dp"
+                        android:layout_height="11dp"
+                        android:src="@drawable/ic_bookmark"
+                        android:layout_marginEnd="4dp"/>
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Закладки"
+                        android:textColor="@color/luma_text_secondary"
+                        android:textSize="11sp"/>
+                </LinearLayout>
+
+                <!-- 💬 Поддержка -->
+                <LinearLayout
+                    android:id="@+id/pillSupport"
                     android:layout_width="0dp"
                     android:layout_height="32dp"
                     android:layout_weight="1"
@@ -321,12 +230,12 @@
                     <ImageView
                         android:layout_width="11dp"
                         android:layout_height="11dp"
-                        android:src="@drawable/ic_user"
+                        android:src="@drawable/ic_support"
                         android:layout_marginEnd="4dp"/>
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Аккаунт"
+                        android:text="Поддержка"
                         android:textColor="@color/luma_text_secondary"
                         android:textSize="11sp"/>
                 </LinearLayout>
@@ -341,11 +250,12 @@
         android:id="@+id/readerOverlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:layout_marginBottom="62dp"
         android:background="#121316"
         android:orientation="vertical"
         android:visibility="gone"
         android:elevation="10dp"
-        android:paddingTop="50dp">
+        android:paddingTop="30dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -414,30 +324,116 @@
         </ScrollView>
     </LinearLayout>
 
-    <!-- ===== FLOATING "СПРОСИТЬ LUMAAI" GRADIENT BUTTON (Refined compact dimensions) ===== -->
+    <!-- ===== SAFARI-STYLE BOTTOM BAR (Matching Screenshot 2 exactly) ===== -->
     <LinearLayout
-        android:id="@+id/btnFloatingAi"
-        android:layout_width="wrap_content"
-        android:layout_height="40dp"
-        android:layout_gravity="bottom|end"
-        android:layout_marginEnd="18dp"
-        android:layout_marginBottom="24dp"
-        android:background="@drawable/bg_luma_ai_button"
+        android:id="@+id/bottomBar"
+        android:layout_width="match_parent"
+        android:layout_height="62dp"
+        android:layout_gravity="bottom"
+        android:background="#FA0B0912"
         android:orientation="horizontal"
-        android:gravity="center"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:elevation="10dp"
-        android:clickable="true"
-        android:focusable="true">
+        android:gravity="center_vertical"
+        android:paddingStart="10dp"
+        android:paddingEnd="10dp"
+        android:elevation="12dp">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Спросить LumaAI"
-            android:textColor="#FFFFFF"
-            android:textSize="13.5sp"
-            android:textStyle="bold"/>
+        <!-- Search/Address Capsule (Screenshot 2: logo + "Новая вкладка") -->
+        <LinearLayout
+            android:id="@+id/bottomAddressPill"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_glass_pill"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp">
+
+            <!-- Luma Logo -->
+            <ImageView
+                android:id="@+id/bottomBarLogo"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:src="@drawable/luma_logo"
+                android:layout_marginEnd="8dp"/>
+
+            <!-- URL / Search text field -->
+            <EditText
+                android:id="@+id/bottomAddressBar"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@null"
+                android:text="Новая вкладка"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#716C82"
+                android:textSize="13.5sp"
+                android:singleLine="true"
+                android:imeOptions="actionGo"
+                android:inputType="textUri"
+                android:selectAllOnFocus="true"/>
+
+            <!-- Reload / Stop button -->
+            <ImageButton
+                android:id="@+id/btnReload"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:background="@null"
+                android:src="@drawable/ic_reload"
+                android:padding="3dp"
+                android:contentDescription="Обновить"
+                android:visibility="gone"/>
+
+        </LinearLayout>
+
+        <!-- LumaAI Button (Dedicated spark button on the bottom bar) -->
+        <FrameLayout
+            android:id="@+id/btnBottomAi"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/bg_surface_raised"
+            android:clickable="true"
+            android:focusable="true">
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_spark"/>
+        </FrameLayout>
+
+        <!-- Tab Count Badge Button (Screenshot 2: dark circle badge) -->
+        <FrameLayout
+            android:id="@+id/btnTabCount"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginStart="6dp"
+            android:background="@null"
+            android:clickable="true"
+            android:focusable="true">
+            <TextView
+                android:id="@+id/tabCountText"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_gravity="center"
+                android:background="@drawable/bg_circle_badge"
+                android:gravity="center"
+                android:text="1"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:textStyle="bold"/>
+        </FrameLayout>
+
+        <!-- Menu Button (Screenshot 2: hamburger menu icon) -->
+        <ImageButton
+            android:id="@+id/btnMenu"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginStart="4dp"
+            android:background="@null"
+            android:src="@drawable/ic_menu"
+            android:padding="7dp"
+            android:contentDescription="Меню"/>
 
     </LinearLayout>
 
