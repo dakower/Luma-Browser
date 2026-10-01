@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    activity_main.xml — 100% faithful replication of media_1790866441976.png
-    Dark ambient backdrop, centered Luma brand & search, floating "Спросить LumaAI" gradient button.
+    activity_main.xml — Luma Mobile Browser
+    Sleek minimalist proportions, custom top search bar, home dashboard, floating LumaAI button, reader mode.
 -->
 <FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -14,7 +14,7 @@
         android:id="@+id/webView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_marginTop="56dp"
+        android:layout_marginTop="50dp"
         android:visibility="gone"/>
 
     <!-- ===== PROGRESS BAR ===== -->
@@ -23,43 +23,43 @@
         style="@android:style/Widget.ProgressBar.Horizontal"
         android:layout_width="match_parent"
         android:layout_height="2dp"
-        android:layout_marginTop="56dp"
+        android:layout_marginTop="50dp"
         android:progressTint="@color/luma_accent"
         android:progressBackgroundTint="@color/transparent"
         android:max="100"
         android:progress="0"
         android:visibility="invisible"/>
 
-    <!-- ===== TOP APP BAR (matching reference mockup) ===== -->
+    <!-- ===== TOP APP BAR (Custom sleek search bar) ===== -->
     <LinearLayout
         android:id="@+id/topBar"
         android:layout_width="match_parent"
-        android:layout_height="56dp"
+        android:layout_height="50dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
         android:elevation="6dp">
 
         <!-- Address Bar Pill (contains Luma logo + text) -->
         <LinearLayout
             android:id="@+id/topAddressPill"
             android:layout_width="0dp"
-            android:layout_height="40dp"
+            android:layout_height="36dp"
             android:layout_weight="1"
             android:background="@drawable/bg_glass_pill"
             android:orientation="horizontal"
             android:gravity="center_vertical"
             android:paddingStart="8dp"
-            android:paddingEnd="12dp">
+            android:paddingEnd="10dp">
 
             <!-- Luma Logo inside the pill -->
             <ImageView
                 android:id="@+id/topBarLogo"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
                 android:src="@drawable/luma_logo"
-                android:layout_marginEnd="10dp"/>
+                android:layout_marginEnd="8dp"/>
 
             <!-- URL or page title -->
             <EditText
@@ -71,7 +71,7 @@
                 android:text="Новая вкладка"
                 android:textColor="@color/luma_text_primary"
                 android:textColorHint="@color/luma_text_muted"
-                android:textSize="14sp"
+                android:textSize="13sp"
                 android:singleLine="true"
                 android:imeOptions="actionGo"
                 android:inputType="textUri"
@@ -80,11 +80,11 @@
             <!-- Reload / Stop Button -->
             <ImageButton
                 android:id="@+id/btnReload"
-                android:layout_width="26dp"
-                android:layout_height="26dp"
-                android:background="@drawable/selector_icon_button"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:background="@null"
                 android:src="@drawable/ic_reload"
-                android:padding="4dp"
+                android:padding="3dp"
                 android:contentDescription="Обновить"
                 android:visibility="gone"/>
 
@@ -93,43 +93,43 @@
         <!-- Tab Count Badge Button -->
         <FrameLayout
             android:id="@+id/btnTabCount"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:layout_marginStart="10dp"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_marginStart="8dp"
             android:background="@drawable/selector_icon_button">
             <TextView
                 android:id="@+id/tabCountText"
-                android:layout_width="22dp"
-                android:layout_height="22dp"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
                 android:layout_gravity="center"
                 android:background="@drawable/bg_surface_raised"
                 android:gravity="center"
                 android:text="1"
                 android:textColor="@color/luma_text_primary"
-                android:textSize="11sp"
+                android:textSize="10.5sp"
                 android:textStyle="bold"/>
         </FrameLayout>
 
         <!-- Three dots Menu Button -->
         <ImageButton
             android:id="@+id/btnMenu"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
             android:layout_marginStart="4dp"
             android:background="@drawable/selector_icon_button"
             android:src="@drawable/ic_menu"
-            android:padding="8dp"
+            android:padding="6dp"
             android:contentDescription="Меню"/>
 
     </LinearLayout>
 
-    <!-- ===== HOME DASHBOARD (matching media_1790866441976.png exactly) ===== -->
+    <!-- ===== HOME DASHBOARD (Minimalist, elegant) ===== -->
     <ScrollView
         android:id="@+id/homeDashboard"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:fillViewport="true"
-        android:paddingTop="56dp"
+        android:paddingTop="50dp"
         android:scrollbars="none">
 
         <LinearLayout
@@ -139,8 +139,8 @@
             android:gravity="center_horizontal"
             android:paddingStart="24dp"
             android:paddingEnd="24dp"
-            android:paddingTop="90dp"
-            android:paddingBottom="100dp">
+            android:paddingTop="70dp"
+            android:paddingBottom="90dp">
 
             <!-- Luma Logo + Title Header -->
             <LinearLayout
@@ -148,11 +148,11 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:layout_marginBottom="14dp">
+                android:layout_marginBottom="12dp">
 
                 <ImageView
-                    android:layout_width="38dp"
-                    android:layout_height="38dp"
+                    android:layout_width="34dp"
+                    android:layout_height="34dp"
                     android:src="@drawable/luma_logo"/>
 
                 <TextView
@@ -160,39 +160,40 @@
                     android:layout_height="wrap_content"
                     android:text="Luma"
                     android:textColor="#FFFFFF"
-                    android:textSize="26sp"
+                    android:textSize="22sp"
                     android:textStyle="bold"
-                    android:layout_marginStart="12dp"/>
+                    android:layout_marginStart="10dp"/>
 
             </LinearLayout>
 
             <!-- Headline: "Куда отправимся?" -->
             <TextView
+                android:id="@+id/homeHeadline"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Куда отправимся?"
                 android:textColor="#FFFFFF"
-                android:textSize="32sp"
+                android:textSize="26sp"
                 android:textStyle="bold"
                 android:gravity="center"
-                android:layout_marginBottom="26dp"/>
+                android:layout_marginBottom="22dp"/>
 
             <!-- Search Capsule -->
             <LinearLayout
                 android:id="@+id/homeSearchShell"
                 android:layout_width="match_parent"
-                android:layout_height="54dp"
+                android:layout_height="48dp"
                 android:background="@drawable/bg_glass_pill"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:paddingStart="16dp"
-                android:paddingEnd="8dp"
-                android:elevation="6dp"
-                android:layout_marginBottom="16dp">
+                android:paddingStart="14dp"
+                android:paddingEnd="6dp"
+                android:elevation="4dp"
+                android:layout_marginBottom="14dp">
 
                 <ImageView
-                    android:layout_width="18dp"
-                    android:layout_height="18dp"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
                     android:src="@drawable/ic_search"/>
 
                 <EditText
@@ -200,13 +201,13 @@
                     android:layout_width="0dp"
                     android:layout_height="match_parent"
                     android:layout_weight="1"
-                    android:layout_marginStart="10dp"
+                    android:layout_marginStart="8dp"
                     android:layout_marginEnd="6dp"
                     android:background="@null"
                     android:hint="Поиск или адрес сайта"
                     android:textColor="@color/luma_text_primary"
                     android:textColorHint="@color/luma_text_muted"
-                    android:textSize="14sp"
+                    android:textSize="13.5sp"
                     android:singleLine="true"
                     android:imeOptions="actionGo"
                     android:inputType="textUri"/>
@@ -214,12 +215,12 @@
                 <!-- Circular Arrow Button -->
                 <FrameLayout
                     android:id="@+id/homeSearchBtn"
-                    android:layout_width="38dp"
-                    android:layout_height="38dp"
+                    android:layout_width="34dp"
+                    android:layout_height="34dp"
                     android:background="@drawable/bg_surface_raised">
                     <ImageView
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
+                        android:layout_width="14dp"
+                        android:layout_height="14dp"
                         android:layout_gravity="center"
                         android:src="@drawable/ic_arrow_right"/>
                 </FrameLayout>
@@ -228,17 +229,18 @@
 
             <!-- Quick Action Pills Row: LumaAI, История, Настройки, Аккаунт -->
             <LinearLayout
+                android:id="@+id/homePillsContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center"
-                android:layout_marginBottom="32dp">
+                android:layout_marginBottom="28dp">
 
                 <!-- ✦ LumaAI -->
                 <LinearLayout
                     android:id="@+id/pillLumaAI"
                     android:layout_width="0dp"
-                    android:layout_height="36dp"
+                    android:layout_height="32dp"
                     android:layout_weight="1"
                     android:layout_marginEnd="6dp"
                     android:background="@drawable/bg_glass_pill"
@@ -246,23 +248,23 @@
                     android:clickable="true"
                     android:focusable="true">
                     <ImageView
-                        android:layout_width="12dp"
-                        android:layout_height="12dp"
+                        android:layout_width="11dp"
+                        android:layout_height="11dp"
                         android:src="@drawable/ic_spark"
-                        android:layout_marginEnd="5dp"/>
+                        android:layout_marginEnd="4dp"/>
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="LumaAI"
                         android:textColor="@color/luma_text_secondary"
-                        android:textSize="11.5sp"/>
+                        android:textSize="11sp"/>
                 </LinearLayout>
 
                 <!-- 🕒 История -->
                 <LinearLayout
                     android:id="@+id/pillHistory"
                     android:layout_width="0dp"
-                    android:layout_height="36dp"
+                    android:layout_height="32dp"
                     android:layout_weight="1"
                     android:layout_marginEnd="6dp"
                     android:background="@drawable/bg_glass_pill"
@@ -270,23 +272,23 @@
                     android:clickable="true"
                     android:focusable="true">
                     <ImageView
-                        android:layout_width="12dp"
-                        android:layout_height="12dp"
+                        android:layout_width="11dp"
+                        android:layout_height="11dp"
                         android:src="@drawable/ic_history"
-                        android:layout_marginEnd="5dp"/>
+                        android:layout_marginEnd="4dp"/>
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="История"
                         android:textColor="@color/luma_text_secondary"
-                        android:textSize="11.5sp"/>
+                        android:textSize="11sp"/>
                 </LinearLayout>
 
                 <!-- ⚙ Настройки -->
                 <LinearLayout
                     android:id="@+id/pillSettings"
                     android:layout_width="0dp"
-                    android:layout_height="36dp"
+                    android:layout_height="32dp"
                     android:layout_weight="1"
                     android:layout_marginEnd="6dp"
                     android:background="@drawable/bg_glass_pill"
@@ -294,39 +296,39 @@
                     android:clickable="true"
                     android:focusable="true">
                     <ImageView
-                        android:layout_width="12dp"
-                        android:layout_height="12dp"
+                        android:layout_width="11dp"
+                        android:layout_height="11dp"
                         android:src="@drawable/ic_gear"
-                        android:layout_marginEnd="5dp"/>
+                        android:layout_marginEnd="4dp"/>
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Настройки"
                         android:textColor="@color/luma_text_secondary"
-                        android:textSize="11.5sp"/>
+                        android:textSize="11sp"/>
                 </LinearLayout>
 
                 <!-- 👤 Аккаунт -->
                 <LinearLayout
                     android:id="@+id/pillAccount"
                     android:layout_width="0dp"
-                    android:layout_height="36dp"
+                    android:layout_height="32dp"
                     android:layout_weight="1"
                     android:background="@drawable/bg_glass_pill"
                     android:gravity="center"
                     android:clickable="true"
                     android:focusable="true">
                     <ImageView
-                        android:layout_width="12dp"
-                        android:layout_height="12dp"
+                        android:layout_width="11dp"
+                        android:layout_height="11dp"
                         android:src="@drawable/ic_user"
-                        android:layout_marginEnd="5dp"/>
+                        android:layout_marginEnd="4dp"/>
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Аккаунт"
                         android:textColor="@color/luma_text_secondary"
-                        android:textSize="11.5sp"/>
+                        android:textSize="11sp"/>
                 </LinearLayout>
 
             </LinearLayout>
@@ -334,20 +336,98 @@
         </LinearLayout>
     </ScrollView>
 
-    <!-- ===== FLOATING "СПРОСИТЬ LUMAAI" GRADIENT BUTTON (from reference image) ===== -->
+    <!-- ===== READER MODE OVERLAY ===== -->
+    <LinearLayout
+        android:id="@+id/readerOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#121316"
+        android:orientation="vertical"
+        android:visibility="gone"
+        android:elevation="10dp"
+        android:paddingTop="50dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:gravity="center_vertical"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:background="#0E0F12">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Режим чтения Luma"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
+                android:textStyle="bold"/>
+
+            <TextView
+                android:id="@+id/btnReaderClose"
+                android:layout_width="wrap_content"
+                android:layout_height="30dp"
+                android:gravity="center"
+                android:text="Закрыть"
+                android:textColor="@color/luma_accent"
+                android:textSize="12sp"
+                android:background="@drawable/bg_surface_raised"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"/>
+        </LinearLayout>
+
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="20dp">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/readerTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="#FFFFFF"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="6dp"/>
+
+                <TextView
+                    android:id="@+id/readerByline"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="#716C82"
+                    android:textSize="12sp"
+                    android:layout_marginBottom="18dp"/>
+
+                <TextView
+                    android:id="@+id/readerBody"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="#D7D2DC"
+                    android:textSize="15sp"
+                    android:lineSpacingExtra="6dp"/>
+            </LinearLayout>
+        </ScrollView>
+    </LinearLayout>
+
+    <!-- ===== FLOATING "СПРОСИТЬ LUMAAI" GRADIENT BUTTON (Refined compact dimensions) ===== -->
     <LinearLayout
         android:id="@+id/btnFloatingAi"
         android:layout_width="wrap_content"
-        android:layout_height="48dp"
+        android:layout_height="40dp"
         android:layout_gravity="bottom|end"
-        android:layout_marginEnd="20dp"
-        android:layout_marginBottom="30dp"
+        android:layout_marginEnd="18dp"
+        android:layout_marginBottom="24dp"
         android:background="@drawable/bg_luma_ai_button"
         android:orientation="horizontal"
         android:gravity="center"
-        android:paddingStart="20dp"
-        android:paddingEnd="20dp"
-        android:elevation="14dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:elevation="10dp"
         android:clickable="true"
         android:focusable="true">
 
@@ -356,7 +436,7 @@
             android:layout_height="wrap_content"
             android:text="Спросить LumaAI"
             android:textColor="#FFFFFF"
-            android:textSize="15sp"
+            android:textSize="13.5sp"
             android:textStyle="bold"/>
 
     </LinearLayout>

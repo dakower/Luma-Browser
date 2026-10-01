@@ -1,6 +1,5 @@
 package com.luma.browser.ui
 
-import android.graphics.Bitmap
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -13,11 +12,28 @@ import com.luma.browser.R
 import com.luma.browser.tabs.LumaTab
 
 class TabsAdapter(
-    private val tabs: MutableList<LumaTab>,
+    private val allTabs: MutableList<LumaTab>,
     private val activeTabId: String?,
+    private var currentSpaceId: String,
     private val onTabClick: (LumaTab) -> Unit,
     private val onTabClose: (LumaTab) -> Unit
 ) : RecyclerView.Adapter<TabsAdapter.VH>() {
+
+    private var visibleTabs = mutableListOf<LumaTab>()
+
+    init {
+        updateVisibleTabs()
+    }
+
+    private fun updateVisibleTabs() {
+        visibleTabs = allTabs.filter { it.spaceId == currentSpaceId }.toMutableList()
+    }
+
+    fun setSpaceId(spaceId: String) {
+        currentSpaceId = spaceId
+        updateVisibleTabs()
+        notifyDataSetChanged()
+    }
 
     inner class VH(view: View) : RecyclerView.ViewHolder(view) {
         val favicon: ImageView = view.findViewById(R.id.tabFavicon)
@@ -32,41 +48,38 @@ class TabsAdapter(
     }
 
     override fun onBindViewHolder(holder: VH, position: Int) {
-        val tab = tabs[position]
+        val tab = visibleTabs[position]
+        val isActive = tab.id == activeTabId
 
-        // Show active tab with Luma's ActiveTabBrush gradient
-        holder.itemView.isSelected = tab.id == activeTabId
-        if (tab.id == activeTabId) {
+        if (isActive) {
             holder.itemView.setBackgroundResource(R.drawable.bg_tab_active)
         } else {
             holder.itemView.setBackgroundResource(R.drawable.bg_tab_inactive)
         }
 
-        holder.title.text = tab.title.ifBlank { "Новая вкладка" }
-
-        val displayUrl = when {
-            tab.isHome -> "Главная страница"
-            tab.url.startsWith("https://") -> tab.url.removePrefix("https://").let {
-                if (it.length > 40) it.take(40) + "…" else it
-            }
-            else -> tab.url.take(40)
-        }
-        holder.url.text = displayUrl
+        holder.title.text = if (tab.isHome) "Новая вкладка" else tab.title.ifBlank { "Страница" }
+        holder.url.text = if (tab.isHome) "Luma Home" else tab.url.removePrefix("https://").removePrefix("http://")
 
         if (tab.favicon != null) {
             holder.favicon.setImageBitmap(tab.favicon)
-        } else if (tab.url.isNotBlank() && !tab.isHome) {
+        } else if (tab.isHome) {
+            holder.favicon.setImageResource(R.drawable.luma_logo)
+        } else if (tab.url.startsWith("http")) {
             Glide.with(holder.favicon)
                 .load("https://www.google.com/s2/favicons?sz=32&domain_url=${tab.url}")
                 .placeholder(R.drawable.ic_globe)
                 .into(holder.favicon)
         } else {
-            holder.favicon.setImageResource(R.drawable.ic_home)
+            holder.favicon.setImageResource(R.drawable.ic_globe)
         }
 
         holder.itemView.setOnClickListener { onTabClick(tab) }
-        holder.close.setOnClickListener { onTabClose(tab) }
+        holder.close.setOnClickListener {
+            onTabClose(tab)
+            updateVisibleTabs()
+            notifyDataSetChanged()
+        }
     }
 
-    override fun getItemCount() = tabs.size
+    override fun getItemCount() = visibleTabs.size
 }
