@@ -14,7 +14,12 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.util.concurrent.TimeUnit
 
-data class AiMessage(val role: String, val content: String)
+data class AiMessage(
+    val role: String,
+    val content: String,
+    val imageBase64: String? = null,
+    val imageBitmap: android.graphics.Bitmap? = null
+)
 
 /**
  * LumaAiService — connects to /functions/v1/luma-assistant (SSE streaming).
@@ -38,15 +43,10 @@ class LumaAiService {
 
         val prefs = LumaPreferences.get()
 
-        // Ensure session exists
-        if (prefs.accessToken.isBlank()) {
-            LumaApp.instance.ensureSession()
-            // Wait up to 2 seconds for token
-            var tries = 0
-            while (prefs.accessToken.isBlank() && tries < 20) {
-                kotlinx.coroutines.delay(100)
-                tries++
-            }
+        // Strict login requirement
+        if (!prefs.isLoggedIn) {
+            onError("Для использования LumaAI необходимо войти в аккаунт Luma ID.")
+            return@withContext
         }
 
         val token = prefs.accessToken
@@ -57,11 +57,29 @@ class LumaAiService {
             put("content", systemPrompt)
         })
         for (msg in messages) {
-            if (msg.content.isNotBlank()) {
-                messagesArr.put(JSONObject().apply {
+            if (msg.content.isNotBlank() || !msg.imageBase64.isNullOrBlank()) {
+                val item = JSONObject().apply {
                     put("role", msg.role)
-                    put("content", msg.content)
-                })
+                    if (msg.imageBase64.isNullOrBlank()) {
+                        put("content", msg.content)
+                    } else {
+                        val parts = JSONArray()
+                        if (msg.content.isNotBlank()) {
+                            parts.put(JSONObject().apply {
+                                put("type", "text")
+                                put("text", msg.content)
+                            })
+                        }
+                        parts.put(JSONObject().apply {
+                            put("type", "image_url")
+                            put("image_url", JSONObject().apply {
+                                put("url", "data:image/jpeg;base64,${msg.imageBase64}")
+                            })
+                        })
+                        put("content", parts)
+                    }
+                }
+                messagesArr.put(item)
             }
         }
 

@@ -6,6 +6,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
@@ -21,7 +22,8 @@ class AiChatAdapter(private val messages: MutableList<AiMessage>) :
     inner class VH(view: View) : RecyclerView.ViewHolder(view) {
         val assistantHeader: LinearLayout = view.findViewById(R.id.msgAssistantHeader)
         val role: TextView = view.findViewById(R.id.msgRole)
-        val bubble: FrameLayout = view.findViewById(R.id.msgBubble)
+        val bubble: LinearLayout = view.findViewById(R.id.msgBubble)
+        val image: ImageView = view.findViewById(R.id.msgImage)
         val text: TextView = view.findViewById(R.id.msgText)
         val typingDots: LinearLayout = view.findViewById(R.id.msgTypingDots)
         val dot1: View = view.findViewById(R.id.dot1)
@@ -80,6 +82,13 @@ class AiChatAdapter(private val messages: MutableList<AiMessage>) :
     override fun onBindViewHolder(holder: VH, position: Int) {
         val msg = messages[position]
         val isUser = msg.role == "user"
+
+        if (msg.imageBitmap != null) {
+            holder.image.visibility = View.VISIBLE
+            holder.image.setImageBitmap(msg.imageBitmap)
+        } else {
+            holder.image.visibility = View.GONE
+        }
 
         if (isUser) {
             holder.assistantHeader.visibility = View.GONE

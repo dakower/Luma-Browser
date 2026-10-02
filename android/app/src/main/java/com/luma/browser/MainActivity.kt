@@ -5,10 +5,15 @@ import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Rect
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.os.Handler
+import android.os.Looper
+import android.view.PixelCopy
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.KeyEvent
@@ -189,6 +194,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var downloadsTabEmptyView: View
     private lateinit var downloadsTabRecycler: RecyclerView
     private lateinit var downloadsTabAdapter: DownloadsAdapter
+
+    // Circle to Search
+    private lateinit var circleSearchOverlay: FrameLayout
+    private lateinit var circleSearchView: CircleToSearchView
+    private lateinit var btnCircleSearchClose: View
 
     @SuppressLint("SetJavaScriptEnabled", "ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -488,10 +498,40 @@ class MainActivity : AppCompatActivity() {
             if (activeTab?.isLoading == true) webView.stopLoading()
             else webView.reload()
         }
-        btnBottomAi.setOnClickListener { showAiSheet() }
+        btnBottomAi.setOnClickListener {
+            if (!prefs.isLoggedIn) {
+                showAccountPromptForAi("Для использования LumaAI войдите в аккаунт Luma ID")
+            } else {
+                showAiSheet()
+            }
+        }
+        btnBottomAi.setOnLongClickListener {
+            if (!prefs.isLoggedIn) {
+                showAccountPromptForAi("Для использования «Обвести для поиска» войдите в аккаунт Luma ID")
+            } else {
+                startCircleToSearch()
+            }
+            true
+        }
         btnTabCount.setOnClickListener { openTabSwitcher() }
         btnMenu.setOnClickListener { showMenuSheet() }
         btnReaderClose.setOnClickListener { readerOverlay.visibility = View.GONE }
+
+        // Circle to Search Overlay setup
+        circleSearchOverlay = findViewById(R.id.circleSearchOverlay)
+        circleSearchView = findViewById(R.id.circleSearchView)
+        btnCircleSearchClose = findViewById(R.id.btnCircleSearchClose)
+
+        circleSearchView.onSelectionComplete = { cropped ->
+            handleCircleSearchCapture(cropped)
+        }
+        circleSearchView.onDismiss = {
+            dismissCircleToSearch()
+        }
+        btnCircleSearchClose.setOnClickListener {
+            dismissCircleToSearch()
+        }
+
         updateBottomBarState()
     }
 
@@ -2259,8 +2299,116 @@ class MainActivity : AppCompatActivity() {
         openTabSwitcher()
     }
 
+    // ===== CIRCLE TO SEARCH & VISUAL AI =====
+    private fun showAccountPromptForAi(customMessage: String? = null) {
+        Toast.makeText(
+            this,
+            customMessage ?: "Для использования LumaAI необходимо войти в аккаунт Luma ID.",
+            Toast.LENGTH_LONG
+        ).show()
+        showAccountSheet()
+    }
+
+    private fun captureScreen(onReady: (Bitmap) -> Unit) {
+        val decorView = window.decorView
+        val width = decorView.width
+        val height = decorView.height
+        if (width <= 0 || height <= 0) return
+
+        fun drawFallback(): Bitmap {
+            val bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bmp)
+            decorView.draw(canvas)
+            return bmp
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+            val location = IntArray(2)
+            decorView.getLocationInWindow(location)
+            try {
+                PixelCopy.request(
+                    window,
+                    Rect(location[0], location[1], location[0] + width, location[1] + height),
+                    bmp,
+                    { copyResult ->
+                        if (copyResult == PixelCopy.SUCCESS) {
+                            onReady(bmp)
+                        } else {
+                            onReady(drawFallback())
+                        }
+                    },
+                    Handler(Looper.getMainLooper())
+                )
+            } catch (_: Exception) {
+                onReady(drawFallback())
+            }
+        } else {
+            onReady(drawFallback())
+        }
+    }
+
+    private fun startCircleToSearch() {
+        if (!prefs.isLoggedIn) {
+            showAccountPromptForAi("Для использования «Обвести для поиска» войдите в аккаунт Luma ID.")
+            return
+        }
+        closeSearchOverlay()
+        captureScreen { screenBmp ->
+            circleSearchView.reset()
+            circleSearchView.screenshotBitmap = screenBmp
+            circleSearchOverlay.visibility = View.VISIBLE
+        }
+    }
+
+    private fun dismissCircleToSearch() {
+        circleSearchOverlay.visibility = View.GONE
+        circleSearchView.reset()
+        circleSearchView.screenshotBitmap = null
+    }
+
+    private fun handleCircleSearchCapture(cropped: Bitmap) {
+        dismissCircleToSearch()
+        showAiSheet(initialImage = cropped, initialPrompt = "Что это? Подробно опиши, найди информацию и объясни выделенное.")
+    }
+
+    private fun uriToBitmap(uri: Uri): Bitmap? {
+        return try {
+            contentResolver.openInputStream(uri)?.use { stream ->
+                val options = BitmapFactory.Options().apply {
+                    inJustDecodeBounds = true
+                }
+                BitmapFactory.decodeStream(stream, null, options)
+                var sampleSize = 1
+                val maxDim = 1280
+                while (options.outWidth / sampleSize > maxDim || options.outHeight / sampleSize > maxDim) {
+                    sampleSize *= 2
+                }
+                contentResolver.openInputStream(uri)?.use { stream2 ->
+                    val decodeOptions = BitmapFactory.Options().apply {
+                        inSampleSize = sampleSize
+                    }
+                    BitmapFactory.decodeStream(stream2, null, decodeOptions)
+                }
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun bitmapToBase64(bitmap: Bitmap): String {
+        val baos = ByteArrayOutputStream()
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 85, baos)
+        return Base64.encodeToString(baos.toByteArray(), Base64.NO_WRAP)
+    }
+
     // ===== LUMAAI BOTTOM SHEET (Non-blocking, smooth scrolling) =====
-    private fun showAiSheet() {
+    private fun showAiSheet(initialImage: Bitmap? = null, initialPrompt: String? = null) {
+        if (!prefs.isLoggedIn) {
+            showAccountPromptForAi("Для использования LumaAI войдите в аккаунт Luma ID.")
+            return
+        }
+
         val dialog = BottomSheetDialog(this, R.style.Luma_BottomSheet)
         val view = layoutInflater.inflate(R.layout.sheet_ai, null)
         dialog.setContentView(view)
@@ -2294,11 +2442,44 @@ class MainActivity : AppCompatActivity() {
         val btnNewChat = view.findViewById<FrameLayout>(R.id.btnAiNewChat)
         val modelPill = view.findViewById<TextView>(R.id.aiModelPill)
 
-        var hasAttachedImage = false
-        onAiImagePicked = {
-            hasAttachedImage = true
+        // Circle to Search button in AI sheet
+        view.findViewById<View>(R.id.btnAiCircleSearch)?.setOnClickListener {
+            dialog.dismiss()
+            startCircleToSearch()
+        }
+        view.findViewById<View>(R.id.cardActionCircleSearch)?.setOnClickListener {
+            dialog.dismiss()
+            startCircleToSearch()
+        }
+
+        // Auth banner
+        val authBanner = view.findViewById<View>(R.id.aiAuthRequiredBanner)
+        val btnLoginPrompt = view.findViewById<View>(R.id.btnAiLoginPrompt)
+        if (!prefs.isLoggedIn) {
+            authBanner?.visibility = View.VISIBLE
+            btnLoginPrompt?.setOnClickListener {
+                dialog.dismiss()
+                showAccountSheet()
+            }
+        } else {
+            authBanner?.visibility = View.GONE
+        }
+
+        var pendingImageBitmap: Bitmap? = initialImage
+        var pendingImageBase64: String? = initialImage?.let { bitmapToBase64(it) }
+
+        if (pendingImageBitmap != null) {
             attachmentBtn.setColorFilter(0xFF8B5CF6.toInt())
-            Toast.makeText(this, "Изображение прикреплено", Toast.LENGTH_SHORT).show()
+        }
+
+        onAiImagePicked = { uri ->
+            val bmp = uriToBitmap(uri)
+            if (bmp != null) {
+                pendingImageBitmap = bmp
+                pendingImageBase64 = bitmapToBase64(bmp)
+                attachmentBtn.setColorFilter(0xFF8B5CF6.toInt())
+                Toast.makeText(this, "Изображение прикреплено", Toast.LENGTH_SHORT).show()
+            }
         }
         attachmentBtn.setOnClickListener {
             pickAiImageLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
@@ -2332,14 +2513,26 @@ class MainActivity : AppCompatActivity() {
         quotaBadge.setOnClickListener { showAccountSheet() }
 
         fun sendUserQuery(prompt: String) {
-            val textToSend = if (hasAttachedImage) {
-                hasAttachedImage = false
-                attachmentBtn.clearColorFilter()
-                "$prompt\n\n[Прикреплено изображение]"
-            } else prompt
-            sendAiMessage(textToSend, input, recycler, emptyBox) {
-                updateQuotaBadge()
+            if (!prefs.isLoggedIn) {
+                dialog.dismiss()
+                showAccountPromptForAi("Для общения с LumaAI войдите в аккаунт Luma ID.")
+                return
             }
+            val imgBmp = pendingImageBitmap
+            val imgB64 = pendingImageBase64
+            pendingImageBitmap = null
+            pendingImageBase64 = null
+            attachmentBtn.clearColorFilter()
+
+            sendAiMessage(
+                text = prompt,
+                input = input,
+                recycler = recycler,
+                emptyBox = emptyBox,
+                imageBitmap = imgBmp,
+                imageBase64 = imgB64,
+                onQuotaChanged = { updateQuotaBadge() }
+            )
         }
 
         // Smart Actions
@@ -2385,6 +2578,10 @@ class MainActivity : AppCompatActivity() {
         }
 
         dialog.show()
+
+        if (!initialPrompt.isNullOrBlank()) {
+            sendUserQuery(initialPrompt)
+        }
     }
 
     private fun sendAiMessage(
@@ -2392,8 +2589,14 @@ class MainActivity : AppCompatActivity() {
         input: EditText,
         recycler: RecyclerView,
         emptyBox: View,
+        imageBitmap: Bitmap? = null,
+        imageBase64: String? = null,
         onQuotaChanged: (() -> Unit)? = null
     ) {
+        if (!prefs.isLoggedIn) {
+            showAccountPromptForAi("Для использования LumaAI войдите в аккаунт Luma ID.")
+            return
+        }
         if (aiStreaming) return
 
         // Quota check (15 free requests per day unless unlimited)
@@ -2401,7 +2604,7 @@ class MainActivity : AppCompatActivity() {
             input.text?.clear()
             hideKeyboard()
             emptyBox.visibility = View.GONE
-            val userMsg = AiMessage("user", text)
+            val userMsg = AiMessage("user", text, imageBase64, imageBitmap)
             aiAdapter?.addMessage(userMsg)
             val limitMsg = AiMessage(
                 "assistant",
@@ -2418,7 +2621,7 @@ class MainActivity : AppCompatActivity() {
         hideKeyboard()
         emptyBox.visibility = View.GONE
 
-        val userMsg = AiMessage("user", text)
+        val userMsg = AiMessage("user", text, imageBase64, imageBitmap)
         aiAdapter?.addMessage(userMsg)
         recycler.smoothScrollToPosition(aiMessages.size - 1)
 
@@ -2759,6 +2962,15 @@ class MainActivity : AppCompatActivity() {
                 PageTools.translatePage(webView, "ru") { status ->
                     Toast.makeText(this@MainActivity, status, Toast.LENGTH_SHORT).show()
                 }
+            }
+        }
+
+        view.findViewById<LinearLayout>(R.id.menuCircleSearch)?.setOnClickListener {
+            dialog.dismiss()
+            if (!prefs.isLoggedIn) {
+                showAccountPromptForAi("Для использования «Обвести для поиска» войдите в аккаунт Luma ID.")
+            } else {
+                startCircleToSearch()
             }
         }
 
@@ -3474,6 +3686,10 @@ class MainActivity : AppCompatActivity() {
     override fun onBackPressed() {
         if (customView != null) {
             hideCustomView()
+            return
+        }
+        if (::circleSearchOverlay.isInitialized && circleSearchOverlay.visibility == View.VISIBLE) {
+            dismissCircleToSearch()
             return
         }
         if (::tabSwitcherOverlay.isInitialized && tabSwitcherOverlay.visibility == View.VISIBLE) {

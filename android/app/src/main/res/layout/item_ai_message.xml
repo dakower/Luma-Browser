@@ -45,10 +45,22 @@
         android:layout_marginBottom="4dp"/>
 
     <!-- Bubble container -->
-    <FrameLayout
+    <LinearLayout
         android:id="@+id/msgBubble"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- Attached / Circled Image Preview -->
+        <ImageView
+            android:id="@+id/msgImage"
+            android:layout_width="220dp"
+            android:layout_height="130dp"
+            android:scaleType="centerCrop"
+            android:background="@drawable/bg_glass_card"
+            android:clipToOutline="true"
+            android:layout_marginBottom="6dp"
+            android:visibility="gone"/>
 
         <!-- Message text -->
         <TextView
@@ -95,6 +107,6 @@
                 android:layout_height="7dp"
                 android:background="@drawable/bg_circle_badge"/>
         </LinearLayout>
-    </FrameLayout>
+    </LinearLayout>
 
 </LinearLayout>

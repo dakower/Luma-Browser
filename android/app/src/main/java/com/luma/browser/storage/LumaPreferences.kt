@@ -116,7 +116,7 @@ class LumaPreferences private constructor(context: Context) {
         set(v) = safeSet { putString("email", v) }
 
     val isLoggedIn: Boolean
-        get() = accessToken.isNotBlank() && email.isNotBlank()
+        get() = accessToken.isNotBlank() && email.isNotBlank() && !email.startsWith("guest_")
 
     // ====== SEARCH & NAVIGATION ======
     var searchEngine: String

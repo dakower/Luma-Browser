@@ -69,6 +69,21 @@
             android:paddingEnd="8dp"
             android:layout_marginEnd="8dp"/>
 
+        <!-- Circle to Search Button -->
+        <FrameLayout
+            android:id="@+id/btnAiCircleSearch"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:background="@drawable/bg_surface_raised"
+            android:layout_marginEnd="8dp">
+            <ImageView
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_spark"
+                android:tint="#A78BFA"/>
+        </FrameLayout>
+
         <!-- New Chat Button -->
         <FrameLayout
             android:id="@+id/btnAiNewChat"
@@ -98,6 +113,45 @@
 
     </LinearLayout>
 
+    <!-- Auth Required Notice (if not logged in) -->
+    <LinearLayout
+        android:id="@+id/aiAuthRequiredBanner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@drawable/bg_glass_card"
+        android:padding="16dp"
+        android:layout_marginBottom="10dp"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🔒 Требуется вход в аккаунт"
+            android:textColor="#FFFFFF"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="4dp"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Искусственный интеллект LumaAI и умный поиск жестом «Обвести для поиска» доступны только после входа в аккаунт Luma ID."
+            android:textColor="#C7C3D1"
+            android:textSize="12.5sp"
+            android:layout_marginBottom="12dp"/>
+
+        <Button
+            android:id="@+id/btnAiLoginPrompt"
+            android:layout_width="match_parent"
+            android:layout_height="42dp"
+            android:text="Войти в Luma ID"
+            android:textAllCaps="false"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold"
+            android:background="@drawable/bg_glass_pill"/>
+    </LinearLayout>
+
     <!-- ===== TOP SMART ACTIONS (Pills) ===== -->
     <HorizontalScrollView
         android:id="@+id/aiActionsScroll"
@@ -110,6 +164,36 @@
             android:layout_width="wrap_content"
             android:layout_height="32dp"
             android:orientation="horizontal">
+
+            <!-- Circle to Search Pill -->
+            <LinearLayout
+                android:id="@+id/cardActionCircleSearch"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:background="@drawable/bg_surface_raised"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:layout_marginEnd="6dp"
+                android:clickable="true"
+                android:focusable="true">
+
+                <ImageView
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
+                    android:src="@drawable/ic_spark"
+                    android:tint="#A78BFA"
+                    android:layout_marginEnd="6dp"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Обвести на экране"
+                    android:textColor="#FFFFFF"
+                    android:textSize="11.5sp"
+                    android:textStyle="bold"/>
+            </LinearLayout>
 
             <TextView
                 android:id="@+id/cardActionSummarize"

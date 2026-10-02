@@ -84,6 +84,10 @@
         <ImageView android:layout_width="20dp" android:layout_height="20dp" android:src="@drawable/ic_globe" android:layout_marginEnd="14dp"/>
         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Перевести страницу" android:textColor="@color/luma_text_primary" android:textSize="14sp"/>
     </LinearLayout>
+    <LinearLayout android:id="@+id/menuCircleSearch" android:layout_width="match_parent" android:layout_height="48dp" android:orientation="horizontal" android:gravity="center_vertical" android:paddingStart="20dp" android:paddingEnd="20dp" android:background="@drawable/selector_icon_button">
+        <ImageView android:layout_width="20dp" android:layout_height="20dp" android:src="@drawable/ic_spark" android:tint="@color/luma_accent" android:layout_marginEnd="14dp"/>
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Обвести для поиска (AI)" android:textColor="@color/luma_text_primary" android:textSize="14sp"/>
+    </LinearLayout>
     <LinearLayout android:id="@+id/menuHistory" android:layout_width="match_parent" android:layout_height="48dp" android:orientation="horizontal" android:gravity="center_vertical" android:paddingStart="20dp" android:paddingEnd="20dp" android:background="@drawable/selector_icon_button">
         <ImageView android:layout_width="20dp" android:layout_height="20dp" android:src="@drawable/ic_history" android:layout_marginEnd="14dp"/>
         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="История" android:textColor="@color/luma_text_primary" android:textSize="14sp"/>
