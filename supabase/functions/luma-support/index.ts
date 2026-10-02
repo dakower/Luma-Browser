@@ -18,16 +18,104 @@ const escapeHtml = (v: string) => v.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<
 async function telegram(method: string, body: Record<string, unknown>) {
   const token = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
   if (!token) return null;
-  const r = await fetch("https://api.telegram.org/bot" + token + "/" + method, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!r.ok) {
-    console.error("telegram", method, r.status, await r.text());
+  try {
+    const r = await fetch("https://api.telegram.org/bot" + token + "/" + method, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) {
+      console.error("telegram", method, r.status, await r.text());
+      return null;
+    }
+    return await r.json();
+  } catch (err) {
+    console.error("telegram json error", method, err);
     return null;
   }
-  return await r.json();
+}
+
+async function telegramSendPhotoDirect(
+  chatId: string,
+  imageBytes: Uint8Array,
+  mime: string,
+  caption?: string,
+  replyToMessageId?: number
+) {
+  const token = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
+  if (!token) return null;
+
+  const form = new FormData();
+  form.append("chat_id", chatId);
+  if (replyToMessageId) form.append("reply_to_message_id", String(replyToMessageId));
+  if (caption) {
+    form.append("caption", caption.slice(0, 1024));
+    form.append("parse_mode", "HTML");
+  }
+  const ext = mime.includes("png") ? "png" : mime.includes("webp") ? "webp" : "jpg";
+  form.append("photo", new Blob([imageBytes], { type: mime }), `image.${ext}`);
+
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+      method: "POST",
+      body: form,
+    });
+    if (!res.ok) {
+      console.error("sendPhoto direct error", res.status, await res.text());
+      return null;
+    }
+    return await res.json();
+  } catch (err) {
+    console.error("sendPhoto direct network error", err);
+    return null;
+  }
+}
+
+async function telegramSendMediaGroupDirect(
+  chatId: string,
+  images: Array<{ bytes: Uint8Array; mime: string }>,
+  caption?: string,
+  replyToMessageId?: number
+) {
+  const token = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
+  if (!token) return null;
+
+  const form = new FormData();
+  form.append("chat_id", chatId);
+  if (replyToMessageId) form.append("reply_to_message_id", String(replyToMessageId));
+
+  const mediaArray = images.map((img, idx) => {
+    const item: Record<string, unknown> = {
+      type: "photo",
+      media: `attach://photo_${idx}`,
+    };
+    if (idx === 0 && caption) {
+      item.caption = caption.slice(0, 1024);
+      item.parse_mode = "HTML";
+    }
+    return item;
+  });
+
+  form.append("media", JSON.stringify(mediaArray));
+  images.forEach((img, idx) => {
+    const ext = img.mime.includes("png") ? "png" : img.mime.includes("webp") ? "webp" : "jpg";
+    form.append(`photo_${idx}`, new Blob([img.bytes], { type: img.mime }), `photo_${idx}.${ext}`);
+  });
+
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendMediaGroup`, {
+      method: "POST",
+      body: form,
+    });
+    if (!res.ok) {
+      console.error("sendMediaGroup direct error", res.status, await res.text());
+      return null;
+    }
+    return await res.json();
+  } catch (err) {
+    console.error("sendMediaGroup direct network error", err);
+    return null;
+  }
 }
 
 function formatSupportCard(
@@ -72,7 +160,7 @@ Deno.serve(async (request) => {
   const authorization = request.headers.get("Authorization") ?? "";
   const admin = createClient(url, service, { auth: { persistSession: false, autoRefreshToken: false } });
 
-  // Optional authenticated user (works for ANY user, no beta approval required!)
+  // Optional authenticated user
   let user: any = null;
   let userProfile: any = null;
   if (authorization.startsWith("Bearer ") && authorization.length > 20) {
@@ -126,53 +214,37 @@ Deno.serve(async (request) => {
       if (error) throw error;
       const formatted = (msgs ?? []).map((m: any) => {
         let text = m.body || "";
-        let imgUrl: string | null = null;
-        const imgMatch = text.match(/\[image:(https?:\/\/[^\]]+)\]/);
-        if (imgMatch) {
-          imgUrl = imgMatch[1];
-          text = text.replace(/\[image:[^\]]+\]/, "").trim();
-        }
+        const imgMatches = [...text.matchAll(/\[image:(https?:\/\/[^\]]+)\]/g)];
+        const imageUrls = imgMatches.map((match) => match[1]).filter(Boolean);
+        text = text.replace(/\[image:[^\]]+\]/g, "").trim();
+
         return {
           id: m.id,
           thread_id: m.thread_id,
           sender_type: m.sender_type,
           sender_name: m.sender_name,
           body: text,
-          image_url: imgUrl,
+          image_url: imageUrls[0] ?? null,
+          image_urls: imageUrls,
           created_at: m.created_at,
         };
       });
       return json({ threadId, messages: formatted });
     }
 
-    // 2. Send message to dakower
+    // 2. Send message to creator
     if (action === "send") {
-      let body = clean(input?.body, 6000);
-      const attachment = input?.attachment;
+      const body = clean(input?.body, 6000);
 
-      let signedImageUrl = "";
-      if (attachment?.data) {
-        try {
-          const raw = String(attachment.data).replace(/^data:[^;]+;base64,/, "");
-          const bytes = Uint8Array.from(atob(raw), (c) => c.charCodeAt(0));
-          const mime = clean(attachment.mime, 60).toLowerCase() || "image/jpeg";
-          const ext = mime.includes("png") ? "png" : mime.includes("webp") ? "webp" : "jpg";
-          const path = `support/${threadId || crypto.randomUUID()}/${crypto.randomUUID()}.${ext}`;
-          const uploadRes = await admin.storage.from("feedback-files").upload(path, bytes, { contentType: mime, upsert: true });
-          if (!uploadRes.error) {
-            const signed = await admin.storage.from("feedback-files").createSignedUrl(path, 86400 * 30);
-            signedImageUrl = signed.data?.signedUrl ?? "";
-          }
-        } catch (uploadErr) {
-          console.error("attachment upload error", uploadErr);
+      // Collect attachments from array or single object
+      const rawAttachments: Array<{ name?: string; mime?: string; data: string }> = [];
+      if (Array.isArray(input?.attachments)) {
+        for (const att of input.attachments) {
+          if (att?.data) rawAttachments.push(att);
         }
+      } else if (input?.attachment?.data) {
+        rawAttachments.push(input.attachment);
       }
-
-      if (!body && !signedImageUrl) return json({ error: "message_empty" }, 400);
-
-      const dbBody = signedImageUrl
-        ? (body ? `${body}\n[image:${signedImageUrl}]` : `[image:${signedImageUrl}]`)
-        : body;
 
       let threadId = clean(input?.threadId, 40);
       let thread: any = null;
@@ -198,7 +270,43 @@ Deno.serve(async (request) => {
         threadId = thread.id;
       }
 
-      // Insert message
+      // Process and upload attachments
+      const processedImages: Array<{ bytes: Uint8Array; mime: string; signedUrl: string }> = [];
+      for (const att of rawAttachments) {
+        try {
+          const raw = String(att.data).replace(/^data:[^;]+;base64,/, "");
+          const bytes = Uint8Array.from(atob(raw), (c) => c.charCodeAt(0));
+          const mime = clean(att.mime, 60).toLowerCase() || "image/jpeg";
+          const ext = mime.includes("png") ? "png" : mime.includes("webp") ? "webp" : "jpg";
+          const path = `support/${threadId}/${crypto.randomUUID()}.${ext}`;
+          const uploadRes = await admin.storage.from("feedback-files").upload(path, bytes, { contentType: mime, upsert: true });
+          let signedUrl = "";
+          if (!uploadRes.error) {
+            const signed = await admin.storage.from("feedback-files").createSignedUrl(path, 86400 * 30);
+            signedUrl = signed.data?.signedUrl ?? "";
+          }
+          processedImages.push({ bytes, mime, signedUrl });
+        } catch (uploadErr) {
+          console.error("attachment upload error", uploadErr);
+        }
+      }
+
+      if (!body && processedImages.length === 0) {
+        return json({ error: "message_empty" }, 400);
+      }
+
+      // Build database body text
+      let dbBody = body;
+      const imageTags = processedImages
+        .filter((img) => img.signedUrl)
+        .map((img) => `[image:${img.signedUrl}]`)
+        .join(" ");
+
+      if (imageTags) {
+        dbBody = dbBody ? `${dbBody}\n${imageTags}` : imageTags;
+      }
+
+      // Insert message into DB
       const msgIns = await admin.from("support_messages").insert({
         thread_id: threadId,
         sender_type: "user",
@@ -213,7 +321,7 @@ Deno.serve(async (request) => {
         status: "active",
       }).eq("id", threadId);
 
-      // Telegram notification
+      // Telegram notification to creator
       const chatId = Deno.env.get("TELEGRAM_ADMIN_CHAT_ID") ?? "";
       if (chatId) {
         const { data: allMessages } = await admin
@@ -273,38 +381,53 @@ Deno.serve(async (request) => {
           });
         }
 
-        // Deliver message directly
+        // Deliver message / images directly to creator in Telegram
         const prefix = activeSession?.is_active
           ? `💬 <b>${escapeHtml(displayName)}:</b>\n`
           : `💬 <b>${escapeHtml(displayName)}</b> · #${threadId.slice(0, 8).toUpperCase()}\n`;
 
+        const replyTarget = activeSession?.is_active ? undefined : thread.telegram_message_id;
         let sentFollow: any = null;
-        if (signedImageUrl) {
+
+        if (processedImages.length === 1) {
           const caption = `${prefix}${escapeHtml(body || "Изображение от пользователя")}`.slice(0, 1024);
-          sentFollow = await telegram("sendPhoto", {
-            chat_id: chatId,
-            reply_to_message_id: activeSession?.is_active ? undefined : thread.telegram_message_id,
-            photo: signedImageUrl,
+          sentFollow = await telegramSendPhotoDirect(
+            chatId,
+            processedImages[0].bytes,
+            processedImages[0].mime,
             caption,
-            parse_mode: "HTML",
-          });
+            replyTarget
+          );
+        } else if (processedImages.length > 1) {
+          const caption = `${prefix}${escapeHtml(body || `Изображения (${processedImages.length} шт.) от пользователя`)}`.slice(0, 1024);
+          sentFollow = await telegramSendMediaGroupDirect(
+            chatId,
+            processedImages,
+            caption,
+            replyTarget
+          );
         } else {
           sentFollow = await telegram("sendMessage", {
             chat_id: chatId,
-            reply_to_message_id: activeSession?.is_active ? undefined : thread.telegram_message_id,
+            reply_to_message_id: replyTarget,
             text: `${prefix}${escapeHtml(body)}`,
             parse_mode: "HTML",
           });
         }
 
-        const followId = sentFollow?.result?.message_id;
-        if (followId) {
-          try {
-            await admin.from("telegram_support_messages").upsert({
-              telegram_message_id: followId,
-              thread_id: threadId,
-            });
-          } catch { }
+        if (sentFollow?.result) {
+          const results = Array.isArray(sentFollow.result) ? sentFollow.result : [sentFollow.result];
+          for (const item of results) {
+            const mid = item?.message_id;
+            if (mid) {
+              try {
+                await admin.from("telegram_support_messages").upsert({
+                  telegram_message_id: mid,
+                  thread_id: threadId,
+                });
+              } catch { }
+            }
+          }
         }
       }
 

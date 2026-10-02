@@ -9,19 +9,26 @@ import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.luma.browser.R
-import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+data class HistoryEntry(
+    val url: String,
+    val title: String,
+    val timestamp: Long = System.currentTimeMillis()
+)
+
 class HistoryAdapter(
-    private val allItems: MutableList<JSONObject>,
+    private val allItems: MutableList<HistoryEntry>,
+    var isLight: Boolean = false,
     private val onItemClick: (String) -> Unit,
-    private val onItemDelete: (JSONObject) -> Unit
+    private val onItemDelete: (HistoryEntry) -> Unit
 ) : RecyclerView.Adapter<HistoryAdapter.VH>() {
 
     private var filteredList = ArrayList(allItems)
-    private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+    private val timeFormat = SimpleDateFormat("d MMM, HH:mm", Locale.getDefault())
+    private var currentFilter = ""
 
     inner class VH(view: View) : RecyclerView.ViewHolder(view) {
         val favicon: ImageView = view.findViewById(R.id.itemFavicon)
@@ -36,48 +43,82 @@ class HistoryAdapter(
     }
 
     override fun onBindViewHolder(holder: VH, position: Int) {
+        if (position >= filteredList.size) return
         val item = filteredList[position]
-        val url = item.optString("url", "")
-        val title = item.optString("title", url)
-        val ts = item.optLong("ts", System.currentTimeMillis())
+        val url = item.url
+        val title = item.title.ifBlank { extractDomain(url) }
 
-        holder.title.text = if (title.isBlank()) url else title
-        val timeStr = timeFormat.format(Date(ts))
-        holder.subtitle.text = "$timeStr • $url"
+        holder.title.text = title
+        val timeStr = timeFormat.format(Date(item.timestamp))
+        val domain = extractDomain(url)
+        holder.subtitle.text = "$timeStr • $domain"
 
-        if (url.startsWith("http")) {
-            Glide.with(holder.favicon)
-                .load("https://www.google.com/s2/favicons?sz=32&domain_url=$url")
-                .placeholder(R.drawable.ic_globe)
-                .into(holder.favicon)
-        } else {
+        val textColor = if (isLight) 0xFF000000.toInt() else 0xFFFFFFFF.toInt()
+        val subColor = if (isLight) 0xFF6C6C70.toInt() else 0xFF716C82.toInt()
+        val deleteColor = if (isLight) 0xFF8E8E93.toInt() else 0xFF716C82.toInt()
+
+        holder.title.setTextColor(textColor)
+        holder.subtitle.setTextColor(subColor)
+        holder.deleteBtn.setColorFilter(deleteColor)
+
+        try {
+            if (url.startsWith("http")) {
+                Glide.with(holder.itemView.context)
+                    .load("https://www.google.com/s2/favicons?sz=32&domain_url=$url")
+                    .placeholder(R.drawable.ic_globe)
+                    .error(R.drawable.ic_globe)
+                    .into(holder.favicon)
+            } else {
+                holder.favicon.setImageResource(R.drawable.ic_globe)
+            }
+        } catch (_: Exception) {
             holder.favicon.setImageResource(R.drawable.ic_globe)
         }
 
         holder.itemView.setOnClickListener { onItemClick(url) }
         holder.deleteBtn.setOnClickListener {
-            onItemDelete(item)
-            allItems.remove(item)
-            filter("")
+            val idx = holder.bindingAdapterPosition
+            if (idx != RecyclerView.NO_POSITION && idx < filteredList.size) {
+                val target = filteredList[idx]
+                onItemDelete(target)
+                allItems.removeAll { it.url == target.url }
+                filteredList.removeAt(idx)
+                notifyItemRemoved(idx)
+            }
         }
     }
 
     override fun getItemCount() = filteredList.size
 
     fun filter(query: String) {
+        currentFilter = query.trim()
         filteredList.clear()
-        if (query.isBlank()) {
+        if (currentFilter.isBlank()) {
             filteredList.addAll(allItems)
         } else {
-            val q = query.lowercase()
+            val q = currentFilter.lowercase()
             for (item in allItems) {
-                val title = item.optString("title", "").lowercase()
-                val url = item.optString("url", "").lowercase()
-                if (title.contains(q) || url.contains(q)) {
+                if (item.title.lowercase().contains(q) || item.url.lowercase().contains(q)) {
                     filteredList.add(item)
                 }
             }
         }
         notifyDataSetChanged()
+    }
+
+    fun updateData(newItems: List<HistoryEntry>) {
+        allItems.clear()
+        allItems.addAll(newItems)
+        filter(currentFilter)
+    }
+
+    private fun extractDomain(url: String): String {
+        return try {
+            val uri = android.net.Uri.parse(url)
+            val host = uri.host.orEmpty()
+            if (host.startsWith("www.")) host.substring(4) else if (host.isNotBlank()) host else url
+        } catch (_: Exception) {
+            url.removePrefix("https://").removePrefix("http://")
+        }
     }
 }

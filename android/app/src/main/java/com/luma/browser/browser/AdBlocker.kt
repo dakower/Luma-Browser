@@ -38,7 +38,7 @@ object AdBlocker {
             // Fallback hardcoded list if asset not available
             blockedHosts.addAll(listOf(
                 "doubleclick.net", "google-analytics.com", "googletagmanager.com",
-                "pagead2.googlesyndication.com", "yandex.ru/ads", "an.yandex.ru",
+                "pagead2.googlesyndication.com", "ads.yandex.ru", "an.yandex.ru",
                 "mc.yandex.ru", "counter.yadro.ru", "ads.facebook.com", "adnxs.com"
             ))
         }

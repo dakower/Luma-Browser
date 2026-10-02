@@ -18,8 +18,8 @@
         <item name="colorOnSurface">@color/luma_text_primary</item>
         <item name="android:colorBackground">@color/luma_bg</item>
         <item name="colorControlHighlight">#222F2B47</item>
-        <item name="android:fontFamily">@font/inter</item>
-        <item name="fontFamily">@font/inter</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="fontFamily">sans-serif</item>
     </style>
 
     <!-- Splash -->

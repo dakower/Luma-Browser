@@ -1,6 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android">
-    <solid android:color="#CC202123"/>
-    <stroke android:width="1dp" android:color="#323338"/>
-    <corners android:radius="27dp"/>
-</shape>
+<!-- Luma Glass Pill: interactive frosted capsule with specular stroke and touch ripple -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="#2AFFFFFF">
+    <item>
+        <shape>
+            <gradient
+                android:angle="270"
+                android:startColor="#1EFFFFFF"
+                android:endColor="#0BFFFFFF"
+                android:type="linear"/>
+            <stroke android:width="1dp" android:color="#26FFFFFF"/>
+            <corners android:radius="26dp"/>
+        </shape>
+    </item>
+</ripple>

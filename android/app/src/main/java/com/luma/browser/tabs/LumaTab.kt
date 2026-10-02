@@ -9,10 +9,17 @@ data class LumaTab(
     var title: String = "Новая вкладка",
     var favicon: Bitmap? = null,
     var isHome: Boolean = true,
+    var isHistory: Boolean = false,
+    var isDownloads: Boolean = false,
     var isLoading: Boolean = false,
     var progress: Int = 0,
     var canGoBack: Boolean = false,
     var canGoForward: Boolean = false,
     var isIncognito: Boolean = false,
-    var lastActiveTime: Long = System.currentTimeMillis()
-)
+    var lastActiveTime: Long = System.currentTimeMillis(),
+    var webViewState: android.os.Bundle? = null,
+    var thumbnail: Bitmap? = null
+) {
+    val isCustomInternalTab: Boolean
+        get() = isHome || isHistory || isDownloads
+}

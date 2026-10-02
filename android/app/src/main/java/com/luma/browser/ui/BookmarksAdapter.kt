@@ -19,6 +19,8 @@ class BookmarksAdapter(
 
     private var filteredList = ArrayList(allItems)
 
+    private var currentFilter = ""
+
     inner class VH(view: View) : RecyclerView.ViewHolder(view) {
         val favicon: ImageView = view.findViewById(R.id.itemFavicon)
         val title: TextView = view.findViewById(R.id.itemTitle)
@@ -52,13 +54,14 @@ class BookmarksAdapter(
         holder.deleteBtn.setOnClickListener {
             onItemDelete(item)
             allItems.remove(item)
-            filter("")
+            filter(currentFilter)
         }
     }
 
     override fun getItemCount() = filteredList.size
 
     fun filter(query: String) {
+        currentFilter = query
         filteredList.clear()
         if (query.isBlank()) {
             filteredList.addAll(allItems)

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Luma Deep Obsidian Backdrop: elegant dark vignette without any neon -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient
+        android:angle="270"
+        android:startColor="#110F18"
+        android:centerColor="#0C0A12"
+        android:endColor="#07060A"
+        android:type="linear"/>
+</shape>

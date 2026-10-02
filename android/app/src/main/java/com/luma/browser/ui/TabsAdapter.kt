@@ -13,7 +13,7 @@ import com.luma.browser.tabs.LumaTab
 
 class TabsAdapter(
     private val tabs: MutableList<LumaTab>,
-    private val activeTabId: String?,
+    var activeTabId: String?,
     private val onTabClick: (LumaTab) -> Unit,
     private val onTabClose: (LumaTab) -> Unit
 ) : RecyclerView.Adapter<TabsAdapter.VH>() {

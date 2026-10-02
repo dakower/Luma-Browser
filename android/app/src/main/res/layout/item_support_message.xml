@@ -19,7 +19,7 @@
         android:letterSpacing="0.08"
         android:layout_marginBottom="4dp"/>
 
-    <!-- Bubble container for image + text -->
+    <!-- Bubble container for image(s) + text -->
     <LinearLayout
         android:id="@+id/supportMsgBubble"
         android:layout_width="wrap_content"
@@ -28,6 +28,7 @@
         android:background="@drawable/bg_glass_card"
         android:padding="8dp">
 
+        <!-- Single image view (when exactly 1 image) -->
         <ImageView
             android:id="@+id/supportMsgImage"
             android:layout_width="220dp"
@@ -36,6 +37,22 @@
             android:background="@drawable/bg_surface_raised"
             android:layout_marginBottom="6dp"
             android:visibility="gone"/>
+
+        <!-- Multi-image container (when >1 image) -->
+        <HorizontalScrollView
+            android:id="@+id/supportMsgMultiScroll"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:scrollbars="none"
+            android:layout_marginBottom="6dp"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:id="@+id/supportMsgMultiContainer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"/>
+        </HorizontalScrollView>
 
         <TextView
             android:id="@+id/supportMsgText"

@@ -84,6 +84,15 @@
         <ImageView android:layout_width="20dp" android:layout_height="20dp" android:src="@drawable/ic_globe" android:layout_marginEnd="14dp"/>
         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Перевести страницу" android:textColor="@color/luma_text_primary" android:textSize="14sp"/>
     </LinearLayout>
+    <LinearLayout android:id="@+id/menuHistory" android:layout_width="match_parent" android:layout_height="48dp" android:orientation="horizontal" android:gravity="center_vertical" android:paddingStart="20dp" android:paddingEnd="20dp" android:background="@drawable/selector_icon_button">
+        <ImageView android:layout_width="20dp" android:layout_height="20dp" android:src="@drawable/ic_history" android:layout_marginEnd="14dp"/>
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="История" android:textColor="@color/luma_text_primary" android:textSize="14sp"/>
+    </LinearLayout>
+    <LinearLayout android:id="@+id/menuTheme" android:layout_width="match_parent" android:layout_height="48dp" android:orientation="horizontal" android:gravity="center_vertical" android:paddingStart="20dp" android:paddingEnd="20dp" android:background="@drawable/selector_icon_button">
+        <ImageView android:id="@+id/menuThemeIcon" android:layout_width="20dp" android:layout_height="20dp" android:src="@drawable/ic_moon" android:layout_marginEnd="14dp"/>
+        <TextView android:id="@+id/menuThemeTitle" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Тема оформления" android:textColor="@color/luma_text_primary" android:textSize="14sp"/>
+        <TextView android:id="@+id/menuThemeValue" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Тёмная" android:textColor="@color/luma_accent" android:textSize="13sp" android:textStyle="bold"/>
+    </LinearLayout>
     <LinearLayout android:id="@+id/menuSettings" android:layout_width="match_parent" android:layout_height="48dp" android:orientation="horizontal" android:gravity="center_vertical" android:paddingStart="20dp" android:paddingEnd="20dp" android:background="@drawable/selector_icon_button">
         <ImageView android:layout_width="20dp" android:layout_height="20dp" android:src="@drawable/ic_gear" android:layout_marginEnd="14dp"/>
         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/menu_settings" android:textColor="@color/luma_text_primary" android:textSize="14sp"/>

@@ -1,12 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Complete Luma History Bottom Sheet -->
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#0E0F12"
-    android:padding="16dp">
+    android:background="@color/luma_panel"
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp"
+    android:paddingTop="14dp"
+    android:paddingBottom="20dp">
 
     <!-- Header -->
     <LinearLayout
@@ -28,23 +30,26 @@
             android:layout_weight="1"
             android:text="История"
             android:textColor="#FFFFFF"
-            android:textSize="18sp"
+            android:textSize="17sp"
             android:textStyle="bold"/>
 
-        <TextView
+        <FrameLayout
             android:id="@+id/btnHistoryClear"
             android:layout_width="wrap_content"
             android:layout_height="32dp"
-            android:gravity="center"
-            android:text="Очистить"
-            android:textColor="#E05252"
-            android:textSize="12sp"
+            android:background="@drawable/bg_surface_raised"
             android:paddingStart="10dp"
             android:paddingEnd="10dp"
-            android:background="@drawable/bg_surface_raised"
-            android:layout_marginEnd="8dp"
-            android:clickable="true"
-            android:focusable="true"/>
+            android:layout_marginEnd="8dp">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="Очистить"
+                android:textColor="#FF6B6B"
+                android:textSize="11.5sp"
+                android:textStyle="bold"/>
+        </FrameLayout>
 
         <FrameLayout
             android:id="@+id/btnHistoryClose"
@@ -59,19 +64,19 @@
         </FrameLayout>
     </LinearLayout>
 
-    <!-- Search box -->
+    <!-- Search box in history -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="38dp"
+        android:layout_height="40dp"
         android:background="@drawable/bg_glass_card"
         android:gravity="center_vertical"
         android:paddingStart="12dp"
         android:paddingEnd="12dp"
-        android:layout_marginBottom="12dp">
+        android:layout_marginBottom="10dp">
 
         <ImageView
-            android:layout_width="14dp"
-            android:layout_height="14dp"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
             android:src="@drawable/ic_search"
             android:layout_marginEnd="8dp"/>
 
@@ -80,29 +85,32 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:background="@null"
-            android:hint="Поиск в истории..."
+            android:hint="Поиск по истории..."
             android:textColor="#FFFFFF"
             android:textColorHint="#716C82"
             android:textSize="13sp"
             android:singleLine="true"/>
     </LinearLayout>
 
-    <!-- Recycler View -->
+    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/luma_border"/>
+
+    <TextView
+        android:id="@+id/historyEmpty"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:text="История пуста"
+        android:textColor="#716C82"
+        android:textSize="13sp"
+        android:padding="32dp"
+        android:visibility="gone"/>
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/historyRecycler"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"/>
-
-    <!-- Empty State -->
-    <TextView
-        android:id="@+id/historyEmpty"
-        android:layout_width="match_parent"
-        android:layout_height="120dp"
-        android:gravity="center"
-        android:text="История посещений пуста"
-        android:textColor="#716C82"
-        android:textSize="13sp"
-        android:visibility="gone"/>
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:paddingTop="8dp"/>
 
 </LinearLayout>

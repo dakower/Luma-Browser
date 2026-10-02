@@ -13,7 +13,8 @@ enum class SuggestionType {
     OPEN_TAB,
     SUGGESTION,
     SEARCH_ENGINE,
-    BOOKMARK
+    BOOKMARK,
+    INFO
 }
 
 data class SearchSuggestion(
@@ -76,6 +77,10 @@ class SearchSuggestionAdapter(
             SuggestionType.SUGGESTION -> {
                 holder.icon.setColorFilter(0xFF716C82.toInt())
                 holder.actionIcon.visibility = View.VISIBLE
+            }
+            SuggestionType.INFO -> {
+                holder.icon.setColorFilter(0xFF716C82.toInt())
+                holder.actionIcon.visibility = View.GONE
             }
         }
 

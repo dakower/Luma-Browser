@@ -39,64 +39,57 @@
         android:paddingTop="8dp"
         android:clipToPadding="false"/>
 
-    <!-- Attachment Preview Bar -->
+    <!-- Multi-Attachment Preview Bar -->
     <LinearLayout
         android:id="@+id/supportAttachmentBar"
         android:layout_width="match_parent"
-        android:layout_height="52dp"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
         android:background="@drawable/bg_surface_raised"
-        android:paddingStart="10dp"
-        android:paddingEnd="10dp"
+        android:padding="8dp"
         android:layout_marginStart="12dp"
         android:layout_marginEnd="12dp"
         android:layout_marginBottom="6dp"
         android:visibility="gone">
 
-        <ImageView
-            android:id="@+id/supportAttachmentThumb"
-            android:layout_width="38dp"
-            android:layout_height="38dp"
-            android:scaleType="centerCrop"
-            android:background="@drawable/bg_glass_card"
-            android:contentDescription="Превью"/>
-
         <LinearLayout
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical"
-            android:layout_marginStart="10dp"
-            android:layout_marginEnd="6dp">
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="6dp">
 
             <TextView
-                android:id="@+id/supportAttachmentName"
-                android:layout_width="wrap_content"
+                android:id="@+id/supportAttachmentCount"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="Изображение прикреплено"
+                android:layout_weight="1"
+                android:text="Выбрано фото: 0"
                 android:textColor="@color/luma_text_primary"
                 android:textSize="12sp"
-                android:singleLine="true"
-                android:ellipsize="middle"/>
+                android:textStyle="bold"/>
 
-            <TextView
-                android:id="@+id/supportAttachmentSize"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Готово к отправке"
-                android:textColor="@color/luma_text_muted"
-                android:textSize="10.5sp"/>
+            <ImageButton
+                android:id="@+id/supportAttachmentClearAll"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:background="@null"
+                android:src="@drawable/ic_close"
+                android:padding="6dp"
+                android:contentDescription="Очистить все"/>
         </LinearLayout>
 
-        <ImageButton
-            android:id="@+id/supportAttachmentRemove"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:background="@null"
-            android:src="@drawable/ic_close"
-            android:padding="6dp"
-            android:contentDescription="Удалить вложение"/>
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:id="@+id/supportAttachmentList"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"/>
+        </HorizontalScrollView>
     </LinearLayout>
 
     <LinearLayout
@@ -115,7 +108,7 @@
             android:src="@drawable/ic_image"
             android:padding="9dp"
             android:layout_marginEnd="8dp"
-            android:contentDescription="Прикрепить изображение"/>
+            android:contentDescription="Выбрать из галереи"/>
 
         <EditText
             android:id="@+id/supportInput"

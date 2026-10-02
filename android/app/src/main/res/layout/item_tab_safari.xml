@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Safari iOS-style floating tab card with page preview thumbnail matching user screenshot -->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:gravity="center_horizontal"
+    android:padding="6dp">
+
+    <!-- Floating Tab Card Container -->
+    <FrameLayout
+        android:id="@+id/tabCardContainer"
+        android:layout_width="match_parent"
+        android:layout_height="210dp"
+        android:background="@drawable/bg_safari_tab_card"
+        android:elevation="6dp">
+
+        <!-- Inner Clip Container with Rounded Corners -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/bg_safari_tab_inner"
+            android:clipToOutline="true">
+
+            <!-- Webpage Snapshot / Thumbnail -->
+            <ImageView
+                android:id="@+id/tabThumbnail"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                android:background="#1C1C1E"/>
+
+            <!-- Home Tab Stylized Placeholder -->
+            <LinearLayout
+                android:id="@+id/tabPlaceholder"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="#16151E"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:padding="12dp"
+                android:visibility="gone">
+
+                <ImageView
+                    android:id="@+id/tabPlaceholderLogo"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:src="@drawable/luma_logo"
+                    android:layout_marginBottom="8dp"/>
+
+                <TextView
+                    android:id="@+id/tabPlaceholderText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Luma"
+                    android:textColor="#FFFFFF"
+                    android:textSize="14sp"
+                    android:textStyle="bold"/>
+            </LinearLayout>
+
+            <!-- Mini Address Capsule at top of card (Safari iOS signature) -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="28dp"
+                android:layout_gravity="top"
+                android:layout_margin="8dp"
+                android:background="@drawable/bg_safari_card_header"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="8dp"
+                android:paddingEnd="4dp">
+
+                <ImageView
+                    android:layout_width="11dp"
+                    android:layout_height="11dp"
+                    android:src="@drawable/ic_search"
+                    android:layout_marginEnd="5dp"/>
+
+                <TextView
+                    android:id="@+id/tabCardDomain"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="google.com"
+                    android:textColor="#8E8E93"
+                    android:textSize="10.5sp"
+                    android:singleLine="true"
+                    android:ellipsize="middle"/>
+
+                <!-- Close Tab Button (Circle X) -->
+                <FrameLayout
+                    android:id="@+id/tabClose"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:background="@drawable/bg_circle_close_button"
+                    android:clickable="true"
+                    android:focusable="true">
+                    <ImageView
+                        android:layout_width="10dp"
+                        android:layout_height="10dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_close"/>
+                </FrameLayout>
+            </LinearLayout>
+
+        </FrameLayout>
+
+        <!-- Selection border ring (Visible when tab is active) -->
+        <View
+            android:id="@+id/tabActiveRing"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/bg_safari_tab_active_ring"
+            android:visibility="gone"/>
+
+    </FrameLayout>
+
+    <!-- Card Footer: Favicon + Bold Title -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginTop="6dp"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp">
+
+        <ImageView
+            android:id="@+id/tabFavicon"
+            android:layout_width="14dp"
+            android:layout_height="14dp"
+            android:src="@drawable/ic_globe"
+            android:layout_marginEnd="6dp"/>
+
+        <TextView
+            android:id="@+id/tabTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Заголовок страницы"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:singleLine="true"
+            android:ellipsize="end"/>
+    </LinearLayout>
+
+</LinearLayout>

@@ -39,4 +39,20 @@
     <color name="luma_green">#3AB87E</color>
     <color name="luma_red">#E05252</color>
     <color name="luma_yellow">#C9A227</color>
+
+    <!-- Safari iOS Theme Palette (Dark & Light) -->
+    <color name="safari_bg_dark">#0B0912</color>
+    <color name="safari_bg_light">#F2F2F7</color>
+    <color name="safari_bar_dark">#D916141F</color>
+    <color name="safari_bar_light">#EBF2F2F7</color>
+    <color name="safari_pill_dark">#22FFFFFF</color>
+    <color name="safari_pill_light">#E5E5EA</color>
+    <color name="safari_text_dark">#FFFFFF</color>
+    <color name="safari_text_light">#000000</color>
+    <color name="safari_muted_dark">#8E8E93</color>
+    <color name="safari_muted_light">#6C6C70</color>
+    <color name="safari_border_dark">#2EFFFFFF</color>
+    <color name="safari_border_light">#C6C6C8</color>
+    <color name="safari_card_dark">#1C1C1E</color>
+    <color name="safari_card_light">#FFFFFF</color>
 </resources>
