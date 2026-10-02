@@ -4,6 +4,7 @@ import android.util.Base64
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -27,7 +28,9 @@ class SupportChatAdapter(
     inner class VH(view: View) : RecyclerView.ViewHolder(view) {
         val role: TextView = view.findViewById(R.id.supportMsgRole)
         val bubble: LinearLayout = view.findViewById(R.id.supportMsgBubble)
+        val mediaFrame: FrameLayout = view.findViewById(R.id.supportMsgMediaFrame)
         val image: ImageView = view.findViewById(R.id.supportMsgImage)
+        val playIcon: ImageView = view.findViewById(R.id.supportMsgPlayIcon)
         val multiScroll: HorizontalScrollView = view.findViewById(R.id.supportMsgMultiScroll)
         val multiContainer: LinearLayout = view.findViewById(R.id.supportMsgMultiContainer)
         val text: TextView = view.findViewById(R.id.supportMsgText)
@@ -50,46 +53,82 @@ class SupportChatAdapter(
             holder.text.visibility = View.GONE
         }
 
-        // Collect all available image sources (base64 or remote URLs)
-        val base64Items = msg.imageBase64List.filter { it.isNotBlank() }
-        val urlItems = msg.imageUrls.filter { it.isNotBlank() && it != "null" && (it.startsWith("http://") || it.startsWith("https://")) }
-        val totalImages = base64Items.size + urlItems.size
+        // Collect all available image and video sources
+        val base64Images = msg.imageBase64List.filter { it.isNotBlank() }
+        val urlImages = msg.imageUrls.filter { it.isNotBlank() && it != "null" && (it.startsWith("http://") || it.startsWith("https://")) }
+        val videoThumbnails = msg.videoThumbnailBitmaps
+        val urlVideos = msg.videoUrls.filter { it.isNotBlank() && it != "null" && (it.startsWith("http://") || it.startsWith("https://")) }
 
-        if (totalImages == 0) {
-            // No images at all
-            holder.image.visibility = View.GONE
+        val hasVideo = videoThumbnails.isNotEmpty() || urlVideos.isNotEmpty()
+        val totalMedia = base64Images.size + urlImages.size + (if (hasVideo) 1 else 0)
+
+        if (totalMedia == 0) {
+            // No media at all
+            holder.mediaFrame.visibility = View.GONE
+            holder.playIcon.visibility = View.GONE
             holder.image.setOnClickListener(null)
             holder.multiScroll.visibility = View.GONE
             holder.multiContainer.removeAllViews()
-        } else if (totalImages == 1) {
-            // Single image
-            holder.image.visibility = View.VISIBLE
+        } else if (totalMedia == 1) {
+            // Single media (image or video)
+            holder.mediaFrame.visibility = View.VISIBLE
             holder.multiScroll.visibility = View.GONE
             holder.multiContainer.removeAllViews()
 
-            if (base64Items.isNotEmpty()) {
-                val b64 = base64Items[0]
-                try {
-                    val bytes = Base64.decode(b64, Base64.DEFAULT)
+            if (hasVideo) {
+                // Video item with play overlay
+                holder.playIcon.visibility = View.VISIBLE
+                if (videoThumbnails.isNotEmpty()) {
+                    holder.image.setImageBitmap(videoThumbnails[0])
+                } else if (urlVideos.isNotEmpty()) {
                     Glide.with(holder.itemView.context)
                         .asBitmap()
-                        .load(bytes)
+                        .load(urlVideos[0])
+                        .frame(1_000_000)
                         .transform(RoundedCorners(16))
                         .into(holder.image)
-                } catch (_: Exception) {}
-                holder.image.setOnClickListener { onImageClick?.invoke(b64, true) }
+                }
+
+                holder.mediaFrame.setOnClickListener {
+                    val vidUrl = urlVideos.firstOrNull()
+                    if (!vidUrl.isNullOrBlank()) {
+                        try {
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                setDataAndType(android.net.Uri.parse(vidUrl), "video/*")
+                                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            holder.itemView.context.startActivity(intent)
+                        } catch (_: Exception) {}
+                    }
+                }
             } else {
-                val url = urlItems[0]
-                Glide.with(holder.itemView.context)
-                    .load(url)
-                    .transform(RoundedCorners(16))
-                    .into(holder.image)
-                holder.image.setOnClickListener { onImageClick?.invoke(url, false) }
+                // Single image
+                holder.playIcon.visibility = View.GONE
+                if (base64Images.isNotEmpty()) {
+                    val b64 = base64Images[0]
+                    try {
+                        val bytes = Base64.decode(b64, Base64.DEFAULT)
+                        Glide.with(holder.itemView.context)
+                            .asBitmap()
+                            .load(bytes)
+                            .transform(RoundedCorners(16))
+                            .into(holder.image)
+                    } catch (_: Exception) {}
+                    holder.mediaFrame.setOnClickListener { onImageClick?.invoke(b64, true) }
+                } else {
+                    val url = urlImages[0]
+                    Glide.with(holder.itemView.context)
+                        .load(url)
+                        .transform(RoundedCorners(16))
+                        .into(holder.image)
+                    holder.mediaFrame.setOnClickListener { onImageClick?.invoke(url, false) }
+                }
             }
         } else {
-            // Multiple images — display in horizontal scroll
-            holder.image.visibility = View.GONE
-            holder.image.setOnClickListener(null)
+            // Multiple media — display in horizontal scroll
+            holder.mediaFrame.visibility = View.GONE
+            holder.playIcon.visibility = View.GONE
+            holder.mediaFrame.setOnClickListener(null)
             holder.multiScroll.visibility = View.VISIBLE
             holder.multiContainer.removeAllViews()
 
@@ -97,8 +136,56 @@ class SupportChatAdapter(
             val itemSizePx = (130 * density).toInt()
             val marginPx = (8 * density).toInt()
 
-            // Add base64 items
-            base64Items.forEach { b64 ->
+            // If there's a video in multi-media
+            if (hasVideo) {
+                val vFrame = FrameLayout(holder.itemView.context).apply {
+                    layoutParams = LinearLayout.LayoutParams(itemSizePx, itemSizePx).apply {
+                        marginEnd = marginPx
+                    }
+                }
+                val iv = ImageView(holder.itemView.context).apply {
+                    layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+                    scaleType = ImageView.ScaleType.CENTER_CROP
+                    setBackgroundResource(R.drawable.bg_surface_raised)
+                }
+                if (videoThumbnails.isNotEmpty()) {
+                    iv.setImageBitmap(videoThumbnails[0])
+                } else if (urlVideos.isNotEmpty()) {
+                    Glide.with(holder.itemView.context)
+                        .asBitmap()
+                        .load(urlVideos[0])
+                        .frame(1_000_000)
+                        .transform(RoundedCorners(12))
+                        .into(iv)
+                }
+                val playBadge = ImageView(holder.itemView.context).apply {
+                    val pSize = (36 * density).toInt()
+                    layoutParams = FrameLayout.LayoutParams(pSize, pSize).apply {
+                        gravity = android.view.Gravity.CENTER
+                    }
+                    setBackgroundResource(R.drawable.bg_glass_pill)
+                    setImageResource(R.drawable.ic_play)
+                    setPadding((8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt())
+                }
+                vFrame.addView(iv)
+                vFrame.addView(playBadge)
+                vFrame.setOnClickListener {
+                    val vidUrl = urlVideos.firstOrNull()
+                    if (!vidUrl.isNullOrBlank()) {
+                        try {
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                setDataAndType(android.net.Uri.parse(vidUrl), "video/*")
+                                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            holder.itemView.context.startActivity(intent)
+                        } catch (_: Exception) {}
+                    }
+                }
+                holder.multiContainer.addView(vFrame)
+            }
+
+            // Add base64 images
+            base64Images.forEach { b64 ->
                 val iv = ImageView(holder.itemView.context).apply {
                     layoutParams = LinearLayout.LayoutParams(itemSizePx, itemSizePx).apply {
                         marginEnd = marginPx
@@ -118,8 +205,8 @@ class SupportChatAdapter(
                 holder.multiContainer.addView(iv)
             }
 
-            // Add URL items
-            urlItems.forEach { url ->
+            // Add URL images
+            urlImages.forEach { url ->
                 val iv = ImageView(holder.itemView.context).apply {
                     layoutParams = LinearLayout.LayoutParams(itemSizePx, itemSizePx).apply {
                         marginEnd = marginPx

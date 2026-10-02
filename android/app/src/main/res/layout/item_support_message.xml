@@ -28,15 +28,31 @@
         android:background="@drawable/bg_glass_card"
         android:padding="8dp">
 
-        <!-- Single image view (when exactly 1 image) -->
-        <ImageView
-            android:id="@+id/supportMsgImage"
+        <!-- Single media view (when exactly 1 image or video) -->
+        <FrameLayout
+            android:id="@+id/supportMsgMediaFrame"
             android:layout_width="220dp"
             android:layout_height="160dp"
-            android:scaleType="centerCrop"
-            android:background="@drawable/bg_surface_raised"
             android:layout_marginBottom="6dp"
-            android:visibility="gone"/>
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/supportMsgImage"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                android:background="@drawable/bg_surface_raised"/>
+
+            <ImageView
+                android:id="@+id/supportMsgPlayIcon"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_gravity="center"
+                android:background="@drawable/bg_glass_pill"
+                android:src="@drawable/ic_play"
+                android:padding="11dp"
+                android:visibility="gone"/>
+        </FrameLayout>
 
         <!-- Multi-image container (when >1 image) -->
         <HorizontalScrollView

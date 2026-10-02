@@ -2473,16 +2473,37 @@ class MainActivity : AppCompatActivity() {
         }
 
         onAiImagePicked = { uri ->
-            val bmp = uriToBitmap(uri)
-            if (bmp != null) {
-                pendingImageBitmap = bmp
-                pendingImageBase64 = bitmapToBase64(bmp)
-                attachmentBtn.setColorFilter(0xFF8B5CF6.toInt())
-                Toast.makeText(this, "Изображение прикреплено", Toast.LENGTH_SHORT).show()
+            val mime = contentResolver.getType(uri).orEmpty().lowercase()
+            if (mime.startsWith("video/") || uri.toString().endsWith(".mp4", ignoreCase = true) || uri.toString().endsWith(".webm", ignoreCase = true)) {
+                val retriever = android.media.MediaMetadataRetriever()
+                try {
+                    retriever.setDataSource(this, uri)
+                    val frame = retriever.getFrameAtTime(1_000_000, android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                        ?: retriever.frameAtTime
+                    if (frame != null) {
+                        val durationStr = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)
+                        val durationSec = ((durationStr?.toLongOrNull() ?: 0L) / 1000).toInt()
+                        pendingImageBitmap = frame
+                        pendingImageBase64 = bitmapToBase64(frame)
+                        attachmentBtn.setColorFilter(0xFF8B5CF6.toInt())
+                        Toast.makeText(this, "Видео прикреплено (${durationSec} сек)", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (_: Exception) {}
+                finally {
+                    try { retriever.release() } catch (_: Exception) {}
+                }
+            } else {
+                val bmp = uriToBitmap(uri)
+                if (bmp != null) {
+                    pendingImageBitmap = bmp
+                    pendingImageBase64 = bitmapToBase64(bmp)
+                    attachmentBtn.setColorFilter(0xFF8B5CF6.toInt())
+                    Toast.makeText(this, "Изображение прикреплено", Toast.LENGTH_SHORT).show()
+                }
             }
         }
         attachmentBtn.setOnClickListener {
-            pickAiImageLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            pickAiImageLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
         }
 
         modelPill.text = if (prefs.aiModel == "pro") "LumaAI Pro" else "LumaAI быстрый"
@@ -3452,6 +3473,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    data class SupportPendingAttachment(
+        val bitmap: Bitmap,
+        val base64: String,
+        val mime: String,
+        val isVideo: Boolean = false,
+        val durationSec: Int = 0
+    )
+
     private fun processImageUriToBase64(uri: Uri): Pair<Bitmap, String>? {
         return try {
             contentResolver.openInputStream(uri)?.use { stream ->
@@ -3480,6 +3509,62 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun processMediaUri(uri: Uri): SupportPendingAttachment? {
+        val mimeType = contentResolver.getType(uri).orEmpty().lowercase()
+        val isVideo = mimeType.startsWith("video/") || uri.toString().endsWith(".mp4", ignoreCase = true) || uri.toString().endsWith(".webm", ignoreCase = true)
+
+        if (isVideo) {
+            return try {
+                val retriever = android.media.MediaMetadataRetriever()
+                retriever.setDataSource(this, uri)
+                val frame = retriever.getFrameAtTime(1_000_000, android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                    ?: retriever.frameAtTime
+                    ?: return null
+
+                val durationStr = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)
+                val durationMs = durationStr?.toLongOrNull() ?: 0L
+                val durationSec = (durationMs / 1000).toInt()
+                try { retriever.release() } catch (_: Exception) {}
+
+                val maxDim = 640
+                val w = frame.width
+                val h = frame.height
+                val scaledThumb = if (w > maxDim || h > maxDim) {
+                    val ratio = w.toFloat() / h.toFloat()
+                    val (nw, nh) = if (ratio > 1f) maxDim to (maxDim / ratio).toInt() else (maxDim * ratio).toInt() to maxDim
+                    Bitmap.createScaledBitmap(frame, nw, nh, true)
+                } else frame
+
+                val stream = contentResolver.openInputStream(uri) ?: return null
+                val bytes = stream.use { it.readBytes() }
+                if (bytes.isEmpty() || bytes.size > 35 * 1024 * 1024) {
+                    runOnUiThread { Toast.makeText(this, "Видео слишком большое (макс. 35 МБ)", Toast.LENGTH_SHORT).show() }
+                    return null
+                }
+
+                val finalMime = if (mimeType.isNotBlank()) mimeType else "video/mp4"
+                val b64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+                SupportPendingAttachment(
+                    bitmap = scaledThumb,
+                    base64 = b64,
+                    mime = finalMime,
+                    isVideo = true,
+                    durationSec = durationSec
+                )
+            } catch (_: Exception) {
+                null
+            }
+        } else {
+            val img = processImageUriToBase64(uri) ?: return null
+            return SupportPendingAttachment(
+                bitmap = img.first,
+                base64 = img.second,
+                mime = "image/jpeg",
+                isVideo = false
+            )
+        }
+    }
+
     // ===== REAL-TIME CREATOR SUPPORT CHAT =====
     private fun showSupportSheet() {
         val dialog = BottomSheetDialog(this, R.style.Luma_BottomSheet)
@@ -3497,23 +3582,28 @@ class MainActivity : AppCompatActivity() {
         val attachmentClearAll = view.findViewById<ImageButton>(R.id.supportAttachmentClearAll)
         val attachmentList = view.findViewById<LinearLayout>(R.id.supportAttachmentList)
 
-        val pendingBitmaps = mutableListOf<Bitmap>()
-        val pendingBase64 = mutableListOf<String>()
+        val pendingAttachments = mutableListOf<SupportPendingAttachment>()
 
         fun renderAttachmentBar() {
             attachmentList.removeAllViews()
-            if (pendingBitmaps.isEmpty()) {
+            if (pendingAttachments.isEmpty()) {
                 attachmentBar.visibility = View.GONE
                 return
             }
             attachmentBar.visibility = View.VISIBLE
-            attachmentCount.text = "Прикреплено фото: ${pendingBitmaps.size}"
+            val vidsCount = pendingAttachments.count { it.isVideo }
+            val imgsCount = pendingAttachments.size - vidsCount
+            attachmentCount.text = when {
+                vidsCount > 0 && imgsCount > 0 -> "Прикреплено: $imgsCount фото, $vidsCount видео"
+                vidsCount > 0 -> "Прикреплено видео: $vidsCount"
+                else -> "Прикреплено фото: $imgsCount"
+            }
 
             val density = resources.displayMetrics.density
             val thumbSize = (56 * density).toInt()
             val margin = (6 * density).toInt()
 
-            pendingBitmaps.forEachIndexed { index, bmp ->
+            pendingAttachments.forEachIndexed { index, att ->
                 val frame = FrameLayout(this).apply {
                     layoutParams = LinearLayout.LayoutParams(thumbSize, thumbSize).apply {
                         marginEnd = margin
@@ -3522,9 +3612,24 @@ class MainActivity : AppCompatActivity() {
                 val iv = ImageView(this).apply {
                     layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
                     scaleType = ImageView.ScaleType.CENTER_CROP
-                    setImageBitmap(bmp)
+                    setImageBitmap(att.bitmap)
                     setBackgroundResource(R.drawable.bg_surface_raised)
                 }
+                frame.addView(iv)
+
+                if (att.isVideo) {
+                    val playBadge = ImageView(this).apply {
+                        val pSize = (22 * density).toInt()
+                        layoutParams = FrameLayout.LayoutParams(pSize, pSize).apply {
+                            gravity = Gravity.CENTER
+                        }
+                        setBackgroundResource(R.drawable.bg_glass_pill)
+                        setImageResource(R.drawable.ic_play)
+                        setPadding((4 * density).toInt(), (4 * density).toInt(), (4 * density).toInt(), (4 * density).toInt())
+                    }
+                    frame.addView(playBadge)
+                }
+
                 val closeBtn = ImageView(this).apply {
                     val closeSize = (20 * density).toInt()
                     layoutParams = FrameLayout.LayoutParams(closeSize, closeSize).apply {
@@ -3536,22 +3641,19 @@ class MainActivity : AppCompatActivity() {
                     setBackgroundResource(R.drawable.bg_circle_badge)
                     setPadding((4 * density).toInt(), (4 * density).toInt(), (4 * density).toInt(), (4 * density).toInt())
                     setOnClickListener {
-                        if (index < pendingBitmaps.size && index < pendingBase64.size) {
-                            pendingBitmaps.removeAt(index)
-                            pendingBase64.removeAt(index)
+                        if (index < pendingAttachments.size) {
+                            pendingAttachments.removeAt(index)
                             renderAttachmentBar()
                         }
                     }
                 }
-                frame.addView(iv)
                 frame.addView(closeBtn)
                 attachmentList.addView(frame)
             }
         }
 
         attachmentClearAll.setOnClickListener {
-            pendingBitmaps.clear()
-            pendingBase64.clear()
+            pendingAttachments.clear()
             renderAttachmentBar()
         }
 
@@ -3574,20 +3676,19 @@ class MainActivity : AppCompatActivity() {
         attachBtn.setOnClickListener {
             onSupportImagesPicked = { uris ->
                 for (uri in uris) {
-                    val result = processImageUriToBase64(uri)
-                    if (result != null) {
-                        pendingBitmaps.add(result.first)
-                        pendingBase64.add(result.second)
+                    val item = processMediaUri(uri)
+                    if (item != null) {
+                        pendingAttachments.add(item)
                     }
                 }
                 renderAttachmentBar()
             }
             try {
                 pickSupportImagesLauncher.launch(
-                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)
                 )
             } catch (_: Exception) {
-                Toast.makeText(this, "Не удалось открыть галерею", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Не удалось открыть медиатеку", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -3628,12 +3729,11 @@ class MainActivity : AppCompatActivity() {
 
         fun doSend() {
             val text = input.text.toString().trim()
-            val toSendB64 = pendingBase64.toList()
-            if (text.isBlank() && toSendB64.isEmpty()) return
+            val toSend = pendingAttachments.toList()
+            if (text.isBlank() && toSend.isEmpty()) return
 
             input.text?.clear()
-            pendingBitmaps.clear()
-            pendingBase64.clear()
+            pendingAttachments.clear()
             renderAttachmentBar()
 
             val localId = "local_" + UUID.randomUUID().toString()
@@ -3641,16 +3741,18 @@ class MainActivity : AppCompatActivity() {
                 id = localId,
                 isUser = true,
                 text = text,
-                imageBase64List = toSendB64
+                imageBase64List = toSend.filter { !it.isVideo }.map { it.base64 },
+                videoBase64List = toSend.filter { it.isVideo }.map { it.base64 },
+                videoThumbnailBitmaps = toSend.filter { it.isVideo }.map { it.bitmap }
             )
             adapter.addMessage(userMsg)
             recycler.smoothScrollToPosition(supportMessages.size - 1)
 
-            val attachments = toSendB64.map { it to "image/jpeg" }
+            val attachmentsPayload = toSend.map { it.base64 to it.mime }
             lifecycleScope.launch {
                 val serverMsgId = supportService.sendMessage(
                     text = text,
-                    attachments = attachments
+                    attachments = attachmentsPayload
                 )
                 if (!serverMsgId.isNullOrBlank()) {
                     userMsg.id = serverMsgId

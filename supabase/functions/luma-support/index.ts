@@ -118,6 +118,43 @@ async function telegramSendMediaGroupDirect(
   }
 }
 
+async function telegramSendVideoDirect(
+  chatId: string,
+  videoBytes: Uint8Array,
+  mime: string,
+  caption?: string,
+  replyToMessageId?: number
+) {
+  const token = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
+  if (!token) return null;
+
+  const form = new FormData();
+  form.append("chat_id", chatId);
+  if (replyToMessageId) form.append("reply_to_message_id", String(replyToMessageId));
+  if (caption) {
+    form.append("caption", caption.slice(0, 1024));
+    form.append("parse_mode", "HTML");
+  }
+  form.append("supports_streaming", "true");
+  const ext = mime.includes("webm") ? "webm" : mime.includes("mov") ? "mov" : "mp4";
+  form.append("video", new Blob([videoBytes], { type: mime }), `video.${ext}`);
+
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendVideo`, {
+      method: "POST",
+      body: form,
+    });
+    if (!res.ok) {
+      console.error("sendVideo direct error", res.status, await res.text());
+      return null;
+    }
+    return await res.json();
+  } catch (err) {
+    console.error("sendVideo direct network error", err);
+    return null;
+  }
+}
+
 function formatSupportCard(
   threadId: string,
   displayName: string,
@@ -216,7 +253,9 @@ Deno.serve(async (request) => {
         let text = m.body || "";
         const imgMatches = [...text.matchAll(/\[image:(https?:\/\/[^\]]+)\]/g)];
         const imageUrls = imgMatches.map((match) => match[1]).filter(Boolean);
-        text = text.replace(/\[image:[^\]]+\]/g, "").trim();
+        const vidMatches = [...text.matchAll(/\[video:(https?:\/\/[^\]]+)\]/g)];
+        const videoUrls = vidMatches.map((match) => match[1]).filter(Boolean);
+        text = text.replace(/\[image:[^\]]+\]/g, "").replace(/\[video:[^\]]+\]/g, "").trim();
 
         return {
           id: m.id,
@@ -226,6 +265,8 @@ Deno.serve(async (request) => {
           body: text,
           image_url: imageUrls[0] ?? null,
           image_urls: imageUrls,
+          video_url: videoUrls[0] ?? null,
+          video_urls: videoUrls,
           created_at: m.created_at,
         };
       });
@@ -270,14 +311,17 @@ Deno.serve(async (request) => {
         threadId = thread.id;
       }
 
-      // Process and upload attachments
-      const processedImages: Array<{ bytes: Uint8Array; mime: string; signedUrl: string }> = [];
+      // Process and upload attachments (images and videos)
+      const processedMedia: Array<{ bytes: Uint8Array; mime: string; signedUrl: string; isVideo: boolean }> = [];
       for (const att of rawAttachments) {
         try {
           const raw = String(att.data).replace(/^data:[^;]+;base64,/, "");
           const bytes = Uint8Array.from(atob(raw), (c) => c.charCodeAt(0));
           const mime = clean(att.mime, 60).toLowerCase() || "image/jpeg";
-          const ext = mime.includes("png") ? "png" : mime.includes("webp") ? "webp" : "jpg";
+          const isVideo = mime.startsWith("video/") || mime.includes("mp4") || mime.includes("webm");
+          const ext = isVideo
+            ? (mime.includes("webm") ? "webm" : mime.includes("mov") ? "mov" : "mp4")
+            : (mime.includes("png") ? "png" : mime.includes("webp") ? "webp" : "jpg");
           const path = `support/${threadId}/${crypto.randomUUID()}.${ext}`;
           const uploadRes = await admin.storage.from("feedback-files").upload(path, bytes, { contentType: mime, upsert: true });
           let signedUrl = "";
@@ -285,25 +329,25 @@ Deno.serve(async (request) => {
             const signed = await admin.storage.from("feedback-files").createSignedUrl(path, 86400 * 30);
             signedUrl = signed.data?.signedUrl ?? "";
           }
-          processedImages.push({ bytes, mime, signedUrl });
+          processedMedia.push({ bytes, mime, signedUrl, isVideo });
         } catch (uploadErr) {
           console.error("attachment upload error", uploadErr);
         }
       }
 
-      if (!body && processedImages.length === 0) {
+      if (!body && processedMedia.length === 0) {
         return json({ error: "message_empty" }, 400);
       }
 
       // Build database body text
       let dbBody = body;
-      const imageTags = processedImages
-        .filter((img) => img.signedUrl)
-        .map((img) => `[image:${img.signedUrl}]`)
+      const mediaTags = processedMedia
+        .filter((m) => m.signedUrl)
+        .map((m) => m.isVideo ? `[video:${m.signedUrl}]` : `[image:${m.signedUrl}]`)
         .join(" ");
 
-      if (imageTags) {
-        dbBody = dbBody ? `${dbBody}\n${imageTags}` : imageTags;
+      if (mediaTags) {
+        dbBody = dbBody ? `${dbBody}\n${mediaTags}` : mediaTags;
       }
 
       // Insert message into DB
@@ -388,25 +432,32 @@ Deno.serve(async (request) => {
 
         const replyTarget = activeSession?.is_active ? undefined : thread.telegram_message_id;
         let sentFollow: any = null;
+        const videos = processedMedia.filter((m) => m.isVideo);
+        const photos = processedMedia.filter((m) => !m.isVideo);
 
-        if (processedImages.length === 1) {
+        for (const vid of videos) {
+          const caption = `${prefix}${escapeHtml(body || "📹 Видео от пользователя")}`.slice(0, 1024);
+          sentFollow = await telegramSendVideoDirect(chatId, vid.bytes, vid.mime, caption, replyTarget);
+        }
+
+        if (photos.length === 1) {
           const caption = `${prefix}${escapeHtml(body || "Изображение от пользователя")}`.slice(0, 1024);
           sentFollow = await telegramSendPhotoDirect(
             chatId,
-            processedImages[0].bytes,
-            processedImages[0].mime,
+            photos[0].bytes,
+            photos[0].mime,
             caption,
             replyTarget
           );
-        } else if (processedImages.length > 1) {
-          const caption = `${prefix}${escapeHtml(body || `Изображения (${processedImages.length} шт.) от пользователя`)}`.slice(0, 1024);
+        } else if (photos.length > 1) {
+          const caption = `${prefix}${escapeHtml(body || `Изображения (${photos.length} шт.) от пользователя`)}`.slice(0, 1024);
           sentFollow = await telegramSendMediaGroupDirect(
             chatId,
-            processedImages,
+            photos,
             caption,
             replyTarget
           );
-        } else {
+        } else if (videos.length === 0) {
           sentFollow = await telegram("sendMessage", {
             chat_id: chatId,
             reply_to_message_id: replyTarget,

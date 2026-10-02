@@ -19,11 +19,17 @@ data class SupportChatMessage(
     val text: String,
     val imageBase64List: List<String> = emptyList(),
     val imageUrls: List<String> = emptyList(),
+    val videoBase64List: List<String> = emptyList(),
+    val videoUrls: List<String> = emptyList(),
+    val videoThumbnailBitmaps: List<android.graphics.Bitmap> = emptyList(),
     val timestamp: Long = System.currentTimeMillis()
 ) {
     val imageBase64: String? get() = imageBase64List.firstOrNull()
     val imageUrl: String? get() = imageUrls.firstOrNull()
+    val videoUrl: String? get() = videoUrls.firstOrNull()
     val hasImages: Boolean get() = imageBase64List.isNotEmpty() || imageUrls.isNotEmpty()
+    val hasVideos: Boolean get() = videoBase64List.isNotEmpty() || videoUrls.isNotEmpty() || videoThumbnailBitmaps.isNotEmpty()
+    val isVideo: Boolean get() = hasVideos
 }
 
 /**
@@ -56,9 +62,11 @@ class LumaSupportService {
             if (attachments.isNotEmpty()) {
                 val arr = JSONArray()
                 attachments.forEachIndexed { idx, (b64, mime) ->
+                    val isVid = mime.startsWith("video") || mime.contains("mp4") || mime.contains("webm")
+                    val ext = if (isVid) (if (mime.contains("webm")) "webm" else "mp4") else "jpg"
                     arr.put(JSONObject().apply {
-                        put("name", "photo_${idx + 1}.jpg")
-                        put("mime", mime.ifBlank { "image/jpeg" })
+                        put("name", if (isVid) "video_${idx + 1}.$ext" else "photo_${idx + 1}.$ext")
+                        put("mime", mime.ifBlank { if (isVid) "video/mp4" else "image/jpeg" })
                         put("data", b64)
                     })
                 }
@@ -124,6 +132,7 @@ class LumaSupportService {
                 val obj = msgs.getJSONObject(idx)
                 var bodyText = if (obj.isNull("body")) "" else obj.optString("body", "")
                 val foundUrls = mutableListOf<String>()
+                val foundVideoUrls = mutableListOf<String>()
 
                 val urlsArr = obj.optJSONArray("image_urls")
                 if (urlsArr != null) {
@@ -142,6 +151,23 @@ class LumaSupportService {
                     }
                 }
 
+                val vidArr = obj.optJSONArray("video_urls")
+                if (vidArr != null) {
+                    for (i in 0 until vidArr.length()) {
+                        val u = vidArr.optString(i, "")
+                        if (u.isNotBlank() && u != "null" && (u.startsWith("http://") || u.startsWith("https://"))) {
+                            foundVideoUrls.add(u)
+                        }
+                    }
+                }
+
+                if (foundVideoUrls.isEmpty() && !obj.isNull("video_url")) {
+                    val single = obj.optString("video_url", "").trim()
+                    if (single.isNotBlank() && single != "null" && (single.startsWith("http://") || single.startsWith("https://"))) {
+                        foundVideoUrls.add(single)
+                    }
+                }
+
                 val regex = Regex("""\[image:(https?://[^\]]+)\]""")
                 val matches = regex.findAll(bodyText).toList()
                 if (matches.isNotEmpty()) {
@@ -154,11 +180,24 @@ class LumaSupportService {
                     bodyText = regex.replace(bodyText, "").trim()
                 }
 
+                val vidRegex = Regex("""\[video:(https?://[^\]]+)\]""")
+                val vidMatches = vidRegex.findAll(bodyText).toList()
+                if (vidMatches.isNotEmpty()) {
+                    for (m in vidMatches) {
+                        val extracted = m.groupValues[1]
+                        if (extracted.isNotBlank() && extracted != "null" && !foundVideoUrls.contains(extracted)) {
+                            foundVideoUrls.add(extracted)
+                        }
+                    }
+                    bodyText = vidRegex.replace(bodyText, "").trim()
+                }
+
                 SupportChatMessage(
                     id = obj.optString("id", UUID.randomUUID().toString()),
                     isUser = obj.optString("sender_type", "user") == "user",
                     text = bodyText,
                     imageUrls = foundUrls,
+                    videoUrls = foundVideoUrls,
                     timestamp = System.currentTimeMillis()
                 )
             }
