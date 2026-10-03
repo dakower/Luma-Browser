@@ -2407,8 +2407,23 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun bitmapToBase64(bitmap: Bitmap): String {
+        val maxDim = 1280
+        val (w, h) = if (bitmap.width > maxDim || bitmap.height > maxDim) {
+            val ratio = Math.min(maxDim.toFloat() / bitmap.width, maxDim.toFloat() / bitmap.height)
+            Pair((bitmap.width * ratio).toInt().coerceAtLeast(1), (bitmap.height * ratio).toInt().coerceAtLeast(1))
+        } else {
+            Pair(bitmap.width, bitmap.height)
+        }
+        val target = if (w != bitmap.width || h != bitmap.height) {
+            Bitmap.createScaledBitmap(bitmap, w, h, true)
+        } else {
+            bitmap
+        }
         val baos = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 85, baos)
+        target.compress(Bitmap.CompressFormat.JPEG, 80, baos)
+        if (target != bitmap) {
+            target.recycle()
+        }
         return Base64.encodeToString(baos.toByteArray(), Base64.NO_WRAP)
     }
 
@@ -2698,7 +2713,12 @@ class MainActivity : AppCompatActivity() {
                 onError = { err ->
                     withContext(Dispatchers.Main) {
                         aiStreaming = false
-                        aiAdapter?.appendToLastAssistant("\n\n*Ошибка: $err*")
+                        val lastIdx = aiMessages.indexOfLast { it.role == "assistant" }
+                        if (lastIdx >= 0 && aiMessages[lastIdx].content.isBlank()) {
+                            aiAdapter?.setLastAssistantContent("*Ошибка: $err*")
+                        } else {
+                            aiAdapter?.appendToLastAssistant("\n\n*Ошибка: $err*")
+                        }
                         recycler.scrollToPosition(aiMessages.size - 1)
                     }
                 }

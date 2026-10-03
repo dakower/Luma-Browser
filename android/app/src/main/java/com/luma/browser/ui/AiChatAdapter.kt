@@ -193,6 +193,14 @@ class AiChatAdapter(private val messages: MutableList<AiMessage>) :
         }
     }
 
+    fun setLastAssistantContent(content: String) {
+        val lastIdx = messages.indexOfLast { it.role == "assistant" }
+        if (lastIdx >= 0) {
+            messages[lastIdx] = messages[lastIdx].copy(content = content)
+            notifyItemChanged(lastIdx, PAYLOAD_UPDATE)
+        }
+    }
+
     fun addMessage(msg: AiMessage) {
         messages.add(msg)
         notifyItemInserted(messages.size - 1)
