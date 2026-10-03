@@ -53,26 +53,8 @@ Deno.serve(async (request) => {
       });
     }
 
-    // Windows Beta requires authorization & approved beta access
-    const { data: { user } } = await anon.auth.getUser();
-    if (!user) {
-      return new Response(JSON.stringify({ error: "unauthorized" }), {
-        status: 401,
-        headers: { ...cors, "Content-Type": "application/json" }
-      });
-    }
-
-    const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).maybeSingle();
-    const { data: access } = await admin.from("beta_access").select("status").eq("user_id", user.id).maybeSingle();
-
-    if (profile?.role !== "admin" && access?.status !== "approved") {
-      return new Response(JSON.stringify({ error: "beta_access_required" }), {
-        status: 403,
-        headers: { ...cors, "Content-Type": "application/json" }
-      });
-    }
-
-    // Windows platform: Try R2 first, then fallback to Supabase Storage
+    // Windows platform: Public download for all visitors (no registration required)
+    // Try R2 first, then fallback to Supabase Storage
     const r2Id = Deno.env.get("R2_ACCOUNT_ID");
     const r2Key = Deno.env.get("R2_ACCESS_KEY_ID");
     const r2Secret = Deno.env.get("R2_SECRET_ACCESS_KEY");
