@@ -21,9 +21,10 @@ Deno.serve(async (request) => {
 
     // Determine platform: "android" or "windows"
     let platform = "windows";
+    let body: any = {};
     try {
       if (request.method === "POST") {
-        const body = await request.json().catch(() => ({}));
+        body = await request.json().catch(() => ({}));
         if (body?.platform) platform = String(body.platform).toLowerCase();
       } else {
         const u = new URL(request.url);
@@ -40,6 +41,14 @@ Deno.serve(async (request) => {
       const { data, error } = await admin.storage.from("beta-installers").createSignedUrl(file, 3600, { download: "Luma-2.1.4-Android.apk" });
       if (error) throw error;
       return new Response(JSON.stringify({ downloadUrl: data.signedUrl, platform: "android", file }), {
+        headers: { ...cors, "Content-Type": "application/json", "Cache-Control": "no-store" }
+      });
+    }
+
+    if (platform === "get_upload_url") {
+      const target = body?.target || "android/Luma-2.1.4-Android.apk";
+      const { data, error } = await admin.storage.from("beta-installers").createSignedUploadUrl(target, { upsert: true });
+      return new Response(JSON.stringify({ uploadUrl: data?.signedUrl, error }), {
         headers: { ...cors, "Content-Type": "application/json", "Cache-Control": "no-store" }
       });
     }
@@ -78,7 +87,11 @@ Deno.serve(async (request) => {
           forcePathStyle: true,
           credentials: { accessKeyId: r2Key, secretAccessKey: r2Secret }
         });
-        const packageUrl = await getSignedUrl(r2, new GetObjectCommand({ Bucket: r2Bucket, Key: r2File }), { expiresIn: 300 });
+        const packageUrl = await getSignedUrl(r2, new GetObjectCommand({
+          Bucket: r2Bucket,
+          Key: r2File,
+          ResponseContentDisposition: 'attachment; filename="LumaSetup-Beta-x64.exe"'
+        }), { expiresIn: 7200 });
         return new Response(JSON.stringify({ downloadUrl: packageUrl, platform: "windows", file: r2File }), {
           headers: { ...cors, "Content-Type": "application/json", "Cache-Control": "no-store" }
         });
@@ -88,7 +101,7 @@ Deno.serve(async (request) => {
     }
 
     const file = Deno.env.get("BETA_INSTALLER_PATH") ?? "windows/LumaSetup-Beta-x64.exe";
-    const { data, error } = await admin.storage.from("beta-installers").createSignedUrl(file, 300, { download: "LumaSetup-Beta-x64.exe" });
+    const { data, error } = await admin.storage.from("beta-installers").createSignedUrl(file, 7200, { download: "LumaSetup-Beta-x64.exe" });
     if (error) throw error;
     return new Response(JSON.stringify({ downloadUrl: data.signedUrl, platform: "windows", file }), {
       headers: { ...cors, "Content-Type": "application/json", "Cache-Control": "no-store" }

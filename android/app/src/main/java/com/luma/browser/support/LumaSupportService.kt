@@ -32,6 +32,13 @@ data class SupportChatMessage(
     val isVideo: Boolean get() = hasVideos
 }
 
+data class SupportAttachmentItem(
+    val base64: String? = null,
+    val storagePath: String? = null,
+    val mime: String,
+    val isVideo: Boolean = false
+)
+
 /**
  * LumaSupportService — direct support chat with creator dakower.
  * Connects to /functions/v1/luma-support which relays directly to Telegram bot.
@@ -39,15 +46,72 @@ data class SupportChatMessage(
 class LumaSupportService {
 
     private val client = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(35, TimeUnit.SECONDS)
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(90, TimeUnit.SECONDS)
+        .readTimeout(90, TimeUnit.SECONDS)
         .build()
 
     var threadId: String? = null
 
-    suspend fun sendMessage(
+    /**
+     * Uploads media directly to Supabase Storage signed upload URL.
+     * Prevents large base64 JSON payload issues and memory spikes.
+     * Returns storagePath (e.g. "support/threadId/xxx.mp4") on success, or null on failure.
+     */
+    suspend fun uploadDirect(bytes: ByteArray, mime: String): String? = withContext(Dispatchers.IO) {
+        val isVid = mime.startsWith("video") || mime.contains("mp4") || mime.contains("webm")
+        val ext = if (isVid) (if (mime.contains("webm")) "webm" else "mp4") else "jpg"
+        val reqBody = JSONObject().apply {
+            put("action", "get_upload_url")
+            put("ext", ext)
+            put("mime", mime)
+            if (!threadId.isNullOrBlank()) {
+                put("threadId", threadId)
+            }
+        }
+
+        val getUrlReq = Request.Builder()
+            .url("${LumaApp.SUPABASE_URL}/functions/v1/luma-support")
+            .post(reqBody.toString().toRequestBody("application/json".toMediaType()))
+            .addHeader("apikey", LumaApp.SUPABASE_PUBLISHABLE_KEY)
+            .addHeader("Content-Type", "application/json")
+            .build()
+
+        try {
+            val res = client.newCall(getUrlReq).execute()
+            if (!res.isSuccessful) {
+                android.util.Log.e("LumaSupport", "get_upload_url failed: ${res.code}")
+                return@withContext null
+            }
+            val json = JSONObject(res.body?.string() ?: return@withContext null)
+            val uploadUrl = json.optString("uploadUrl", "")
+            val path = json.optString("path", "")
+            val tid = json.optString("threadId", "")
+            if (tid.isNotBlank()) threadId = tid
+            if (uploadUrl.isBlank() || path.isBlank()) return@withContext null
+
+            val putReq = Request.Builder()
+                .url(uploadUrl)
+                .put(bytes.toRequestBody(mime.toMediaType()))
+                .addHeader("Content-Type", mime)
+                .build()
+
+            val putRes = client.newCall(putReq).execute()
+            if (putRes.isSuccessful) {
+                path
+            } else {
+                android.util.Log.e("LumaSupport", "uploadDirect PUT failed: ${putRes.code} ${putRes.body?.string()}")
+                null
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("LumaSupport", "uploadDirect exception: ${e.message}", e)
+            null
+        }
+    }
+
+    suspend fun sendMessageWithItems(
         text: String,
-        attachments: List<Pair<String, String>> = emptyList() // List of (base64, mime)
+        items: List<SupportAttachmentItem> = emptyList()
     ): String? = withContext(Dispatchers.IO) {
         val prefs = LumaPreferences.get()
         val gid = prefs.userId.ifBlank { prefs.deviceGuestId }
@@ -59,16 +123,21 @@ class LumaSupportService {
             put("displayName", name)
             put("version", "${LumaApp.APP_VERSION}-Android")
             put("body", text)
-            if (attachments.isNotEmpty()) {
+            if (items.isNotEmpty()) {
                 val arr = JSONArray()
-                attachments.forEachIndexed { idx, (b64, mime) ->
-                    val isVid = mime.startsWith("video") || mime.contains("mp4") || mime.contains("webm")
-                    val ext = if (isVid) (if (mime.contains("webm")) "webm" else "mp4") else "jpg"
-                    arr.put(JSONObject().apply {
+                items.forEachIndexed { idx, item ->
+                    val isVid = item.isVideo || item.mime.startsWith("video") || item.mime.contains("mp4") || item.mime.contains("webm")
+                    val ext = if (isVid) (if (item.mime.contains("webm")) "webm" else "mp4") else "jpg"
+                    val obj = JSONObject().apply {
                         put("name", if (isVid) "video_${idx + 1}.$ext" else "photo_${idx + 1}.$ext")
-                        put("mime", mime.ifBlank { if (isVid) "video/mp4" else "image/jpeg" })
-                        put("data", b64)
-                    })
+                        put("mime", item.mime.ifBlank { if (isVid) "video/mp4" else "image/jpeg" })
+                        if (!item.storagePath.isNullOrBlank()) {
+                            put("storagePath", item.storagePath)
+                        } else if (!item.base64.isNullOrBlank()) {
+                            put("data", item.base64)
+                        }
+                    }
+                    arr.put(obj)
                 }
                 put("attachments", arr)
             }
@@ -96,9 +165,25 @@ class LumaSupportService {
                     if (msgId.isNotBlank()) return@withContext msgId
                 }
                 "ok"
-            } else null
-        } catch (_: Exception) { null }
+            } else {
+                android.util.Log.e("LumaSupport", "sendMessage error: ${response.code} ${response.body?.string()}")
+                null
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("LumaSupport", "sendMessage exception: ${e.message}", e)
+            null
+        }
     }
+
+    suspend fun sendMessage(
+        text: String,
+        attachments: List<Pair<String, String>> = emptyList() // List of (base64, mime)
+    ): String? = sendMessageWithItems(
+        text = text,
+        items = attachments.map { (b64, mime) ->
+            SupportAttachmentItem(base64 = b64, mime = mime)
+        }
+    )
 
     suspend fun pollMessages(): List<SupportChatMessage> = withContext(Dispatchers.IO) {
         val prefs = LumaPreferences.get()

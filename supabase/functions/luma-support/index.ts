@@ -35,6 +35,16 @@ async function telegram(method: string, body: Record<string, unknown>) {
   }
 }
 
+function base64ToBytes(base64: string): Uint8Array {
+  const binaryString = atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
 async function telegramSendPhotoDirect(
   chatId: string,
   imageBytes: Uint8Array,
@@ -45,30 +55,56 @@ async function telegramSendPhotoDirect(
   const token = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
   if (!token) return null;
 
-  const form = new FormData();
-  form.append("chat_id", chatId);
-  if (replyToMessageId) form.append("reply_to_message_id", String(replyToMessageId));
-  if (caption) {
-    form.append("caption", caption.slice(0, 1024));
-    form.append("parse_mode", "HTML");
-  }
   const ext = mime.includes("png") ? "png" : mime.includes("webp") ? "webp" : "jpg";
-  form.append("photo", new Blob([imageBytes], { type: mime }), `image.${ext}`);
+  const filename = `photo_${Date.now()}.${ext}`;
 
+  // 1. Try sendPhoto
   try {
+    const form = new FormData();
+    form.append("chat_id", chatId);
+    if (replyToMessageId) form.append("reply_to_message_id", String(replyToMessageId));
+    if (caption) {
+      form.append("caption", caption.slice(0, 1024));
+      form.append("parse_mode", "HTML");
+    }
+    form.append("photo", new Blob([imageBytes], { type: mime }), filename);
+
     const res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
       method: "POST",
       body: form,
     });
-    if (!res.ok) {
-      console.error("sendPhoto direct error", res.status, await res.text());
-      return null;
+    if (res.ok) {
+      return await res.json();
     }
-    return await res.json();
+    console.warn("sendPhoto direct error, falling back to sendDocument", res.status, await res.text());
   } catch (err) {
-    console.error("sendPhoto direct network error", err);
-    return null;
+    console.warn("sendPhoto direct network error, falling back to sendDocument", err);
   }
+
+  // 2. Fallback: sendDocument
+  try {
+    const docForm = new FormData();
+    docForm.append("chat_id", chatId);
+    if (replyToMessageId) docForm.append("reply_to_message_id", String(replyToMessageId));
+    if (caption) {
+      docForm.append("caption", caption.slice(0, 1024));
+      docForm.append("parse_mode", "HTML");
+    }
+    docForm.append("document", new Blob([imageBytes], { type: mime }), filename);
+
+    const docRes = await fetch(`https://api.telegram.org/bot${token}/sendDocument`, {
+      method: "POST",
+      body: docForm,
+    });
+    if (docRes.ok) {
+      return await docRes.json();
+    }
+    console.error("sendDocument fallback for photo failed", docRes.status, await docRes.text());
+  } catch (docErr) {
+    console.error("sendDocument fallback network error", docErr);
+  }
+
+  return null;
 }
 
 async function telegramSendMediaGroupDirect(
@@ -128,31 +164,57 @@ async function telegramSendVideoDirect(
   const token = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
   if (!token) return null;
 
-  const form = new FormData();
-  form.append("chat_id", chatId);
-  if (replyToMessageId) form.append("reply_to_message_id", String(replyToMessageId));
-  if (caption) {
-    form.append("caption", caption.slice(0, 1024));
-    form.append("parse_mode", "HTML");
-  }
-  form.append("supports_streaming", "true");
   const ext = mime.includes("webm") ? "webm" : mime.includes("mov") ? "mov" : "mp4";
-  form.append("video", new Blob([videoBytes], { type: mime }), `video.${ext}`);
+  const filename = `video_${Date.now()}.${ext}`;
 
+  // 1. Try sendVideo first
   try {
+    const form = new FormData();
+    form.append("chat_id", chatId);
+    if (replyToMessageId) form.append("reply_to_message_id", String(replyToMessageId));
+    if (caption) {
+      form.append("caption", caption.slice(0, 1024));
+      form.append("parse_mode", "HTML");
+    }
+    form.append("supports_streaming", "true");
+    form.append("video", new Blob([videoBytes], { type: mime }), filename);
+
     const res = await fetch(`https://api.telegram.org/bot${token}/sendVideo`, {
       method: "POST",
       body: form,
     });
-    if (!res.ok) {
-      console.error("sendVideo direct error", res.status, await res.text());
-      return null;
+    if (res.ok) {
+      return await res.json();
     }
-    return await res.json();
+    console.warn("sendVideo direct error, falling back to sendDocument:", res.status, await res.text());
   } catch (err) {
-    console.error("sendVideo direct network error", err);
-    return null;
+    console.warn("sendVideo direct network error, falling back to sendDocument:", err);
   }
+
+  // 2. Guaranteed fallback: sendDocument (accepts ANY video / audio / container format up to 50MB)
+  try {
+    const docForm = new FormData();
+    docForm.append("chat_id", chatId);
+    if (replyToMessageId) docForm.append("reply_to_message_id", String(replyToMessageId));
+    if (caption) {
+      docForm.append("caption", caption.slice(0, 1024));
+      docForm.append("parse_mode", "HTML");
+    }
+    docForm.append("document", new Blob([videoBytes], { type: mime }), filename);
+
+    const docRes = await fetch(`https://api.telegram.org/bot${token}/sendDocument`, {
+      method: "POST",
+      body: docForm,
+    });
+    if (docRes.ok) {
+      return await docRes.json();
+    }
+    console.error("sendDocument fallback for video also failed:", docRes.status, await docRes.text());
+  } catch (docErr) {
+    console.error("sendDocument network error:", docErr);
+  }
+
+  return null;
 }
 
 function formatSupportCard(
@@ -223,6 +285,24 @@ Deno.serve(async (request) => {
   const appVersion = clean(input?.version, 30) || "2.1.4";
 
   try {
+    // 0. Get signed upload URL for direct client-to-storage uploads (high-speed, supports videos up to 50MB)
+    if (action === "get_upload_url") {
+      const ext = clean(input?.ext, 10) || "mp4";
+      const threadId = clean(input?.threadId, 40) || crypto.randomUUID();
+      const path = `support/${threadId}/${crypto.randomUUID()}.${ext}`;
+      const { data, error } = await admin.storage.from("feedback-files").createSignedUploadUrl(path);
+      if (error || !data) {
+        console.error("createSignedUploadUrl error", error);
+        return json({ error: "failed_create_upload_url", details: error?.message }, 500);
+      }
+      return json({
+        uploadUrl: data.signedUrl,
+        path: path,
+        token: data.token,
+        threadId: threadId,
+      });
+    }
+
     // 1. Sync / Poll messages
     if (action === "sync" || action === "poll") {
       let threadId = clean(input?.threadId, 40);
@@ -278,12 +358,12 @@ Deno.serve(async (request) => {
       const body = clean(input?.body, 6000);
 
       // Collect attachments from array or single object
-      const rawAttachments: Array<{ name?: string; mime?: string; data: string }> = [];
+      const rawAttachments: Array<{ name?: string; mime?: string; data?: string; storagePath?: string }> = [];
       if (Array.isArray(input?.attachments)) {
         for (const att of input.attachments) {
-          if (att?.data) rawAttachments.push(att);
+          if (att?.data || att?.storagePath) rawAttachments.push(att);
         }
-      } else if (input?.attachment?.data) {
+      } else if (input?.attachment?.data || input?.attachment?.storagePath) {
         rawAttachments.push(input.attachment);
       }
 
@@ -312,26 +392,49 @@ Deno.serve(async (request) => {
       }
 
       // Process and upload attachments (images and videos)
-      const processedMedia: Array<{ bytes: Uint8Array; mime: string; signedUrl: string; isVideo: boolean }> = [];
+      const processedMedia: Array<{ bytes?: Uint8Array; mime: string; signedUrl: string; isVideo: boolean }> = [];
       for (const att of rawAttachments) {
         try {
-          const raw = String(att.data).replace(/^data:[^;]+;base64,/, "");
-          const bytes = Uint8Array.from(atob(raw), (c) => c.charCodeAt(0));
           const mime = clean(att.mime, 60).toLowerCase() || "image/jpeg";
           const isVideo = mime.startsWith("video/") || mime.includes("mp4") || mime.includes("webm");
           const ext = isVideo
             ? (mime.includes("webm") ? "webm" : mime.includes("mov") ? "mov" : "mp4")
             : (mime.includes("png") ? "png" : mime.includes("webp") ? "webp" : "jpg");
-          const path = `support/${threadId}/${crypto.randomUUID()}.${ext}`;
-          const uploadRes = await admin.storage.from("feedback-files").upload(path, bytes, { contentType: mime, upsert: true });
+
+          let path = "";
+          let bytes: Uint8Array | undefined;
+
+          if (att.storagePath) {
+            path = att.storagePath;
+            try {
+              const { data: fileBlob } = await admin.storage.from("feedback-files").download(path);
+              if (fileBlob) {
+                bytes = new Uint8Array(await fileBlob.arrayBuffer());
+              }
+            } catch (dlErr) {
+              console.warn("Could not download storagePath bytes for Telegram direct upload", dlErr);
+            }
+          } else if (att.data) {
+            const raw = String(att.data).replace(/^data:[^;]+;base64,/, "");
+            bytes = base64ToBytes(raw);
+            path = `support/${threadId}/${crypto.randomUUID()}.${ext}`;
+            const uploadRes = await admin.storage.from("feedback-files").upload(path, bytes, { contentType: mime, upsert: true });
+            if (uploadRes.error) {
+              console.error("attachment upload error", uploadRes.error);
+            }
+          } else {
+            continue;
+          }
+
           let signedUrl = "";
-          if (!uploadRes.error) {
+          if (path) {
             const signed = await admin.storage.from("feedback-files").createSignedUrl(path, 86400 * 30);
             signedUrl = signed.data?.signedUrl ?? "";
           }
+
           processedMedia.push({ bytes, mime, signedUrl, isVideo });
         } catch (uploadErr) {
-          console.error("attachment upload error", uploadErr);
+          console.error("attachment processing error", uploadErr);
         }
       }
 
@@ -437,10 +540,12 @@ Deno.serve(async (request) => {
 
         for (const vid of videos) {
           const caption = `${prefix}${escapeHtml(body || "📹 Видео от пользователя")}`.slice(0, 1024);
-          sentFollow = await telegramSendVideoDirect(chatId, vid.bytes, vid.mime, caption, replyTarget);
+          if (vid.bytes && vid.bytes.length > 0) {
+            sentFollow = await telegramSendVideoDirect(chatId, vid.bytes, vid.mime, caption, replyTarget);
+          }
         }
 
-        if (photos.length === 1) {
+        if (photos.length === 1 && photos[0].bytes) {
           const caption = `${prefix}${escapeHtml(body || "Изображение от пользователя")}`.slice(0, 1024);
           sentFollow = await telegramSendPhotoDirect(
             chatId,
@@ -449,19 +554,43 @@ Deno.serve(async (request) => {
             caption,
             replyTarget
           );
-        } else if (photos.length > 1) {
+        } else if (photos.length > 1 && photos.every((p) => p.bytes && p.bytes.length > 0)) {
           const caption = `${prefix}${escapeHtml(body || `Изображения (${photos.length} шт.) от пользователя`)}`.slice(0, 1024);
           sentFollow = await telegramSendMediaGroupDirect(
             chatId,
-            photos,
+            photos as Array<{ bytes: Uint8Array; mime: string }>,
             caption,
             replyTarget
           );
-        } else if (videos.length === 0) {
+        } else if (videos.length === 0 && (!photos.length || !sentFollow)) {
           sentFollow = await telegram("sendMessage", {
             chat_id: chatId,
             reply_to_message_id: replyTarget,
             text: `${prefix}${escapeHtml(body)}`,
+            parse_mode: "HTML",
+          });
+        }
+
+        // Guaranteed fallback: If media delivery to Telegram failed or was skipped, ensure text message and links reach creator!
+        if (!sentFollow) {
+          let fallbackText = `${prefix}${escapeHtml(body || "Сообщение от пользователя")}`;
+          if (videos.length > 0 || photos.length > 0) {
+            fallbackText += `\n\n📎 <b>Файлы:</b>`;
+            for (const v of videos) {
+              if (v.signedUrl) {
+                fallbackText += `\n📹 <a href="${v.signedUrl}">Смотреть / скачать видео</a>`;
+              }
+            }
+            for (const p of photos) {
+              if (p.signedUrl) {
+                fallbackText += `\n🖼️ <a href="${p.signedUrl}">Открыть фото</a>`;
+              }
+            }
+          }
+          sentFollow = await telegram("sendMessage", {
+            chat_id: chatId,
+            reply_to_message_id: replyTarget,
+            text: fallbackText,
             parse_mode: "HTML",
           });
         }

@@ -3475,7 +3475,8 @@ class MainActivity : AppCompatActivity() {
 
     data class SupportPendingAttachment(
         val bitmap: Bitmap,
-        val base64: String,
+        val base64: String = "",
+        val rawBytes: ByteArray? = null,
         val mime: String,
         val isVideo: Boolean = false,
         val durationSec: Int = 0
@@ -3537,16 +3538,17 @@ class MainActivity : AppCompatActivity() {
 
                 val stream = contentResolver.openInputStream(uri) ?: return null
                 val bytes = stream.use { it.readBytes() }
-                if (bytes.isEmpty() || bytes.size > 35 * 1024 * 1024) {
-                    runOnUiThread { Toast.makeText(this, "Видео слишком большое (макс. 35 МБ)", Toast.LENGTH_SHORT).show() }
+                if (bytes.isEmpty() || bytes.size > 50 * 1024 * 1024) {
+                    runOnUiThread { Toast.makeText(this, "Видео слишком большое (макс. 50 МБ)", Toast.LENGTH_SHORT).show() }
                     return null
                 }
 
                 val finalMime = if (mimeType.isNotBlank()) mimeType else "video/mp4"
-                val b64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+                val b64 = if (bytes.size <= 8 * 1024 * 1024) Base64.encodeToString(bytes, Base64.NO_WRAP) else ""
                 SupportPendingAttachment(
                     bitmap = scaledThumb,
                     base64 = b64,
+                    rawBytes = bytes,
                     mime = finalMime,
                     isVideo = true,
                     durationSec = durationSec
@@ -3559,6 +3561,7 @@ class MainActivity : AppCompatActivity() {
             return SupportPendingAttachment(
                 bitmap = img.first,
                 base64 = img.second,
+                rawBytes = null,
                 mime = "image/jpeg",
                 isVideo = false
             )
@@ -3748,14 +3751,38 @@ class MainActivity : AppCompatActivity() {
             adapter.addMessage(userMsg)
             recycler.smoothScrollToPosition(supportMessages.size - 1)
 
-            val attachmentsPayload = toSend.map { it.base64 to it.mime }
+            val hasLargeMedia = toSend.any { it.isVideo }
+            if (hasLargeMedia) {
+                Toast.makeText(this, "Отправка видео создателю...", Toast.LENGTH_SHORT).show()
+            }
+
             lifecycleScope.launch {
-                val serverMsgId = supportService.sendMessage(
+                val items = mutableListOf<com.luma.browser.support.SupportAttachmentItem>()
+                for (att in toSend) {
+                    if (att.isVideo && att.rawBytes != null) {
+                        // High-speed direct upload to Supabase Storage signed upload URL
+                        val storagePath = supportService.uploadDirect(att.rawBytes, att.mime)
+                        if (storagePath != null) {
+                            items.add(com.luma.browser.support.SupportAttachmentItem(storagePath = storagePath, mime = att.mime, isVideo = true))
+                        } else if (att.base64.isNotBlank()) {
+                            items.add(com.luma.browser.support.SupportAttachmentItem(base64 = att.base64, mime = att.mime, isVideo = true))
+                        } else {
+                            val b64 = Base64.encodeToString(att.rawBytes, Base64.NO_WRAP)
+                            items.add(com.luma.browser.support.SupportAttachmentItem(base64 = b64, mime = att.mime, isVideo = true))
+                        }
+                    } else if (att.base64.isNotBlank()) {
+                        items.add(com.luma.browser.support.SupportAttachmentItem(base64 = att.base64, mime = att.mime, isVideo = false))
+                    }
+                }
+
+                val serverMsgId = supportService.sendMessageWithItems(
                     text = text,
-                    attachments = attachmentsPayload
+                    items = items
                 )
                 if (!serverMsgId.isNullOrBlank()) {
                     userMsg.id = serverMsgId
+                } else {
+                    Toast.makeText(this@MainActivity, "Не удалось отправить сообщение. Повторите попытку", Toast.LENGTH_LONG).show()
                 }
             }
         }
