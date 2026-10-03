@@ -145,10 +145,10 @@ public partial class MainWindow
             if (kind == "luma-history-remove" && settingsPage)
             {
                 var id = root.TryGetProperty("id", out value) ? value.GetString() : null;
-                if (!string.IsNullOrWhiteSpace(id)) Dispatcher.Invoke(() => { _state.History.RemoveAll(h => h.Id == id); _stateStore.Save(); });
+                if (!string.IsNullOrWhiteSpace(id)) Dispatcher.Invoke(() => { _state.History.RemoveAll(h => h.Id == id); _stateStore.Save(); RefreshHistoryView(); });
                 return;
             }
-            if (kind == "luma-history-clear" && settingsPage) { Dispatcher.Invoke(() => { _state.History.Clear(); _stateStore.Save(); }); return; }
+            if (kind == "luma-history-clear" && settingsPage) { Dispatcher.Invoke(() => { _state.History.Clear(); _stateStore.Save(); RefreshHistoryView(); }); return; }
             if (kind == "luma-import-csv")
             {
                 if (!importPage || ((App)Application.Current).IsPrivateSession) { App.Warn("Blocked CSV import message"); return; }

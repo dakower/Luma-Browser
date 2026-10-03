@@ -140,7 +140,7 @@ object PageTools {
                     acceptNode: function(n) {
                         const p = n.parentElement;
                         const t = (n.nodeValue || '').trim();
-                        if (!p || !t || t.length < 2 || ['SCRIPT','STYLE','NOSCRIPT','TEXTAREA','CODE','PRE','OPTION'].includes(p.tagName) || p.closest('[contenteditable="true"],.notranslate,[translate="no"]') || window.__lumaTranslatedNodes.has(n)) {
+                        if (!p || !t || t.length < 2 || ['SCRIPT','STYLE','NOSCRIPT','TEXTAREA','CODE','PRE','OPTION'].includes(p.tagName) || p.closest('[contenteditable="true"]') || window.__lumaTranslatedNodes.has(n)) {
                             return NodeFilter.FILTER_REJECT;
                         }
                         return NodeFilter.FILTER_ACCEPT;
@@ -151,7 +151,7 @@ object PageTools {
                     nodes.push(n);
                 }
                 window.__lumaTranslationNodes = nodes;
-                return JSON.stringify(nodes.map(n => (n.nodeValue || '').trim()));
+                return nodes.map(n => (n.nodeValue || '').trim());
             })();
         """.trimIndent()
 
@@ -161,16 +161,26 @@ object PageTools {
             }
         }
 
-        if (rawTextsJson.isNullOrBlank() || rawTextsJson == "null" || rawTextsJson == "\"[]\"") {
+        if (rawTextsJson.isNullOrBlank() || rawTextsJson == "null" || rawTextsJson == "\"[]\"" || rawTextsJson == "[]") {
             onStatus?.invoke("Текст для перевода не найден")
             return@withContext
         }
 
-        val jsonStr = if (rawTextsJson.startsWith("\"") && rawTextsJson.endsWith("\"")) {
-            try { JSONTokener(rawTextsJson).nextValue().toString() } catch (_: Exception) { rawTextsJson }
-        } else rawTextsJson
-
-        val textsArray = try { JSONArray(jsonStr) } catch (_: Exception) { return@withContext }
+        val textsArray = try {
+            val trimmed = rawTextsJson.trim()
+            if (trimmed.startsWith("\"") && trimmed.endsWith("\"")) {
+                val parsed = JSONTokener(trimmed).nextValue().toString()
+                try { JSONArray(parsed) } catch (_: Exception) { JSONArray(trimmed) }
+            } else {
+                JSONArray(trimmed)
+            }
+        } catch (_: Exception) {
+            try {
+                JSONArray(rawTextsJson)
+            } catch (_: Exception) {
+                return@withContext
+            }
+        }
         val texts = (0 until textsArray.length()).map { textsArray.getString(it) }
         if (texts.isEmpty()) return@withContext
 

@@ -35,14 +35,33 @@ Deno.serve(async (request) => {
       // default to windows
     }
 
+    const reqUrl = new URL(request.url);
+    const wantsJson = request.method === "POST" ||
+      reqUrl.searchParams.get("format") === "json" ||
+      (request.headers.get("accept")?.includes("application/json") ?? false);
+
+    function respondWithUrl(downloadUrl: string, plat: string, file: string) {
+      if (!wantsJson && request.method === "GET") {
+        return new Response(null, {
+          status: 302,
+          headers: {
+            ...cors,
+            "Location": downloadUrl,
+            "Cache-Control": "no-store"
+          }
+        });
+      }
+      return new Response(JSON.stringify({ downloadUrl, platform: plat, file }), {
+        headers: { ...cors, "Content-Type": "application/json", "Cache-Control": "no-store" }
+      });
+    }
+
     // Android Beta is public! Anyone visiting the website can download the APK
     if (platform === "android" || platform === "apk") {
       const file = Deno.env.get("BETA_ANDROID_PATH") ?? "android/Luma-2.1.4-Android.apk";
-      const { data, error } = await admin.storage.from("beta-installers").createSignedUrl(file, 3600, { download: "Luma-2.1.4-Android.apk" });
+      const { data, error } = await admin.storage.from("beta-installers").createSignedUrl(file, 7200, { download: "Luma-2.1.4-Android.apk" });
       if (error) throw error;
-      return new Response(JSON.stringify({ downloadUrl: data.signedUrl, platform: "android", file }), {
-        headers: { ...cors, "Content-Type": "application/json", "Cache-Control": "no-store" }
-      });
+      return respondWithUrl(data.signedUrl, "android", file);
     }
 
     if (platform === "get_upload_url") {
@@ -74,9 +93,7 @@ Deno.serve(async (request) => {
           Key: r2File,
           ResponseContentDisposition: 'attachment; filename="LumaSetup-Beta-x64.exe"'
         }), { expiresIn: 7200 });
-        return new Response(JSON.stringify({ downloadUrl: packageUrl, platform: "windows", file: r2File }), {
-          headers: { ...cors, "Content-Type": "application/json", "Cache-Control": "no-store" }
-        });
+        return respondWithUrl(packageUrl, "windows", r2File);
       } catch (r2Err) {
         console.warn("R2 presign failed, falling back to Supabase storage", r2Err);
       }
@@ -85,9 +102,7 @@ Deno.serve(async (request) => {
     const file = Deno.env.get("BETA_INSTALLER_PATH") ?? "windows/LumaSetup-Beta-x64.exe";
     const { data, error } = await admin.storage.from("beta-installers").createSignedUrl(file, 7200, { download: "LumaSetup-Beta-x64.exe" });
     if (error) throw error;
-    return new Response(JSON.stringify({ downloadUrl: data.signedUrl, platform: "windows", file }), {
-      headers: { ...cors, "Content-Type": "application/json", "Cache-Control": "no-store" }
-    });
+    return respondWithUrl(data.signedUrl, "windows", file);
   } catch (error) {
     return new Response(JSON.stringify({ error: String(error) }), {
       status: 500,

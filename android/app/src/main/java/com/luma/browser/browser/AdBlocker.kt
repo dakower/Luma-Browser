@@ -46,6 +46,9 @@ object AdBlocker {
 
     fun isAd(host: String): Boolean {
         val cleanHost = host.lowercase().removePrefix("www.")
+        if (cleanHost == "google.com" || cleanHost.endsWith(".google.com") || cleanHost.endsWith(".gstatic.com") || cleanHost.endsWith(".googleapis.com")) {
+            return false
+        }
         if (blockedHosts.contains(cleanHost)) return true
         // Check parent domains
         var dotIdx = cleanHost.indexOf('.')

@@ -277,13 +277,31 @@ class LumaSupportService {
                     bodyText = vidRegex.replace(bodyText, "").trim()
                 }
 
+                val createdAtStr = obj.optString("created_at", "")
+                val parsedTime = if (createdAtStr.isNotBlank()) {
+                    try {
+                        java.time.Instant.parse(createdAtStr).toEpochMilli()
+                    } catch (_: Exception) {
+                        try {
+                            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US).apply {
+                                timeZone = java.util.TimeZone.getTimeZone("UTC")
+                            }
+                            sdf.parse(createdAtStr.take(19))?.time ?: System.currentTimeMillis()
+                        } catch (_: Exception) {
+                            System.currentTimeMillis()
+                        }
+                    }
+                } else {
+                    System.currentTimeMillis()
+                }
+
                 SupportChatMessage(
                     id = obj.optString("id", UUID.randomUUID().toString()),
                     isUser = obj.optString("sender_type", "user") == "user",
                     text = bodyText,
                     imageUrls = foundUrls,
                     videoUrls = foundVideoUrls,
-                    timestamp = System.currentTimeMillis()
+                    timestamp = parsedTime
                 )
             }
         } catch (_: Exception) { emptyList() }

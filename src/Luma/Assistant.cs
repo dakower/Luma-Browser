@@ -32,6 +32,15 @@ public sealed class AssistantQuota
 }
 
 /// <summary>
+/// One browser-agent task. The relay charges the first model call of a task and hands back a
+/// signed run token; later steps of the same task send it and are not charged again.
+/// </summary>
+public sealed class AssistantAgentSession
+{
+    public string? Token { get; set; }
+}
+
+/// <summary>
 /// Authenticated streaming client for the Supabase relay. Provider credentials and quota logic
 /// stay server-side; the desktop app only sends the signed-in user's short-lived JWT.
 /// </summary>
@@ -93,14 +102,20 @@ public static class AssistantClient
         string tier,
         IEnumerable<AssistantMessage> messages,
         Func<string, Task> onDelta,
-        CancellationToken token)
+        CancellationToken token,
+        AssistantAgentSession? agent = null)
     {
-        var payload = new
+        var payload = new Dictionary<string, object?>
         {
-            model = tier is "pro" ? "pro" : "fast",
-            stream = true,
-            messages = messages.Select(message => new { role = message.Role, content = BuildContent(message) }).ToArray(),
+            ["model"] = tier is "pro" ? "pro" : "fast",
+            ["stream"] = true,
+            ["messages"] = messages.Select(message => new { role = message.Role, content = BuildContent(message) }).ToArray(),
         };
+        if (agent is not null)
+        {
+            payload["agent"] = true;
+            if (!string.IsNullOrWhiteSpace(agent.Token)) payload["agent_token"] = agent.Token;
+        }
         using var request = new HttpRequestMessage(HttpMethod.Post, Authentication.SupabaseOptions.ProjectUrl + "/functions/v1/luma-assistant")
         {
             Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"),
@@ -116,6 +131,11 @@ public static class AssistantClient
             throw new InvalidOperationException(Explain((int)response.StatusCode, body));
         }
 
+        if (agent is not null && response.Headers.TryGetValues("X-Luma-Agent-Token", out var agentTokens))
+        {
+            var issued = agentTokens.FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(issued)) agent.Token = issued;
+        }
         var quota = ReadQuota(response);
         using var stream = await response.Content.ReadAsStreamAsync(token);
         using var reader = new StreamReader(stream, Encoding.UTF8);

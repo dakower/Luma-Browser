@@ -86,6 +86,20 @@ class AiChatAdapter(private val messages: MutableList<AiMessage>) :
         if (msg.imageBitmap != null) {
             holder.image.visibility = View.VISIBLE
             holder.image.setImageBitmap(msg.imageBitmap)
+        } else if (!msg.imageBase64.isNullOrBlank()) {
+            try {
+                val clean = msg.imageBase64.substringAfter("base64,")
+                val bytes = android.util.Base64.decode(clean, android.util.Base64.DEFAULT)
+                val bmp = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                if (bmp != null) {
+                    holder.image.visibility = View.VISIBLE
+                    holder.image.setImageBitmap(bmp)
+                } else {
+                    holder.image.visibility = View.GONE
+                }
+            } catch (_: Exception) {
+                holder.image.visibility = View.GONE
+            }
         } else {
             holder.image.visibility = View.GONE
         }

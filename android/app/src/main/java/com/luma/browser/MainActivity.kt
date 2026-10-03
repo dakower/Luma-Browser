@@ -532,6 +532,12 @@ class MainActivity : AppCompatActivity() {
             dismissCircleToSearch()
         }
 
+        if (prefs.isLoggedIn) {
+            lifecycleScope.launch {
+                aiService.syncQuotaAndRole()
+            }
+        }
+
         updateBottomBarState()
     }
 
@@ -565,6 +571,10 @@ class MainActivity : AppCompatActivity() {
             setUserAgentString(if (prefs.desktopMode) getDesktopUserAgent() else getMobileUserAgent())
             cacheMode = WebSettings.LOAD_DEFAULT
         }
+
+        val cookieManager = android.webkit.CookieManager.getInstance()
+        cookieManager.setAcceptCookie(true)
+        cookieManager.setAcceptThirdPartyCookies(webView, true)
 
         webView.webViewClient = LumaWebViewClient()
         webView.webChromeClient = LumaWebChromeClient()
@@ -2521,7 +2531,8 @@ class MainActivity : AppCompatActivity() {
 
         val quotaBadge = view.findViewById<TextView>(R.id.aiQuotaBadge)
         fun updateQuotaBadge() {
-            if (prefs.isUnlimitedAi || prefs.userRole.equals("admin", ignoreCase = true)) {
+            val isTester = prefs.userRole.equals("tester", ignoreCase = true) || prefs.userRole.equals("beta", ignoreCase = true)
+            if (prefs.isUnlimitedAi || prefs.userRole.equals("admin", ignoreCase = true) || isTester) {
                 quotaBadge.text = "✨ ∞"
                 quotaBadge.setTextColor(0xFF7EE787.toInt())
             } else {
@@ -2531,6 +2542,11 @@ class MainActivity : AppCompatActivity() {
             }
         }
         updateQuotaBadge()
+        lifecycleScope.launch {
+            if (aiService.syncQuotaAndRole()) {
+                updateQuotaBadge()
+            }
+        }
         quotaBadge.setOnClickListener { showAccountSheet() }
 
         fun sendUserQuery(prompt: String) {
@@ -2720,9 +2736,13 @@ class MainActivity : AppCompatActivity() {
                 displayNameText.text = prefs.displayName.ifBlank { prefs.email.substringBefore('@') }
                 emailText.text = prefs.email
                 val isAdmin = prefs.userRole.equals("admin", ignoreCase = true)
+                val isTester = prefs.userRole.equals("tester", ignoreCase = true) || prefs.userRole.equals("beta", ignoreCase = true)
                 if (isAdmin) {
                     statusBadge.text = "Создатель"
                     statusBadge.setTextColor(0xFFFF7EB3.toInt())
+                } else if (isTester) {
+                    statusBadge.text = "Тестер • Безлимит"
+                    statusBadge.setTextColor(0xFF7EE787.toInt())
                 } else if (prefs.isUnlimitedAi) {
                     statusBadge.text = "VIP • Безлимит"
                     statusBadge.setTextColor(0xFF7EE787.toInt())
@@ -2731,7 +2751,7 @@ class MainActivity : AppCompatActivity() {
                     statusBadge.setTextColor(0xFFB490FF.toInt())
                 }
 
-                if (isAdmin || prefs.isUnlimitedAi) {
+                if (isAdmin || isTester || prefs.isUnlimitedAi) {
                     quotaText.text = "Безлимитный доступ (∞)"
                     quotaText.setTextColor(0xFF7EE787.toInt())
                     quotaType.text = "Безлимит"
@@ -2761,6 +2781,13 @@ class MainActivity : AppCompatActivity() {
             updateHomeAccountButton()
         }
         updateUi()
+        if (prefs.isLoggedIn) {
+            lifecycleScope.launch {
+                if (aiService.syncQuotaAndRole()) {
+                    updateUi()
+                }
+            }
+        }
 
         btnClose.setOnClickListener { dialog.dismiss() }
 
@@ -2833,11 +2860,12 @@ class MainActivity : AppCompatActivity() {
                                 val role = prof.optString("role", "user")
                                 prefs.userRole = role
                                 val isVip = prof.optBoolean("is_vip", false)
-                                val unlimited = prof.optBoolean("unlimited_ai", false)
-                                if (role.equals("admin", ignoreCase = true) || isVip || unlimited) {
+                                val unl = prof.optBoolean("unlimited_ai", false)
+                                if (role.equals("admin", true) || role.equals("tester", true) || role.equals("beta", true) || isVip || unl) {
                                     prefs.isUnlimitedAi = true
                                 }
                             }
+                            aiService.syncQuotaAndRole()
                         } catch (_: Exception) {}
 
                         withContext(Dispatchers.Main) {
@@ -3799,12 +3827,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun getMobileUserAgent() =
-        "Mozilla/5.0 (Linux; Android ${Build.VERSION.RELEASE}; ${Build.MODEL}) " +
-        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36 Luma/2.1.4"
+        "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
 
     private fun getDesktopUserAgent() =
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
-        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Luma/2.1.4"
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
 
     private fun hideKeyboard() {
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager

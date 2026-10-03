@@ -208,7 +208,7 @@ class LumaPreferences private constructor(context: Context) {
         set(v) = safeSet { putString("ai_quota_date", v) }
 
     fun getRemainingAiQuota(): Int {
-        if (isUnlimitedAi || userRole.equals("admin", ignoreCase = true)) return 999
+        if (isUnlimitedAi || userRole.equals("admin", ignoreCase = true) || userRole.equals("tester", ignoreCase = true) || userRole.equals("beta", ignoreCase = true)) return 999
         val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
         if (aiQuotaDate != today) {
             aiQuotaDate = today
@@ -218,7 +218,7 @@ class LumaPreferences private constructor(context: Context) {
     }
 
     fun consumeAiQuota(): Boolean {
-        if (isUnlimitedAi || userRole.equals("admin", ignoreCase = true)) return true
+        if (isUnlimitedAi || userRole.equals("admin", ignoreCase = true) || userRole.equals("tester", ignoreCase = true) || userRole.equals("beta", ignoreCase = true)) return true
         val rem = getRemainingAiQuota()
         if (rem <= 0) return false
         aiQuotaUsed += 1

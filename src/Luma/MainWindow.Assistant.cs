@@ -494,6 +494,24 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>Web search used by the browser agent's <c>web_search</c> action.</summary>
+    internal async Task<List<(string Title, string Url, string Snippet)>> AgentWebSearchAsync(string query, CancellationToken token)
+    {
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(token);
+            cts.CancelAfter(TimeSpan.FromSeconds(12));
+            var run = await RunLocalLumaSearchAsync(query, "all", cts.Token);
+            return run.Results
+                .Where(r => !string.IsNullOrWhiteSpace(r.url))
+                .Select(r => (r.title, r.url, r.snippet))
+                .ToList();
+        }
+        catch (OperationCanceledException) when (!token.IsCancellationRequested) { return []; }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex) { App.Log(ex); return []; }
+    }
+
     private async Task RunAssistantActionsAsync(string answer)
     {
         var targets = AssistantActions.Parse(answer);
@@ -600,7 +618,10 @@ public partial class MainWindow
                 };
                 PostAssistant(new { kind = "context", text = "Luma Agent", meta = agentLabel });
 
-                await BrowserAgent.BrowserAgentRunner.ExecuteAgentTaskAsync(
+                var conversation = string.Join("\n", _assistantHistory.TakeLast(6)
+                    .Select(m => (m.Role == "user" ? "Пользователь: " : "LumaAI: ") + (m.Text.Length > 400 ? m.Text[..400] + "…" : m.Text)));
+
+                var agentAnswer = await BrowserAgent.BrowserAgentRunner.ExecuteAgentTaskAsync(
                     question,
                     this,
                     accessToken,
@@ -609,7 +630,20 @@ public partial class MainWindow
                     {
                         await Dispatcher.InvokeAsync(() => PostAssistant(new { kind = "delta", text = delta }));
                     },
-                    run.Token);
+                    run.Token,
+                    conversation,
+                    quota => Dispatcher.Invoke(() =>
+                    {
+                        _state.AssistantQuota.Limit = quota.Limit;
+                        _state.AssistantQuota.Used = quota.Used;
+                        _state.AssistantQuota.Remaining = quota.Remaining;
+                        _state.AssistantQuota.Unlimited = quota.Unlimited;
+                        _stateStore.Save();
+                        PostAssistant(new { kind = "quota", limit = quota.Limit, used = quota.Used, remaining = quota.Remaining, unlimited = quota.Unlimited });
+                    }));
+                _assistantHistory.Add(new AssistantMessage { Role = "user", Text = question });
+                if (!string.IsNullOrWhiteSpace(agentAnswer)) _assistantHistory.Add(new AssistantMessage { Role = "assistant", Text = agentAnswer });
+                while (_assistantHistory.Count > 30) _assistantHistory.RemoveAt(0);
                 PostAssistant(new { kind = "done" });
             }
             catch (OperationCanceledException) { PostAssistant(new { kind = "done" }); }
@@ -709,8 +743,11 @@ public partial class MainWindow
                 PostAssistant(new { kind = "choices", items = choices.Select(choice => new { label = choice.Label, prompt = choice.Prompt }).ToArray() });
             if (quota is not null)
             {
-                _state.AssistantQuota = new AssistantQuotaState { Limit = quota.Limit, Used = quota.Used,
-                    Remaining = quota.Remaining, Unlimited = quota.Unlimited, UpdatedAt = _clock.UtcNow };
+                _state.AssistantQuota.Limit = quota.Limit;
+                _state.AssistantQuota.Used = quota.Used;
+                _state.AssistantQuota.Remaining = quota.Remaining;
+                _state.AssistantQuota.Unlimited = quota.Unlimited;
+                _state.AssistantQuota.UpdatedAt = _clock.UtcNow;
                 _stateStore.Save();
                 PostAssistant(new { kind = "quota", limit = quota.Limit, used = quota.Used,
                     remaining = quota.Remaining, unlimited = quota.Unlimited });

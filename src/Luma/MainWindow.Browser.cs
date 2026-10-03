@@ -69,14 +69,10 @@ public partial class MainWindow
         _latestNavigationIds.Remove(view); _transientRetries.Remove(view); _lastDownloadStartedUtc.Remove(view);
     }
 
-    private static bool IsHardNetworkError(CoreWebView2WebErrorStatus status) => status is
-        CoreWebView2WebErrorStatus.CannotConnect
-        or CoreWebView2WebErrorStatus.HostNameNotResolved
+    private static bool IsHardNetworkError(CoreWebView2WebErrorStatus status) =>
+        status is CoreWebView2WebErrorStatus.HostNameNotResolved
         or CoreWebView2WebErrorStatus.Disconnected
-        or CoreWebView2WebErrorStatus.Timeout
-        or CoreWebView2WebErrorStatus.ServerUnreachable
-        or CoreWebView2WebErrorStatus.ConnectionReset
-        or CoreWebView2WebErrorStatus.ConnectionAborted;
+        || !System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable();
 
     private static async Task<bool> PageHasRenderedContentAsync(WebView2 view)
     {
@@ -537,23 +533,27 @@ public partial class MainWindow
                 var source = view.Source?.ToString() ?? "";
                 var engineErrorPage = source.StartsWith("chrome-error://", StringComparison.OrdinalIgnoreCase)
                     || source.StartsWith("edge-error://", StringComparison.OrdinalIgnoreCase);
-                if ((!args.IsSuccess || engineErrorPage) && !tab.IsInternal)
+                if (!args.IsSuccess && !tab.IsInternal)
                 {
-                    // 0) Engine error pages carry no useful status; treat "unknown" ones as transient below.
                     // 1) The navigation was replaced by a newer one (redirect, click, reload):
                     //    its failure is meaningless, the newer navigation decides what to show.
                     if (_latestNavigationIds.TryGetValue(view, out var latestId) && args.NavigationId != latestId) return;
-                    // 2) Cancelled by the user/engine, or turned into a file download: not an error.
-                    if (args.WebErrorStatus == CoreWebView2WebErrorStatus.OperationCanceled) return;
+                    // 2) Cancelled by user/engine, in-page abort, keep-alive reset, or file download: not an error.
+                    if (args.WebErrorStatus is CoreWebView2WebErrorStatus.OperationCanceled
+                        or CoreWebView2WebErrorStatus.ConnectionAborted
+                        or CoreWebView2WebErrorStatus.ConnectionReset) return;
                     if (_lastDownloadStartedUtc.TryGetValue(view, out var downloadAt) && (DateTime.UtcNow - downloadAt).TotalSeconds < 5) return;
 
                     var failedUrl = _pendingNavigationUrls.TryGetValue(view, out var requestedUrl)
                         ? requestedUrl
                         : ReferenceEquals(tab.SecondaryView, view) ? tab.SecondaryUrl : tab.FullUrl;
 
-                    // 3) Only show custom error overlay for HARD connection errors (blocked host, DNS fail, connection refused, offline)
-                    //    Ignore Unknown, OperationCanceled, and minor subresource/HTTP stream errors.
-                    if (!IsHardNetworkError(args.WebErrorStatus) && !engineErrorPage) return;
+                    // 3) Only show custom error overlay EXCLUSIVELY for:
+                    //    - HostNameNotResolved (DNS failed: cannot find domain/site)
+                    //    - Disconnected (network connection completely disconnected)
+                    //    - or physical network interface is completely down.
+                    //    Never show on aborted clicks, timeouts, resets, or engine pages.
+                    if (!IsHardNetworkError(args.WebErrorStatus)) return;
 
                     // 4) If the page ALREADY rendered content or site error page, do NOT wipe it out!
                     if (await PageHasRenderedContentAsync(view)) return;
