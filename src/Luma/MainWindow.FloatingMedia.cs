@@ -27,12 +27,16 @@ public partial class MainWindow
     {
         if (_closing) return;
         var current = CurrentTab;
-        var core = current?.ActiveView.CoreWebView2;
+        if (current is null) return;
         var actuallyFullscreen = false;
-        try { actuallyFullscreen = core?.ContainsFullScreenElement == true; }
+        try
+        {
+            var core = current.ActiveView?.CoreWebView2;
+            actuallyFullscreen = core?.ContainsFullScreenElement == true;
+        }
         catch (Exception ex) { App.Log(ex); }
         if (_fullscreen && !actuallyFullscreen) SetFullscreen(false);
-        if (_state.FloatingVideoEnabled && actuallyFullscreen && current is not null)
+        if (_state.FloatingVideoEnabled && actuallyFullscreen)
         {
             HideFloatingMusic();
             if (!_floatingVideoRequested)
@@ -54,7 +58,8 @@ public partial class MainWindow
     /// </summary>
     private async Task OpenFloatingVideoAsync(BrowserTab tab)
     {
-        var core = tab.ActiveView.CoreWebView2;
+        CoreWebView2? core = null;
+        try { core = tab.ActiveView?.CoreWebView2; } catch { }
         if (core is null) { _floatingVideoRequested = false; return; }
         try
         {

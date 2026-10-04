@@ -194,6 +194,23 @@ public partial class MainWindow
         var geometry = (Geometry)FindResource(playIcon);
         NowPlayingToggleIcon.Data = geometry;
         NowPlayingToggleIconPopup.Data = geometry;
+        try
+        {
+            if (NowPlayingPillProgress is not null && NowPlayingWidget is not null)
+            {
+                var targetWidth = Math.Clamp(tab.MediaProgress, 0, 1) * Math.Max(0, NowPlayingWidget.ActualWidth - 24);
+                NowPlayingPillProgress.Width = targetWidth;
+            }
+            if (tab.MediaPlaying)
+            {
+                AnimateEqualizer(true);
+            }
+            else
+            {
+                AnimateEqualizer(false);
+            }
+        }
+        catch { }
         if (HomeMediaCard is not null)
         {
             HomeMediaCard.Visibility = _state.HomeShowMedia ? Visibility.Visible : Visibility.Collapsed;
@@ -214,6 +231,38 @@ public partial class MainWindow
             }
         }
         _floatingMusic?.Update(tab);
+    }
+
+    private bool _equalizerRunning;
+    private void AnimateEqualizer(bool play)
+    {
+        if (EqBar1 is null || EqBar2 is null || EqBar3 is null) return;
+        if (!play)
+        {
+            _equalizerRunning = false;
+            EqBar1.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+            EqBar2.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+            EqBar3.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+            EqBar1.ScaleY = 0.3;
+            EqBar2.ScaleY = 0.3;
+            EqBar3.ScaleY = 0.3;
+            return;
+        }
+        if (_equalizerRunning) return;
+        _equalizerRunning = true;
+        void StartBar(ScaleTransform st, double from, double to, int ms)
+        {
+            var anim = new DoubleAnimation(from, to, new Duration(TimeSpan.FromMilliseconds(ms)))
+            {
+                AutoReverse = true,
+                RepeatBehavior = RepeatBehavior.Forever,
+                EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
+            };
+            st.BeginAnimation(ScaleTransform.ScaleYProperty, anim);
+        }
+        StartBar(EqBar1, 0.25, 0.95, 380);
+        StartBar(EqBar2, 0.4, 1.0, 270);
+        StartBar(EqBar3, 0.2, 0.85, 430);
     }
 
     /// <summary>Sends a control command to whichever tab's page script is currently driving <see cref="_nowPlaying"/>.</summary>

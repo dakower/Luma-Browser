@@ -128,6 +128,7 @@ public partial class MainWindow
             AssistantHost.Children.Add(view);
             await view.EnsureCoreWebView2Async(await BrowserEnvironmentAsync());
             var core = view.CoreWebView2;
+            core.ProcessFailed += (_, e) => { App.Log(new Exception($"Assistant ProcessFailed: {e.ProcessFailedKind}")); };
             AttachWebInterfaceLocalization(view);
             core.Settings.AreDefaultContextMenusEnabled = false;
             await core.AddScriptToExecuteOnDocumentCreatedAsync(BrowserScripts.Scrollbars(CurrentAccentCss()));
@@ -147,8 +148,12 @@ public partial class MainWindow
 
     private void PostAssistant(object payload)
     {
-        if (_assistantView?.CoreWebView2 is null) return;
-        try { _assistantView.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(payload)); } catch { }
+        try
+        {
+            if (_assistantView?.CoreWebView2 is { } core)
+                core.PostWebMessageAsJson(JsonSerializer.Serialize(payload));
+        }
+        catch { }
     }
 
     /// <summary>Shows which page the assistant is currently looking at.</summary>
@@ -158,17 +163,24 @@ public partial class MainWindow
         var tab = CurrentTab;
         var label = tab is null ? "Нет активной вкладки" : Domain(tab.ActiveUrl);
         PostAssistant(new { kind = "context", text = label, meta = "Контекст вкладки подключён", preview = "LumaAI видит текст и изображения активной вкладки." });
-        if (tab?.ActiveView.CoreWebView2 is null) return;
-        var expectedId = tab.Id;
-        var page = await ReadPageContextAsync();
-        if (!_assistantReady || CurrentTab?.Id != expectedId) return;
-        var preview = !string.IsNullOrWhiteSpace(page.Selection)
-            ? "«" + page.Selection.Replace("\r", " ").Replace("\n", " ")[..Math.Min(page.Selection.Length, 180)] + (page.Selection.Length > 180 ? "…»" : "»")
-            : !string.IsNullOrWhiteSpace(page.Text)
-                ? page.Text.Replace("\r", " ").Replace("\n", " ")[..Math.Min(page.Text.Length, 180)] + (page.Text.Length > 180 ? "…" : "")
-                : "LumaAI видит снимок активной вкладки.";
-        var meta = !string.IsNullOrWhiteSpace(page.Selection) ? $"{page.Selection.Length} символов выделено" : "Текст и изображения вкладки";
-        PostAssistant(new { kind = "context", text = label, meta, preview });
+        try
+        {
+            if (tab?.ActiveView?.CoreWebView2 is null) return;
+            var expectedId = tab.Id;
+            var page = await ReadPageContextAsync();
+            if (!_assistantReady || CurrentTab?.Id != expectedId) return;
+            var preview = !string.IsNullOrWhiteSpace(page.Selection)
+                ? "«" + page.Selection.Replace("\r", " ").Replace("\n", " ")[..Math.Min(page.Selection.Length, 180)] + (page.Selection.Length > 180 ? "…»" : "»")
+                : !string.IsNullOrWhiteSpace(page.Text)
+                    ? page.Text.Replace("\r", " ").Replace("\n", " ")[..Math.Min(page.Text.Length, 180)] + (page.Text.Length > 180 ? "…" : "")
+                    : "LumaAI видит снимок активной вкладки.";
+            var meta = !string.IsNullOrWhiteSpace(page.Selection) ? $"{page.Selection.Length} символов выделено" : "Текст и изображения вкладки";
+            PostAssistant(new { kind = "context", text = label, meta, preview });
+        }
+        catch (Exception ex)
+        {
+            App.Log(ex);
+        }
     }
 
     private void ReceiveAssistantMessage(string json)

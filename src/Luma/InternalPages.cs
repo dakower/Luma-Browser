@@ -112,6 +112,7 @@ public static class InternalPages
                 state.PageScale,
                 state.DownloadPath,
                 theme,
+                Extensions = ExtensionManager.Extensions,
                 History = state.History
                     .OrderByDescending(h => h.VisitedAt)
                     .Take(1000)

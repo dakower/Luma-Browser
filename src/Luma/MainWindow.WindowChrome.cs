@@ -211,7 +211,7 @@ public partial class MainWindow
     }
     private void CloseTransientUi() { foreach (var p in Popups()) p.IsOpen = false; _openMenu?.SetCurrentValue(ContextMenu.IsOpenProperty, false); if (_homeSupportOpen) CloseSupportChat(); }
     private void CloseMenusExcept(Popup keep) { foreach (var p in Popups()) if (p != keep) p.IsOpen = false; _openMenu?.SetCurrentValue(ContextMenu.IsOpenProperty, false); }
-    private Popup[] Popups() => [SearchPopup, SiteMenuPopup, TranslatePopup, SplitPopup, DeleteFolderPopup, ConfirmPopup, MainMenuPopup, NewSpacePopup, NewFolderPopup, HistoryPopup, DownloadPopup];
+    private Popup[] Popups() => [SearchPopup, SiteMenuPopup, TranslatePopup, SplitPopup, DeleteFolderPopup, ConfirmPopup, MainMenuPopup, NewSpacePopup, NewFolderPopup, HistoryPopup, DownloadPopup, ExtensionsPopup, ExtensionPromptPopup];
     // Every toast uses the same fixed card width, so they always line up in the same
     // spot at the top-right corner of the page area instead of drifting with their text.
     private const double ToastWidth = 300, ToastMargin = 16;

@@ -619,5 +619,207 @@ public static class BrowserScripts
     })()
     """;
 
+    /// <summary>Customizes Chrome Web Store and Microsoft Edge Add-ons buttons to "Добавить в Luma" and intercepts installation requests.</summary>
+    public const string ChromeWebStoreScript = """
+    (() => { try {
+      const host = (location.hostname || '').toLowerCase();
+      const isChromeStore = host.includes('chromewebstore.google.com') || host.includes('chrome.google.com');
+      const isEdgeStore = host.includes('microsoftedge.microsoft.com') || host.includes('edge.microsoft.com');
+      if (!isChromeStore && !isEdgeStore) return;
+
+      function extractInfo(details, fallbackId) {
+        let id = (details && details.id) ? details.id : fallbackId;
+        if (!id) {
+          const match = location.pathname.match(/\/detail\/(?:[^\/]+\/)?([a-z0-9]{32})/i) ||
+                        location.pathname.match(/\/detail\/([a-z0-9]+)/i);
+          if (match && match[1]) id = match[1];
+        }
+
+        let title = (details && details.localizedName) ? details.localizedName : '';
+        if (!title) {
+          const h1 = document.querySelector('h1');
+          if (h1) title = (h1.textContent || '').trim();
+        }
+        if (!title) title = (document.title || '').split(/[-–|]/)[0].trim();
+
+        let icon = (details && details.iconUrl) ? details.iconUrl : '';
+        if (!icon) {
+          const img = document.querySelector('img[src*="googleusercontent.com"], img[src*="chrome-extension"], #product-identity img, .identity-section img, img[src*="store-images"], img[src*="azurefd.net"]');
+          if (img) icon = img.src;
+        }
+
+        const manifest = (details && details.manifest) ? details.manifest : '';
+        return {
+          id: id || '',
+          title: title || 'Расширение',
+          icon: icon || '',
+          manifest: manifest,
+          source: isEdgeStore ? 'edge' : 'chrome'
+        };
+      }
+
+      function sendInstallPrompt(info) {
+        if (!info || !info.id) return;
+        try {
+          window.chrome.webview.postMessage({
+            kind: 'luma-prompt-install-extension',
+            id: info.id,
+            title: info.title,
+            icon: info.icon,
+            manifest: info.manifest || '',
+            source: info.source
+          });
+        } catch (e) {}
+      }
+
+      // 1. INTERCEPT CHROMIUM / EDGE NATIVE WEBSTORE APIS
+      // This completely suppresses Chromium's native "Добавить в Microsoft Edge?" dialog
+      // and eliminates the broken internal download ("Download interrupted")!
+      function hookWebstorePrivate() {
+        try {
+          if (!window.chrome) window.chrome = {};
+
+          function applyHooks(wp) {
+            if (!wp || wp.__lumaHooked) return;
+            try {
+              wp.__lumaHooked = true;
+
+              wp.beginInstallWithManifest3 = function(details, callback) {
+                window.__lumaEdgeCallback = callback;
+                const info = extractInfo(details, details ? details.id : '');
+                sendInstallPrompt(info);
+              };
+
+              wp.install = function(id, callback) {
+                window.__lumaEdgeCallback = callback;
+                const info = extractInfo(null, id);
+                sendInstallPrompt(info);
+              };
+
+              if (wp.completeInstall) {
+                wp.completeInstall = function(id, callback) {
+                  if (typeof callback === 'function') {
+                    try { callback(); } catch(e) {}
+                  }
+                };
+              }
+            } catch (ex) {}
+          }
+
+          if (window.chrome.webstorePrivate) {
+            applyHooks(window.chrome.webstorePrivate);
+          }
+
+          let currentWp = window.chrome.webstorePrivate;
+          try {
+            Object.defineProperty(window.chrome, 'webstorePrivate', {
+              get: () => currentWp,
+              set: (v) => {
+                currentWp = v;
+                applyHooks(v);
+              },
+              configurable: true,
+              enumerable: true
+            });
+          } catch(e) {}
+
+          // Polling fallback to guarantee webstorePrivate is hooked as soon as Chromium exposes it
+          setInterval(() => {
+            if (window.chrome && window.chrome.webstorePrivate && !window.chrome.webstorePrivate.__lumaHooked) {
+              applyHooks(window.chrome.webstorePrivate);
+            }
+          }, 60);
+        } catch (e) {}
+      }
+
+      hookWebstorePrivate();
+
+      // Callback handlers called by Luma C# after install or cancel
+      window.__lumaOnInstalled = function() {
+        if (window.__lumaEdgeCallback) {
+          try { window.__lumaEdgeCallback('success'); } catch(e) {}
+          window.__lumaEdgeCallback = null;
+        }
+        patchButtons(true);
+      };
+
+      window.__lumaOnCancelled = function() {
+        if (window.__lumaEdgeCallback) {
+          try { window.__lumaEdgeCallback('user_cancelled'); } catch(e) {}
+          window.__lumaEdgeCallback = null;
+        }
+      };
+
+      // 2. PATCH WEB STORE UI BUTTONS
+      function patchButtons(isInstalled) {
+        try {
+          const candidates = document.querySelectorAll('button, a[role="button"], div[role="button"], [id*="install" i], [id*="get" i]');
+          candidates.forEach(btn => {
+            if (isInstalled && btn.dataset.lumaPatched) {
+              const textSpan = btn.querySelector('.fui-Button__text, span, div') || btn;
+              textSpan.innerText = '✓ Добавлено в Luma';
+              btn.style.setProperty('background', 'linear-gradient(135deg, #10B981 0%, #059669 100%)', 'important');
+              btn.disabled = true;
+              return;
+            }
+
+            const txt = (btn.textContent || '').trim();
+            const btnId = (btn.id || '').toLowerCase();
+            const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
+
+            const isStoreBtn =
+              btnId === 'getorinstallbutton' ||
+              btnId.includes('installbutton') ||
+              aria.includes('получить') ||
+              aria.includes('get') ||
+              aria.includes('add to') ||
+              aria.includes('добавить') ||
+              txt.includes('Add to Chrome') ||
+              txt.includes('Установить в Chrome') ||
+              txt.includes('Добавить в Microsoft Edge') ||
+              txt.includes('Получить') ||
+              txt.includes('Get') ||
+              (txt === 'Установить' && !btn.dataset.lumaPatched);
+
+            if (isStoreBtn && !btn.dataset.lumaPatched) {
+              btn.dataset.lumaPatched = 'true';
+
+              // Custom Luma Modern Styling
+              btn.style.setProperty('background', 'linear-gradient(135deg, #8A7CF8 0%, #6353D8 100%)', 'important');
+              btn.style.setProperty('color', '#FFFFFF', 'important');
+              btn.style.setProperty('border-radius', '12px', 'important');
+              btn.style.setProperty('font-weight', '600', 'important');
+              btn.style.setProperty('box-shadow', '0 4px 16px rgba(138, 124, 248, 0.45)', 'important');
+              btn.style.setProperty('border', '1px solid rgba(255, 255, 255, 0.25)', 'important');
+              btn.style.setProperty('transition', 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)', 'important');
+              btn.style.setProperty('cursor', 'pointer', 'important');
+
+              const textSpan = btn.querySelector('.fui-Button__text, span, div') || btn;
+              if (textSpan && textSpan !== btn) textSpan.innerText = 'Добавить в Luma';
+              else btn.innerText = 'Добавить в Luma';
+
+              const clickHandler = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                const info = extractInfo(null, '');
+                sendInstallPrompt(info);
+              };
+
+              btn.addEventListener('click', clickHandler, true);
+              btn.onclick = clickHandler;
+            }
+          });
+        } catch (e) {}
+      }
+
+      patchButtons(false);
+      const obs = new MutationObserver(() => patchButtons(false));
+      obs.observe(document.body || document.documentElement, { childList: true, subtree: true });
+      setInterval(() => patchButtons(false), 900);
+    } catch (e) {} })()
+    """;
+
     private static string ReadResource(string name) { using var stream = typeof(BrowserScripts).Assembly.GetManifestResourceStream(name) ?? throw new InvalidOperationException($"Встроенный ресурс {name} не найден."); using var reader = new StreamReader(stream, Encoding.UTF8, true); return reader.ReadToEnd(); }
 }
+

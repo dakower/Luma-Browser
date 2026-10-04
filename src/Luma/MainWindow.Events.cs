@@ -420,7 +420,7 @@ public partial class MainWindow
     private void DefaultBrowser_Click(object sender, RoutedEventArgs e) { CloseTransientUi(); BrowserRegistry.OpenDefaultAppsSettings(); }
     private async void CheckUpdates_Click(object sender, RoutedEventArgs e) { CloseTransientUi(); await CheckForUpdatesManuallyAsync(); }
     private async void AboutMenu_Click(object sender, RoutedEventArgs e) { CloseTransientUi(); await OpenAboutAsync(); }
-    public static string AppVersion => System.Reflection.Assembly.GetExecutingAssembly().GetName().Version is { } v ? $"{v.Major}.{v.Minor}.{v.Build}" : "2.1.4";
+    public static string AppVersion => System.Reflection.Assembly.GetExecutingAssembly().GetName().Version is { } v ? $"{v.Major}.{v.Minor}.{v.Build}" : "2.1.5";
     private async void Import_Click(object sender, RoutedEventArgs e) { CloseTransientUi(); await OpenImportAsync(); }
     private void Exit_Click(object sender, RoutedEventArgs e) => ((App)Application.Current).ExitCompletely();
     // Kept for the WPF chrome, but the cursor poll above is what actually drives the reveal,
@@ -583,6 +583,615 @@ public partial class MainWindow
         // Open the navigation search popup pre-filled with the current URL, identical to
         // clicking the domain pill in the toolbar.
         OpenSearch(SearchPurpose.Navigate, CurrentTab?.ActiveUrl);
+    }
+
+    private void Extensions_Click(object sender, RoutedEventArgs e)
+    {
+        var open = !ExtensionsPopup.IsOpen;
+        CloseMenusExcept(ExtensionsPopup);
+        if (open)
+        {
+            AnimateExtensionsButton();
+            RenderExtensionsMenu();
+        }
+        ExtensionsPopup.IsOpen = open;
+    }
+
+    private void AnimateExtensionsButton()
+    {
+        if (ExtensionsButtonRotate is null) return;
+        var anim = new DoubleAnimation(0, 360, new Duration(TimeSpan.FromMilliseconds(420)))
+        {
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+        };
+        ExtensionsButtonRotate.BeginAnimation(RotateTransform.AngleProperty, anim);
+    }
+
+    private void ExtensionsPopup_Opened(object sender, EventArgs e)
+    {
+        if (ExtensionsCard is null) return;
+        ExtensionsCard.Opacity = 0;
+        ExtensionsCardScale.ScaleX = 0.92;
+        ExtensionsCardScale.ScaleY = 0.92;
+        ExtensionsCardShift.Y = -10;
+
+        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+        var fade = new DoubleAnimation(0, 1, new Duration(TimeSpan.FromMilliseconds(220))) { EasingFunction = ease };
+        var scaleX = new DoubleAnimation(0.92, 1.0, new Duration(TimeSpan.FromMilliseconds(260))) { EasingFunction = ease };
+        var scaleY = new DoubleAnimation(0.92, 1.0, new Duration(TimeSpan.FromMilliseconds(260))) { EasingFunction = ease };
+        var shift = new DoubleAnimation(-10, 0, new Duration(TimeSpan.FromMilliseconds(260))) { EasingFunction = ease };
+
+        ExtensionsCard.BeginAnimation(UIElement.OpacityProperty, fade);
+        ExtensionsCardScale.BeginAnimation(ScaleTransform.ScaleXProperty, scaleX);
+        ExtensionsCardScale.BeginAnimation(ScaleTransform.ScaleYProperty, scaleY);
+        ExtensionsCardShift.BeginAnimation(TranslateTransform.YProperty, shift);
+    }
+
+    private void RenderExtensionsMenu()
+    {
+        if (ExtensionsList is null || ExtensionsEmpty is null || ExtensionsSubtitle is null) return;
+        ExtensionsList.Children.Clear();
+        var extensions = ExtensionManager.Extensions.ToList();
+        var activeCount = extensions.Count(x => x.IsEnabled);
+
+        ExtensionsSubtitle.Text = extensions.Count == 0
+            ? "Нет установленных"
+            : $"{extensions.Count} {GetNounEnding(extensions.Count, "расширение", "расширения", "расширений")} ({activeCount} активных)";
+
+        if (extensions.Count == 0)
+        {
+            ExtensionsEmpty.Visibility = Visibility.Visible;
+            ExtensionsScroll.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        ExtensionsEmpty.Visibility = Visibility.Collapsed;
+        ExtensionsScroll.Visibility = Visibility.Visible;
+
+        var index = 0;
+        foreach (var ext in extensions)
+        {
+            var card = BuildExtensionRow(ext, index++);
+            ExtensionsList.Children.Add(card);
+        }
+    }
+
+    private static string GetNounEnding(int number, string one, string two, string five)
+    {
+        var n = Math.Abs(number) % 100;
+        var n1 = n % 10;
+        if (n > 10 && n < 20) return five;
+        if (n1 > 1 && n1 < 5) return two;
+        if (n1 == 1) return one;
+        return five;
+    }
+
+    private UIElement BuildExtensionRow(ExtensionMetadata ext, int index)
+    {
+        var info = ExtensionManager.ReadManifestInfo(ext);
+
+        var border = new Border
+        {
+            Margin = new Thickness(0, 0, 0, 7),
+            Padding = new Thickness(10, 8, 10, 8),
+            CornerRadius = new CornerRadius(14),
+            Background = TryFindResource("SurfaceBrush") as Brush ?? Brushes.Transparent,
+            BorderBrush = TryFindResource("BorderBrush") as Brush ?? Brushes.Transparent,
+            BorderThickness = new Thickness(1),
+            Opacity = 0,
+            RenderTransform = new TranslateTransform(0, 8)
+        };
+
+        // Hover effect
+        border.MouseEnter += (s, e) =>
+        {
+            border.Background = TryFindResource("SurfaceRaisedBrush") as Brush ?? border.Background;
+            border.BorderBrush = TryFindResource("AccentMutedBrush") as Brush ?? border.BorderBrush;
+        };
+        border.MouseLeave += (s, e) =>
+        {
+            border.Background = TryFindResource("SurfaceBrush") as Brush ?? border.Background;
+            border.BorderBrush = TryFindResource("BorderBrush") as Brush ?? border.BorderBrush;
+        };
+
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(38) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        // Icon
+        var iconHost = new Border
+        {
+            Width = 32,
+            Height = 32,
+            CornerRadius = new CornerRadius(10),
+            Background = TryFindResource("SurfaceInsetBrush") as Brush ?? Brushes.Transparent,
+            BorderBrush = TryFindResource("BorderBrush") as Brush ?? Brushes.Transparent,
+            BorderThickness = new Thickness(1),
+            HorizontalAlignment = WpfHorizontalAlignment.Left,
+            VerticalAlignment = WpfVerticalAlignment.Center
+        };
+
+        if (!string.IsNullOrWhiteSpace(info.IconPath) && File.Exists(info.IconPath))
+        {
+            try
+            {
+                var bmp = new BitmapImage();
+                bmp.BeginInit();
+                bmp.DecodePixelWidth = 64;
+                bmp.UriSource = new Uri(info.IconPath, UriKind.Absolute);
+                bmp.CacheOption = BitmapCacheOption.OnLoad;
+                bmp.EndInit();
+                bmp.Freeze();
+                iconHost.Child = new Image
+                {
+                    Source = bmp,
+                    Width = 20,
+                    Height = 20,
+                    Stretch = System.Windows.Media.Stretch.Uniform,
+                    HorizontalAlignment = WpfHorizontalAlignment.Center,
+                    VerticalAlignment = WpfVerticalAlignment.Center
+                };
+            }
+            catch
+            {
+                iconHost.Child = CreateDefaultExtensionIcon();
+            }
+        }
+        else
+        {
+            iconHost.Child = CreateDefaultExtensionIcon();
+        }
+        Grid.SetColumn(iconHost, 0);
+        grid.Children.Add(iconHost);
+
+        // Titles & Action clickable area
+        var textStack = new StackPanel
+        {
+            VerticalAlignment = WpfVerticalAlignment.Center,
+            Margin = new Thickness(8, 0, 8, 0),
+            Cursor = Cursors.Hand
+        };
+
+        var titleRow = new StackPanel { Orientation = Orientation.Horizontal };
+        var titleText = new TextBlock
+        {
+            Text = ext.Name,
+            Foreground = TryFindResource("ChromeText") as Brush ?? Brushes.White,
+            FontWeight = FontWeights.SemiBold,
+            FontSize = 12.5,
+            MaxWidth = 180,
+            TextTrimming = TextTrimming.CharacterEllipsis
+        };
+        var versionText = new TextBlock
+        {
+            Text = " v" + ext.Version,
+            Foreground = TryFindResource("ChromeMuted") as Brush ?? Brushes.Gray,
+            FontSize = 10,
+            Margin = new Thickness(4, 2, 0, 0),
+            VerticalAlignment = WpfVerticalAlignment.Center
+        };
+        titleRow.Children.Add(titleText);
+        titleRow.Children.Add(versionText);
+        textStack.Children.Add(titleRow);
+
+        var descText = new TextBlock
+        {
+            Text = string.IsNullOrWhiteSpace(ext.Description) ? (ext.IsEnabled ? "Активно" : "Отключено") : ext.Description,
+            Foreground = TryFindResource("ChromeMuted") as Brush ?? Brushes.Gray,
+            FontSize = 10,
+            Margin = new Thickness(0, 2, 0, 0),
+            MaxWidth = 200,
+            TextTrimming = TextTrimming.CharacterEllipsis
+        };
+        textStack.Children.Add(descText);
+
+        textStack.MouseLeftButtonUp += (s, e) =>
+        {
+            var targetUrl = info.TargetUrl;
+            if (!string.IsNullOrWhiteSpace(targetUrl))
+            {
+                _ = AddTabAsync(targetUrl);
+                ExtensionsPopup.IsOpen = false;
+            }
+            else
+            {
+                ShowToast(ext.Name, "Расширение активно и работает в фоновом режиме на веб-страницах");
+                ExtensionsPopup.IsOpen = false;
+            }
+        };
+
+        Grid.SetColumn(textStack, 1);
+        grid.Children.Add(textStack);
+
+        // Actions: Toggle switch + remove button
+        var actionsStack = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = WpfVerticalAlignment.Center
+        };
+
+        var toggle = new System.Windows.Controls.Primitives.ToggleButton
+        {
+            IsChecked = ext.IsEnabled,
+            Style = (TryFindResource("LumaSwitch") as Style) ?? (TryFindResource("LumaToggleSwitch") as Style),
+            Margin = new Thickness(0, 0, 6, 0),
+            ToolTip = ext.IsEnabled ? "Отключить расширение" : "Включить расширение",
+            Cursor = Cursors.Hand
+        };
+        toggle.Click += async (s, e) =>
+        {
+            e.Handled = true;
+            var enable = toggle.IsChecked == true;
+            var profile = CurrentTab?.ActiveView?.CoreWebView2?.Profile ?? ExtensionManager.Profile;
+            await ExtensionManager.ToggleExtensionAsync(profile, ext.Id, enable);
+            ext.IsEnabled = enable;
+            descText.Text = string.IsNullOrWhiteSpace(ext.Description) ? (enable ? "Активно" : "Отключено") : ext.Description;
+            toggle.ToolTip = enable ? "Отключить расширение" : "Включить расширение";
+        };
+        actionsStack.Children.Add(toggle);
+
+        var removeBtn = new Button
+        {
+            Style = TryFindResource("BareIconButton") as Style,
+            Width = 26,
+            Height = 26,
+            ToolTip = "Удалить расширение",
+            Cursor = Cursors.Hand
+        };
+        var removeIcon = new System.Windows.Shapes.Path
+        {
+            Width = 11,
+            Height = 11,
+            Stretch = System.Windows.Media.Stretch.Uniform,
+            Data = TryFindResource("IconTrash2") as Geometry,
+            Stroke = TryFindResource("ChromeMuted") as Brush ?? Brushes.Gray,
+            StrokeThickness = 1.8,
+            StrokeLineJoin = PenLineJoin.Round,
+            StrokeStartLineCap = PenLineCap.Round,
+            StrokeEndLineCap = PenLineCap.Round
+        };
+        removeBtn.Content = removeIcon;
+        removeBtn.Click += async (s, e) =>
+        {
+            e.Handled = true;
+            var profile = CurrentTab?.ActiveView?.CoreWebView2?.Profile ?? ExtensionManager.Profile;
+            await ExtensionManager.RemoveExtensionAsync(profile, ext.Id);
+            RenderExtensionsMenu();
+            ShowToast("Расширение удалено", ext.Name);
+        };
+        actionsStack.Children.Add(removeBtn);
+
+        Grid.SetColumn(actionsStack, 2);
+        grid.Children.Add(actionsStack);
+
+        border.Child = grid;
+
+        // Cascade entrance animation
+        var delay = TimeSpan.FromMilliseconds(40 + index * 35);
+        var fadeIn = new DoubleAnimation(0, 1, new Duration(TimeSpan.FromMilliseconds(220)))
+        {
+            BeginTime = delay,
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+        };
+        var slideIn = new DoubleAnimation(8, 0, new Duration(TimeSpan.FromMilliseconds(240)))
+        {
+            BeginTime = delay,
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+        };
+        border.BeginAnimation(UIElement.OpacityProperty, fadeIn);
+        ((TranslateTransform)border.RenderTransform).BeginAnimation(TranslateTransform.YProperty, slideIn);
+
+        return border;
+    }
+
+    private UIElement CreateDefaultExtensionIcon()
+    {
+        return new System.Windows.Shapes.Path
+        {
+            Width = 15,
+            Height = 15,
+            Stretch = System.Windows.Media.Stretch.Uniform,
+            Data = TryFindResource("IconPuzzle") as Geometry,
+            Stroke = TryFindResource("AccentMutedBrush") as Brush ?? Brushes.MediumPurple,
+            StrokeThickness = 1.8,
+            StrokeLineJoin = PenLineJoin.Round,
+            StrokeStartLineCap = PenLineCap.Round,
+            StrokeEndLineCap = PenLineCap.Round,
+            HorizontalAlignment = WpfHorizontalAlignment.Center,
+            VerticalAlignment = WpfVerticalAlignment.Center
+        };
+    }
+
+    private void ExtensionsStore_Click(object sender, RoutedEventArgs e)
+    {
+        ExtensionsPopup.IsOpen = false;
+        _ = AddTabAsync("https://chromewebstore.google.com");
+    }
+
+    private void ExtensionsManage_Click(object sender, RoutedEventArgs e)
+    {
+        ExtensionsPopup.IsOpen = false;
+        _ = OpenExtensionsAsync();
+    }
+
+    private sealed class PendingExtensionInstall
+    {
+        public string? Id { get; init; }
+        public string? Title { get; init; }
+        public string? LocalCrxPath { get; init; }
+        public string? Source { get; init; }
+        public CoreWebView2Profile? Profile { get; init; }
+    }
+
+    private PendingExtensionInstall? _pendingExtensionInstall;
+
+    public void PromptInstallFromStore(string extId, string? title, string? iconUrl, string source, CoreWebView2Profile? profile, IReadOnlyList<string>? permissions = null)
+    {
+        profile ??= CurrentTab?.ActiveView?.CoreWebView2?.Profile ?? ExtensionManager.Profile;
+        var displayTitle = string.IsNullOrWhiteSpace(title) ? "Расширение" : title.Trim();
+
+        _pendingExtensionInstall = new PendingExtensionInstall
+        {
+            Id = extId,
+            Title = displayTitle,
+            Source = source,
+            Profile = profile
+        };
+
+        ExtensionPromptTitle.Text = $"Добавить «{displayTitle}» в Luma Browser?";
+        ExtensionPromptOrigin.Text = string.Equals(source, "edge", StringComparison.OrdinalIgnoreCase)
+            ? "Магазин Microsoft Edge Add-ons"
+            : "Интернет-магазин Chrome";
+
+        ExtensionPromptPermissionsList.ItemsSource = permissions != null && permissions.Count > 0
+            ? permissions
+            : new[]
+            {
+                "Чтение и изменение всех данных на всех веб-сайтах",
+                "Отображение всплывающих уведомлений"
+            };
+
+        ExtensionPromptIcon.Source = null;
+        if (!string.IsNullOrWhiteSpace(iconUrl) && Uri.TryCreate(iconUrl, UriKind.Absolute, out var iconUri))
+        {
+            try
+            {
+                var bmp = new BitmapImage();
+                bmp.BeginInit();
+                bmp.UriSource = iconUri;
+                bmp.CacheOption = BitmapCacheOption.OnLoad;
+                bmp.EndInit();
+                ExtensionPromptIcon.Source = bmp;
+                ExtensionPromptIcon.Visibility = Visibility.Visible;
+                ExtensionPromptFallbackIcon.Visibility = Visibility.Collapsed;
+            }
+            catch
+            {
+                ExtensionPromptIcon.Visibility = Visibility.Collapsed;
+                ExtensionPromptFallbackIcon.Visibility = Visibility.Visible;
+            }
+        }
+        else
+        {
+            ExtensionPromptIcon.Visibility = Visibility.Collapsed;
+            ExtensionPromptFallbackIcon.Visibility = Visibility.Visible;
+        }
+
+        ExtensionPromptProgress.Visibility = Visibility.Collapsed;
+        ExtensionPromptInstallBtn.IsEnabled = true;
+        ExtensionPromptCancelBtn.IsEnabled = true;
+        ExtensionPromptInstallBtnText.Text = "Добавить расширение";
+
+        AnimateExtensionsButton();
+        CloseMenusExcept(ExtensionPromptPopup);
+        ExtensionPromptPopup.IsOpen = true;
+    }
+
+    public void ShowExtensionPromptForLocalCrx(string crxPath, string name, IReadOnlyList<string> permissions, byte[]? iconBytes)
+    {
+        var displayTitle = string.IsNullOrWhiteSpace(name) ? Path.GetFileNameWithoutExtension(crxPath) : name.Trim();
+        var profile = CurrentTab?.ActiveView?.CoreWebView2?.Profile ?? ExtensionManager.Profile;
+
+        _pendingExtensionInstall = new PendingExtensionInstall
+        {
+            LocalCrxPath = crxPath,
+            Title = displayTitle,
+            Profile = profile
+        };
+
+        ExtensionPromptTitle.Text = $"Добавить «{displayTitle}» в Luma Browser?";
+        ExtensionPromptOrigin.Text = "Локальный пакет расширения (.crx)";
+
+        ExtensionPromptPermissionsList.ItemsSource = permissions != null && permissions.Count > 0
+            ? permissions
+            : new[] { "Чтение и изменение данных на посещаемых веб-сайтах" };
+
+        ExtensionPromptIcon.Source = null;
+        if (iconBytes != null && iconBytes.Length > 0)
+        {
+            try
+            {
+                using var ms = new MemoryStream(iconBytes);
+                var bmp = new BitmapImage();
+                bmp.BeginInit();
+                bmp.StreamSource = ms;
+                bmp.CacheOption = BitmapCacheOption.OnLoad;
+                bmp.EndInit();
+                bmp.Freeze();
+                ExtensionPromptIcon.Source = bmp;
+                ExtensionPromptIcon.Visibility = Visibility.Visible;
+                ExtensionPromptFallbackIcon.Visibility = Visibility.Collapsed;
+            }
+            catch
+            {
+                ExtensionPromptIcon.Visibility = Visibility.Collapsed;
+                ExtensionPromptFallbackIcon.Visibility = Visibility.Visible;
+            }
+        }
+        else
+        {
+            ExtensionPromptIcon.Visibility = Visibility.Collapsed;
+            ExtensionPromptFallbackIcon.Visibility = Visibility.Visible;
+        }
+
+        ExtensionPromptProgress.Visibility = Visibility.Collapsed;
+        ExtensionPromptInstallBtn.IsEnabled = true;
+        ExtensionPromptCancelBtn.IsEnabled = true;
+        ExtensionPromptInstallBtnText.Text = "Добавить расширение";
+
+        AnimateExtensionsButton();
+        CloseMenusExcept(ExtensionPromptPopup);
+        ExtensionPromptPopup.IsOpen = true;
+    }
+
+    private void ExtensionPromptPopup_Opened(object sender, EventArgs e)
+    {
+        if (ExtensionPromptCard is null) return;
+        ExtensionPromptCard.Opacity = 0;
+        ExtensionPromptCardScale.ScaleX = 0.88;
+        ExtensionPromptCardScale.ScaleY = 0.88;
+        ExtensionPromptCardShift.Y = -10;
+
+        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+        var fade = new DoubleAnimation(0, 1, new Duration(TimeSpan.FromMilliseconds(220))) { EasingFunction = ease };
+        var scaleX = new DoubleAnimation(0.88, 1.0, new Duration(TimeSpan.FromMilliseconds(260))) { EasingFunction = ease };
+        var scaleY = new DoubleAnimation(0.88, 1.0, new Duration(TimeSpan.FromMilliseconds(260))) { EasingFunction = ease };
+        var shift = new DoubleAnimation(-10, 0, new Duration(TimeSpan.FromMilliseconds(260))) { EasingFunction = ease };
+
+        ExtensionPromptCard.BeginAnimation(UIElement.OpacityProperty, fade);
+        ExtensionPromptCardScale.BeginAnimation(ScaleTransform.ScaleXProperty, scaleX);
+        ExtensionPromptCardScale.BeginAnimation(ScaleTransform.ScaleYProperty, scaleY);
+        ExtensionPromptCardShift.BeginAnimation(TranslateTransform.YProperty, shift);
+    }
+
+    private void ExtensionPromptCancel_Click(object sender, RoutedEventArgs e)
+    {
+        CloseExtensionPrompt();
+        _pendingExtensionInstall = null;
+        if (CurrentTab?.ActiveView?.CoreWebView2 != null)
+        {
+            try
+            {
+                _ = CurrentTab.ActiveView.CoreWebView2.ExecuteScriptAsync(@"
+                    (() => {
+                        if (typeof window.__lumaOnCancelled === 'function') {
+                            try { window.__lumaOnCancelled(); } catch(e) {}
+                        } else if (window.__lumaEdgeCallback) {
+                            try { window.__lumaEdgeCallback('user_cancelled'); } catch(e) {}
+                            window.__lumaEdgeCallback = null;
+                        }
+                    })()
+                ");
+            }
+            catch { }
+        }
+    }
+
+    private async void ExtensionPromptInstall_Click(object sender, RoutedEventArgs e)
+    {
+        if (_pendingExtensionInstall is not { } pending) return;
+
+        var profile = pending.Profile ?? CurrentTab?.ActiveView?.CoreWebView2?.Profile ?? ExtensionManager.Profile;
+        if (profile == null)
+        {
+            ShowToast("Ошибка установки", "Профиль браузера недоступен", true);
+            CloseExtensionPrompt();
+            return;
+        }
+
+        ExtensionPromptInstallBtn.IsEnabled = false;
+        ExtensionPromptCancelBtn.IsEnabled = false;
+        ExtensionPromptInstallBtnText.Text = "Установка...";
+        ExtensionPromptProgress.Visibility = Visibility.Visible;
+
+        ExtensionMetadata? meta = null;
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(pending.LocalCrxPath) && File.Exists(pending.LocalCrxPath))
+            {
+                meta = await ExtensionManager.InstallFromLocalFileAsync(profile, pending.LocalCrxPath);
+                try { File.Delete(pending.LocalCrxPath); } catch { }
+            }
+            else if (!string.IsNullOrWhiteSpace(pending.Id))
+            {
+                meta = await ExtensionManager.InstallFromStoreAsync(profile, pending.Id, pending.Source);
+            }
+        }
+        catch (Exception ex)
+        {
+            App.Log(ex);
+        }
+
+        if (meta != null)
+        {
+            CloseExtensionPrompt();
+            _pendingExtensionInstall = null;
+            ShowToast("Расширение установлено", meta.Name);
+            RenderExtensionsMenu();
+
+            if (CurrentTab?.ActiveView?.CoreWebView2 != null)
+            {
+                try
+                {
+                    await CurrentTab.ActiveView.CoreWebView2.ExecuteScriptAsync(@"
+                        (() => {
+                            if (typeof window.__lumaOnInstalled === 'function') {
+                                try { window.__lumaOnInstalled(); } catch(e) {}
+                            } else if (window.__lumaEdgeCallback) {
+                                try { window.__lumaEdgeCallback('success'); } catch(e) {}
+                                window.__lumaEdgeCallback = null;
+                            }
+                            const btns = document.querySelectorAll('[data-luma-patched]');
+                            btns.forEach(b => {
+                                const textSpan = b.querySelector('.fui-Button__text, span, div') || b;
+                                textSpan.innerText = '✓ Добавлено в Luma';
+                                b.style.setProperty('background', 'linear-gradient(135deg, #10B981 0%, #059669 100%)', 'important');
+                                b.disabled = true;
+                            });
+                        })()
+                    ");
+                }
+                catch { }
+            }
+        }
+        else
+        {
+            ExtensionPromptProgress.Visibility = Visibility.Collapsed;
+            ExtensionPromptInstallBtn.IsEnabled = true;
+            ExtensionPromptCancelBtn.IsEnabled = true;
+            ExtensionPromptInstallBtnText.Text = "Повторить";
+            ShowToast("Ошибка установки", "Не удалось скачать или установить расширение", true);
+        }
+    }
+
+    private void CloseExtensionPrompt()
+    {
+        if (ExtensionPromptCard is null || !ExtensionPromptPopup.IsOpen)
+        {
+            ExtensionPromptPopup.IsOpen = false;
+            return;
+        }
+
+        var ease = new CubicEase { EasingMode = EasingMode.EaseIn };
+        var fade = new DoubleAnimation(ExtensionPromptCard.Opacity, 0, new Duration(TimeSpan.FromMilliseconds(160))) { EasingFunction = ease };
+        var scaleX = new DoubleAnimation(ExtensionPromptCardScale.ScaleX, 0.90, new Duration(TimeSpan.FromMilliseconds(160))) { EasingFunction = ease };
+        var scaleY = new DoubleAnimation(ExtensionPromptCardScale.ScaleY, 0.90, new Duration(TimeSpan.FromMilliseconds(160))) { EasingFunction = ease };
+        var shift = new DoubleAnimation(ExtensionPromptCardShift.Y, -8, new Duration(TimeSpan.FromMilliseconds(160))) { EasingFunction = ease };
+
+        fade.Completed += (_, _) =>
+        {
+            ExtensionPromptPopup.IsOpen = false;
+            ExtensionPromptCard.Opacity = 1;
+            ExtensionPromptCardScale.ScaleX = 1;
+            ExtensionPromptCardScale.ScaleY = 1;
+            ExtensionPromptCardShift.Y = 0;
+        };
+
+        ExtensionPromptCard.BeginAnimation(UIElement.OpacityProperty, fade);
+        ExtensionPromptCardScale.BeginAnimation(ScaleTransform.ScaleXProperty, scaleX);
+        ExtensionPromptCardScale.BeginAnimation(ScaleTransform.ScaleYProperty, scaleY);
+        ExtensionPromptCardShift.BeginAnimation(TranslateTransform.YProperty, shift);
     }
 
     private void OnChanged([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));

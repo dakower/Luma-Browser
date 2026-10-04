@@ -317,6 +317,40 @@
         </Setter>
       </Style>
 
+      <!-- Universal toggle switch for CheckBox (used across EmptyBackground and Popups) -->
+      <Style x:Key="LumaToggleSwitch" TargetType="CheckBox">
+        <Setter Property="Foreground" Value="{DynamicResource ChromeText}"/>
+        <Setter Property="FontSize" Value="12.5"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="OverridesDefaultStyle" Value="True"/>
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="CheckBox">
+              <Border Background="Transparent" Padding="4,6">
+                <Grid>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="40"/></Grid.ColumnDefinitions>
+                  <ContentPresenter VerticalAlignment="Center" Margin="0,0,10,0"/>
+                  <Border x:Name="Track" Grid.Column="1" Width="38" Height="22" CornerRadius="11" Background="{DynamicResource SurfaceInsetBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+                    <Ellipse x:Name="Thumb" Width="16" Height="16" Fill="{DynamicResource ChromeMuted}" HorizontalAlignment="Left" Margin="2,0,0,0"/>
+                  </Border>
+                </Grid>
+              </Border>
+              <ControlTemplate.Triggers>
+                <Trigger Property="IsChecked" Value="True">
+                  <Setter TargetName="Track" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                  <Setter TargetName="Track" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                  <Setter TargetName="Thumb" Property="HorizontalAlignment" Value="Right"/>
+                  <Setter TargetName="Thumb" Property="Margin" Value="0,0,2,0"/>
+                  <Setter TargetName="Thumb" Property="Fill" Value="White"/>
+                </Trigger>
+                <Trigger Property="IsMouseOver" Value="True"><Setter Property="Opacity" Value=".9"/></Trigger>
+              </ControlTemplate.Triggers>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
+
       <Style x:Key="SearchResultItem" TargetType="ListBoxItem">
         <Setter Property="Height" Value="62"/>
         <Setter Property="Padding" Value="13,0"/>
@@ -431,9 +465,14 @@
     <!-- ============ TITLEBAR ============ -->
     <Border x:Name="TitleBar" Grid.Row="0" Background="{DynamicResource TopBrush}" BorderBrush="#1C1828" BorderThickness="0,0,0,1" MouseLeftButtonDown="DragArea_MouseLeftButtonDown">
       <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="Auto"/>
+          <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
 
         <!-- navigation cluster -->
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="12,0,0,0">
+        <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="12,0,0,0">
           <Button x:Name="TopMenuButton" Style="{StaticResource TopMenuGlowButton}" Width="26" Height="26" Margin="0,0,8,0" Click="MainMenu_Click" ToolTip="Меню Luma">
             <Image Source="Assets/luma-mark.png" Width="18" Height="18" Stretch="Uniform"/>
           </Button>
@@ -452,7 +491,7 @@
         </StackPanel>
 
         <!-- address pill -->
-        <Border Height="34" CornerRadius="17" MaxWidth="480" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="7,0,8,0" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <Border Grid.Column="1" Height="34" CornerRadius="17" MaxWidth="480" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="7,0,8,0" HorizontalAlignment="Center" VerticalAlignment="Center">
           <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
             <!-- Left: Copy URL button -->
             <Button x:Name="CopyUrlButton" Style="{StaticResource BareIconButton}" Width="22" Height="22" Margin="1,0,8,0" Click="CopyUrl_Click" Foreground="{DynamicResource ChromeIconMuted}" ToolTip="Скопировать адрес">
@@ -481,35 +520,14 @@
           </StackPanel>
         </Border>
 
-        <!-- window controls -->
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,14,0">
-          <Border x:Name="NowPlayingWidget" Visibility="Collapsed" Height="34" MinWidth="190" MaxWidth="260" Padding="5,0,6,0" Margin="0,0,10,0" CornerRadius="17" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Cursor="Hand" MouseLeftButtonUp="NowPlayingWidget_Click" ToolTip="Открыть медиаплеер">
-            <Grid>
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="26"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="26"/>
-              </Grid.ColumnDefinitions>
-              <Grid Width="24" Height="24">
-                <Border CornerRadius="12" Background="{DynamicResource SurfaceRaisedBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"/>
-                <Path x:Name="NowPlayingPillFallbackIcon" Width="11" Height="11" Stretch="Uniform" Data="{StaticResource IconMusicNote}" Fill="Transparent" Stroke="{DynamicResource AccentMutedBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                <Image x:Name="NowPlayingPillArt" Visibility="Collapsed" Stretch="UniformToFill">
-                  <Image.Clip>
-                    <RectangleGeometry Rect="0,0,24,24" RadiusX="12" RadiusY="12"/>
-                  </Image.Clip>
-                </Image>
-              </Grid>
-              <StackPanel Grid.Column="1" Margin="8,0,7,0" VerticalAlignment="Center">
-                <TextBlock x:Name="NowPlayingPillTitle" Foreground="#F6F2FA" FontSize="11.5" FontWeight="Bold" MaxWidth="150" TextTrimming="CharacterEllipsis"/>
-                <TextBlock x:Name="NowPlayingPillArtist" Foreground="#948AA1" FontSize="9" FontWeight="SemiBold" MaxWidth="150" TextTrimming="CharacterEllipsis" Margin="0,1,0,0"/>
-              </StackPanel>
-              <Grid Grid.Column="2" Width="24" Height="24">
-                <Border CornerRadius="12" Background="{DynamicResource SurfaceRaisedBrush}" BorderBrush="{DynamicResource BorderStrongBrush}" BorderThickness="1"/>
-                <Path x:Name="NowPlayingToggleIcon" Width="9" Height="9" Stretch="Uniform" Data="{StaticResource IconPause}" Fill="Transparent" Stroke="#F7F3FA" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
-                <Button Style="{StaticResource BareIconButton}" Width="24" Height="24" Background="Transparent" Click="NowPlayingToggle_Click" ToolTip="Воспроизведение / пауза"/>
-              </Grid>
-            </Grid>
-          </Border>
+        <!-- right column: window controls docked right, the player sits next to the address pill -->
+        <DockPanel Grid.Column="2" LastChildFill="True" VerticalAlignment="Center" Margin="0,0,14,0">
+        <StackPanel x:Name="TitleBarRightCluster" DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+          <Button x:Name="ExtensionsButton" Style="{StaticResource BareIconButton}" Width="28" Height="28" Margin="0,0,4,0" Click="Extensions_Click" ToolTip="Расширения">
+            <Path x:Name="ExtensionsButtonIcon" Width="15" Height="15" Stretch="Uniform" Data="{StaticResource IconPuzzle}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.9" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round" HorizontalAlignment="Center" VerticalAlignment="Center" RenderTransformOrigin=".5,.5">
+              <Path.RenderTransform><RotateTransform x:Name="ExtensionsButtonRotate" Angle="0"/></Path.RenderTransform>
+            </Path>
+          </Button>
           <Button x:Name="DownloadButton" Style="{StaticResource BareIconButton}" Width="28" Height="28" Margin="0,0,8,0" Click="Downloads_Click" ToolTip="Загрузки">
             <Grid Width="28" Height="28">
               <Path x:Name="DownloadIdleIcon" Width="15" Height="15" Stretch="Uniform" Data="{StaticResource IconDownload}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.9" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round" HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -546,6 +564,55 @@
             <Path Width="14" Height="14" Stretch="Uniform" Data="{StaticResource IconX}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
           </Button>
         </StackPanel>
+
+        <!-- now playing pill: sits right after the address pill with a small gap -->
+        <Border x:Name="NowPlayingWidget" Visibility="Collapsed" Height="34" MaxWidth="250" HorizontalAlignment="Left" VerticalAlignment="Center" Padding="4,0,4,0" Margin="12,0,12,0" CornerRadius="17" Background="{DynamicResource SurfaceBrush}" BorderThickness="1" Cursor="Hand" MouseLeftButtonUp="NowPlayingWidget_Click" ToolTip="Открыть медиаплеер" RenderTransformOrigin="0,.5">
+          <Border.Style>
+            <Style TargetType="Border">
+              <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+              <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                  <Setter Property="BorderBrush" Value="{DynamicResource AccentMutedBrush}"/>
+                </Trigger>
+              </Style.Triggers>
+            </Style>
+          </Border.Style>
+          <Border.RenderTransform><TranslateTransform x:Name="NowPlayingWidgetShift"/></Border.RenderTransform>
+          <Grid x:Name="NowPlayingPillGrid">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="26"/>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="Auto"/>
+              <ColumnDefinition Width="26"/>
+            </Grid.ColumnDefinitions>
+            <Grid Width="24" Height="24">
+              <Border CornerRadius="12" Background="{DynamicResource SurfaceRaisedBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"/>
+              <Path x:Name="NowPlayingPillFallbackIcon" Width="11" Height="11" Stretch="Uniform" Data="{StaticResource IconMusicNote}" Fill="Transparent" Stroke="{DynamicResource AccentMutedBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              <Image x:Name="NowPlayingPillArt" Visibility="Collapsed" Stretch="UniformToFill">
+                <Image.Clip>
+                  <RectangleGeometry Rect="0,0,24,24" RadiusX="12" RadiusY="12"/>
+                </Image.Clip>
+              </Image>
+            </Grid>
+            <StackPanel Grid.Column="1" Margin="8,0,6,0" VerticalAlignment="Center">
+              <TextBlock x:Name="NowPlayingPillTitle" Foreground="{DynamicResource ChromeText}" FontFamily="Segoe UI Variable Display, Segoe UI" FontSize="11.5" FontWeight="SemiBold" MaxWidth="140" TextTrimming="CharacterEllipsis"/>
+              <TextBlock x:Name="NowPlayingPillArtist" Foreground="{DynamicResource ChromeMuted}" FontSize="9.5" MaxWidth="140" TextTrimming="CharacterEllipsis" Margin="0,0,0,0"/>
+            </StackPanel>
+            <StackPanel x:Name="NowPlayingEqualizer" Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Height="11" Margin="0,0,8,0" IsHitTestVisible="False">
+              <Rectangle Width="2.4" Height="11" RadiusX="1.2" RadiusY="1.2" Margin="0,0,1.6,0" Fill="{DynamicResource AccentMutedBrush}" VerticalAlignment="Bottom" RenderTransformOrigin=".5,1"><Rectangle.RenderTransform><ScaleTransform x:Name="EqBar1" ScaleY=".35"/></Rectangle.RenderTransform></Rectangle>
+              <Rectangle Width="2.4" Height="11" RadiusX="1.2" RadiusY="1.2" Margin="0,0,1.6,0" Fill="{DynamicResource AccentMutedBrush}" VerticalAlignment="Bottom" RenderTransformOrigin=".5,1"><Rectangle.RenderTransform><ScaleTransform x:Name="EqBar2" ScaleY=".35"/></Rectangle.RenderTransform></Rectangle>
+              <Rectangle Width="2.4" Height="11" RadiusX="1.2" RadiusY="1.2" Fill="{DynamicResource AccentMutedBrush}" VerticalAlignment="Bottom" RenderTransformOrigin=".5,1"><Rectangle.RenderTransform><ScaleTransform x:Name="EqBar3" ScaleY=".35"/></Rectangle.RenderTransform></Rectangle>
+            </StackPanel>
+            <Grid Grid.Column="3" Width="24" Height="24">
+              <Ellipse Fill="{DynamicResource AccentBrush}"/>
+              <Path x:Name="NowPlayingToggleIcon" Width="9" Height="9" Stretch="Uniform" Data="{StaticResource IconPause}" Fill="Transparent" Stroke="White" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
+              <Button Style="{StaticResource BareIconButton}" Width="24" Height="24" Background="Transparent" Click="NowPlayingToggle_Click" ToolTip="Воспроизведение / пауза"/>
+            </Grid>
+            <!-- thin progress line along the bottom edge -->
+            <Border x:Name="NowPlayingPillProgress" Grid.ColumnSpan="4" Height="2" Width="0" CornerRadius="1" Background="{DynamicResource AccentBrush}" Opacity=".9" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="12,0,0,0" IsHitTestVisible="False"/>
+          </Grid>
+        </Border>
+        </DockPanel>
       </Grid>
     </Border>
 
@@ -715,38 +782,6 @@
             <Style x:Key="AccountTab" TargetType="Button"><Setter Property="Height" Value="42"/><Setter Property="Background" Value="Transparent"/><Setter Property="Foreground" Value="#8F8899"/><Setter Property="BorderThickness" Value="0"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="TabBorder" Background="{TemplateBinding Background}" CornerRadius="12"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="TabBorder" Property="Opacity" Value=".88"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>
             <Style x:Key="AccountLink" TargetType="Button"><Setter Property="Background" Value="Transparent"/><Setter Property="Foreground" Value="{DynamicResource AccentMutedBrush}"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Cursor" Value="Hand"/><Setter Property="FontSize" Value="13"/><Setter Property="Padding" Value="8"/></Style>
             <Style x:Key="AccountGhost" TargetType="Button"><Setter Property="Height" Value="48"/><Setter Property="FocusVisualStyle" Value="{x:Null}"/><Setter Property="OverridesDefaultStyle" Value="True"/><Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}"/><Setter Property="Foreground" Value="#E8E2EE"/><Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="Cursor" Value="Hand"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="GhostBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="10"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="GhostBorder" Property="Background" Value="{DynamicResource SurfaceRaisedBrush}"/><Setter TargetName="GhostBorder" Property="BorderBrush" Value="{DynamicResource BorderStrongBrush}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>
-            <Style x:Key="LumaToggleSwitch" TargetType="CheckBox">
-              <Setter Property="Foreground" Value="{DynamicResource ChromeText}"/>
-              <Setter Property="FontSize" Value="12.5"/>
-              <Setter Property="Cursor" Value="Hand"/>
-              <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
-              <Setter Property="OverridesDefaultStyle" Value="True"/>
-              <Setter Property="Template">
-                <Setter.Value>
-                  <ControlTemplate TargetType="CheckBox">
-                    <Border Background="Transparent" Padding="4,6">
-                      <Grid>
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="40"/></Grid.ColumnDefinitions>
-                        <ContentPresenter VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <Border x:Name="Track" Grid.Column="1" Width="38" Height="22" CornerRadius="11" Background="{DynamicResource SurfaceInsetBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
-                          <Ellipse x:Name="Thumb" Width="16" Height="16" Fill="{DynamicResource ChromeMuted}" HorizontalAlignment="Left" Margin="2,0,0,0"/>
-                        </Border>
-                      </Grid>
-                    </Border>
-                    <ControlTemplate.Triggers>
-                      <Trigger Property="IsChecked" Value="True">
-                        <Setter TargetName="Track" Property="Background" Value="{DynamicResource AccentBrush}"/>
-                        <Setter TargetName="Track" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
-                        <Setter TargetName="Thumb" Property="HorizontalAlignment" Value="Right"/>
-                        <Setter TargetName="Thumb" Property="Margin" Value="0,0,2,0"/>
-                        <Setter TargetName="Thumb" Property="Fill" Value="White"/>
-                      </Trigger>
-                      <Trigger Property="IsMouseOver" Value="True"><Setter Property="Opacity" Value=".9"/></Trigger>
-                    </ControlTemplate.Triggers>
-                  </ControlTemplate>
-                </Setter.Value>
-              </Setter>
-            </Style>
             <Style x:Key="HomeOptionCard" TargetType="Button">
               <Setter Property="Height" Value="52"/>
               <Setter Property="Margin" Value="0,0,0,6"/>
@@ -1487,6 +1522,205 @@
           <TextBlock Grid.Row="2" Text="История загрузок также доступна в Настройки → Загрузки" Foreground="{DynamicResource ChromeMuted}" FontSize="9.5" Margin="7,7,7,2"/>
         </Grid>
       </Border>
+    </Popup>
+
+    <Popup x:Name="ExtensionsPopup" AllowsTransparency="True" PopupAnimation="None" Placement="Bottom" PlacementTarget="{Binding ElementName=ExtensionsButton}" StaysOpen="False" HorizontalOffset="-346" VerticalOffset="6" Opened="ExtensionsPopup_Opened">
+      <Popup.Resources>
+        <Style x:Key="ExtFooterButton" TargetType="Button">
+          <Setter Property="Height" Value="38"/>
+          <Setter Property="Cursor" Value="Hand"/>
+          <Setter Property="Foreground" Value="{DynamicResource ChromeText}"/>
+          <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+          <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+          <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+          <Setter Property="Template">
+            <Setter.Value>
+              <ControlTemplate TargetType="Button">
+                <Border x:Name="Bd" CornerRadius="12" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" RenderTransformOrigin=".5,.5">
+                  <Border.RenderTransform><ScaleTransform x:Name="Sc"/></Border.RenderTransform>
+                  <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <ControlTemplate.Triggers>
+                  <Trigger Property="IsMouseOver" Value="True">
+                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentMutedBrush}"/>
+                  </Trigger>
+                  <Trigger Property="IsPressed" Value="True">
+                    <Setter TargetName="Bd" Property="RenderTransform"><Setter.Value><ScaleTransform ScaleX=".97" ScaleY=".97"/></Setter.Value></Setter>
+                  </Trigger>
+                </ControlTemplate.Triggers>
+              </ControlTemplate>
+            </Setter.Value>
+          </Setter>
+        </Style>
+      </Popup.Resources>
+      <Grid Margin="18,4,18,28">
+        <Border x:Name="ExtensionsCard" Width="356" CornerRadius="22" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderStrongBrush}" BorderThickness="1" Padding="14" RenderTransformOrigin=".92,0" Opacity="0">
+          <Border.Effect><DropShadowEffect Color="#000000" BlurRadius="34" ShadowDepth="10" Opacity=".55"/></Border.Effect>
+          <Border.RenderTransform>
+            <TransformGroup>
+              <ScaleTransform x:Name="ExtensionsCardScale" ScaleX=".94" ScaleY=".94"/>
+              <TranslateTransform x:Name="ExtensionsCardShift" Y="-8"/>
+            </TransformGroup>
+          </Border.RenderTransform>
+          <Grid>
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+            <!-- header -->
+            <Grid Margin="4,2,2,12">
+              <Grid.ColumnDefinitions><ColumnDefinition Width="44"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+              <Border Width="36" Height="36" CornerRadius="12" HorizontalAlignment="Left" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Background="{DynamicResource AccentSoftBrush}">
+                <Path Width="17" Height="17" Stretch="Uniform" Data="{StaticResource IconPuzzle}" Stroke="{DynamicResource AccentMutedBrush}" StrokeThickness="1.9" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+              </Border>
+              <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <TextBlock Text="Расширения" Foreground="{DynamicResource ChromeText}" FontFamily="Segoe UI Variable Display, Segoe UI" FontSize="16.5" FontWeight="Bold"/>
+                <TextBlock x:Name="ExtensionsSubtitle" Text="Нет установленных" Foreground="{DynamicResource ChromeMuted}" FontSize="10.5" Margin="0,1,0,0"/>
+              </StackPanel>
+              <Button Grid.Column="2" Style="{StaticResource BareIconButton}" Width="32" Height="32" VerticalAlignment="Center" Click="ExtensionsManage_Click" ToolTip="Управление расширениями">
+                <Path Width="14" Height="14" Stretch="Uniform" Data="{StaticResource IconSlidersHorizontal}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.9" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+              </Button>
+            </Grid>
+            <!-- list / empty state -->
+            <Grid Grid.Row="1">
+              <StackPanel x:Name="ExtensionsEmpty" Margin="10,18,10,20" HorizontalAlignment="Center">
+                <Grid Width="64" Height="64" HorizontalAlignment="Center">
+                  <Ellipse Fill="{DynamicResource AccentSoftBrush}" Opacity=".7"/>
+                  <Ellipse Margin="8" Stroke="{DynamicResource BorderStrongBrush}" StrokeThickness="1" StrokeDashArray="3 3"/>
+                  <Path Width="24" Height="24" Stretch="Uniform" Data="{StaticResource IconPuzzle}" Stroke="{DynamicResource AccentMutedBrush}" StrokeThickness="1.8" StrokeLineJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Grid>
+                <TextBlock Text="Расширений пока нет" Foreground="{DynamicResource ChromeText}" FontSize="13.5" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,12,0,4"/>
+                <TextBlock Text="Откройте Chrome Web Store и нажмите «Добавить в Luma» на странице любого расширения." Foreground="{DynamicResource ChromeMuted}" FontSize="11" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="260"/>
+              </StackPanel>
+              <ScrollViewer x:Name="ExtensionsScroll" MaxHeight="372" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Visibility="Collapsed">
+                <StackPanel x:Name="ExtensionsList"/>
+              </ScrollViewer>
+            </Grid>
+            <!-- footer -->
+            <Grid Grid.Row="2" Margin="0,10,0,0">
+              <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="8"/><ColumnDefinition/></Grid.ColumnDefinitions>
+              <Button Style="{StaticResource ExtFooterButton}" Background="{DynamicResource AccentBrush}" BorderBrush="Transparent" Foreground="White" Click="ExtensionsStore_Click">
+                <StackPanel Orientation="Horizontal">
+                  <Path Width="13" Height="13" Stretch="Uniform" Data="{StaticResource IconPlus}" Stroke="White" StrokeThickness="2.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Margin="0,0,7,0" VerticalAlignment="Center"/>
+                  <TextBlock Text="Найти расширения" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                </StackPanel>
+              </Button>
+              <Button Grid.Column="2" Style="{StaticResource ExtFooterButton}" Click="ExtensionsManage_Click">
+                <StackPanel Orientation="Horizontal">
+                  <Path Width="13" Height="13" Stretch="Uniform" Data="{StaticResource IconSlidersHorizontal}" Stroke="{DynamicResource ChromeText}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Margin="0,0,7,0" VerticalAlignment="Center"/>
+                  <TextBlock Text="Управление" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                </StackPanel>
+              </Button>
+            </Grid>
+          </Grid>
+        </Border>
+      </Grid>
+    </Popup>
+
+    <Popup x:Name="ExtensionPromptPopup" AllowsTransparency="True" PopupAnimation="None" Placement="Bottom" PlacementTarget="{Binding ElementName=ExtensionsButton}" StaysOpen="False" HorizontalOffset="-366" VerticalOffset="6" Opened="ExtensionPromptPopup_Opened">
+      <Grid Margin="18,4,18,28">
+        <Border x:Name="ExtensionPromptCard" Width="388" CornerRadius="22" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderStrongBrush}" BorderThickness="1" Padding="18" RenderTransformOrigin=".92,0" Opacity="0">
+          <Border.Effect>
+            <DropShadowEffect Color="#000000" BlurRadius="36" ShadowDepth="10" Opacity=".6"/>
+          </Border.Effect>
+          <Border.RenderTransform>
+            <TransformGroup>
+              <ScaleTransform x:Name="ExtensionPromptCardScale" ScaleX=".88" ScaleY=".88"/>
+              <TranslateTransform x:Name="ExtensionPromptCardShift" Y="-10"/>
+            </TransformGroup>
+          </Border.RenderTransform>
+          <Grid>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Header with extension icon and title -->
+            <Grid Margin="0,0,0,14">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="46"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <Border Width="42" Height="42" CornerRadius="12" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" ClipToBounds="True" HorizontalAlignment="Left" VerticalAlignment="Top">
+                <Grid>
+                  <Path x:Name="ExtensionPromptFallbackIcon" Width="20" Height="20" Stretch="Uniform" Data="{StaticResource IconPuzzle}" Stroke="{DynamicResource AccentMutedBrush}" StrokeThickness="1.9" StrokeLineJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                  <Image x:Name="ExtensionPromptIcon" Width="42" Height="42" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" Visibility="Collapsed"/>
+                </Grid>
+              </Border>
+              <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="6,0,0,0">
+                <TextBlock x:Name="ExtensionPromptTitle" Text="Добавить расширение в Luma Browser?" Foreground="{DynamicResource ChromeText}" FontFamily="Segoe UI Variable Display, Segoe UI" FontSize="14" FontWeight="Bold" TextWrapping="Wrap" MaxHeight="60" TextTrimming="CharacterEllipsis"/>
+                <TextBlock x:Name="ExtensionPromptOrigin" Text="Интернет-магазин расширений" Foreground="{DynamicResource ChromeMuted}" FontSize="11" Margin="0,2,0,0"/>
+              </StackPanel>
+            </Grid>
+
+            <!-- Permissions Block -->
+            <Border Grid.Row="1" Background="{DynamicResource SurfaceInsetBrush}" CornerRadius="14" Padding="14,12" Margin="0,0,0,16" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+              <StackPanel>
+                <TextBlock Text="Это расширение может:" Foreground="{DynamicResource ChromeText}" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                <ItemsControl x:Name="ExtensionPromptPermissionsList">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Grid Margin="0,2,0,4">
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="14"/>
+                          <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Ellipse Width="4" Height="4" Fill="{DynamicResource AccentMutedBrush}" VerticalAlignment="Top" Margin="0,6,0,0"/>
+                        <TextBlock Grid.Column="1" Text="{Binding}" Foreground="{DynamicResource ChromeSecondary}" FontSize="11.5" TextWrapping="Wrap" LineHeight="16"/>
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+
+            <!-- Action buttons -->
+            <Grid Grid.Row="2">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="Auto"/>
+              </Grid.ColumnDefinitions>
+
+              <ProgressBar x:Name="ExtensionPromptProgress" Grid.Column="0" Height="3" IsIndeterminate="True" VerticalAlignment="Center" Margin="0,0,12,0" Visibility="Collapsed" Background="Transparent" Foreground="{DynamicResource AccentBrush}"/>
+
+              <Button x:Name="ExtensionPromptCancelBtn" Grid.Column="1" Height="36" Padding="16,0" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Foreground="{DynamicResource ChromeText}" Cursor="Hand" Click="ExtensionPromptCancel_Click">
+                <Button.Template>
+                  <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" CornerRadius="11" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+                      <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                      <Trigger Property="IsMouseOver" Value="True">
+                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}"/>
+                      </Trigger>
+                    </ControlTemplate.Triggers>
+                  </ControlTemplate>
+                </Button.Template>
+                <TextBlock Text="Отмена" FontSize="12" FontWeight="SemiBold"/>
+              </Button>
+
+              <Button x:Name="ExtensionPromptInstallBtn" Grid.Column="3" Height="36" Padding="18,0" Background="{DynamicResource AccentBrush}" BorderBrush="Transparent" Foreground="White" Cursor="Hand" Click="ExtensionPromptInstall_Click">
+                <Button.Template>
+                  <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" CornerRadius="11" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}">
+                      <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                      <Trigger Property="IsMouseOver" Value="True">
+                        <Setter TargetName="Bd" Property="Opacity" Value=".9"/>
+                      </Trigger>
+                      <Trigger Property="IsEnabled" Value="False">
+                        <Setter TargetName="Bd" Property="Opacity" Value=".6"/>
+                      </Trigger>
+                    </ControlTemplate.Triggers>
+                  </ControlTemplate>
+                </Button.Template>
+                <TextBlock x:Name="ExtensionPromptInstallBtnText" Text="Добавить расширение" FontSize="12" FontWeight="SemiBold"/>
+              </Button>
+            </Grid>
+          </Grid>
+        </Border>
+      </Grid>
     </Popup>
 
     <Popup x:Name="HistoryPopup" AllowsTransparency="True" Placement="Relative" PlacementTarget="{Binding ElementName=SiteShell}" StaysOpen="True" Focusable="True">

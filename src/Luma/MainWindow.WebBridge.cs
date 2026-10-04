@@ -171,6 +171,100 @@ public partial class MainWindow
                 Dispatcher.Invoke(() => UpdateMediaState(tab, playing, title, artist, artwork, position, duration, volume, mediaType == "video"));
                 return;
             }
+            if (kind == "luma-prompt-install-extension")
+            {
+                var extId = root.TryGetProperty("id", out value) ? value.GetString() : null;
+                var title = root.TryGetProperty("title", out value) ? value.GetString() : null;
+                var icon = root.TryGetProperty("icon", out value) ? value.GetString() : null;
+                var source = (root.TryGetProperty("source", out value) ? value.GetString() : null) ?? "chrome";
+                var manifestJson = root.TryGetProperty("manifest", out value) ? value.GetString() : null;
+
+                if (!string.IsNullOrWhiteSpace(extId))
+                {
+                    Dispatcher.BeginInvoke(() =>
+                    {
+                        var profile = tab.View.CoreWebView2?.Profile ?? ExtensionManager.Profile;
+                        List<string>? perms = null;
+                        if (!string.IsNullOrWhiteSpace(manifestJson))
+                        {
+                            try { perms = ExtensionManager.ParsePermissions(manifestJson); } catch { }
+                        }
+                        PromptInstallFromStore(extId, title, icon, source, profile, perms);
+                    });
+                }
+                return;
+            }
+            if (kind == "luma-install-extension")
+            {
+                var extId = root.TryGetProperty("id", out value) ? value.GetString() : null;
+                if (!string.IsNullOrWhiteSpace(extId))
+                {
+                    Dispatcher.BeginInvoke(() =>
+                    {
+                        var profile = tab.View.CoreWebView2?.Profile ?? ExtensionManager.Profile;
+                        PromptInstallFromStore(extId, null, null, "chrome", profile);
+                    });
+                }
+                return;
+            }
+            if (kind == "luma-toggle-extension" && settingsPage)
+            {
+                var extId = root.TryGetProperty("id", out value) ? value.GetString() : null;
+                var enable = root.TryGetProperty("enable", out value) && value.GetBoolean();
+                if (!string.IsNullOrWhiteSpace(extId))
+                {
+                    Dispatcher.BeginInvoke(async () =>
+                    {
+                        var profile = tab.View.CoreWebView2?.Profile ?? ExtensionManager.Profile;
+                        await ExtensionManager.ToggleExtensionAsync(profile, extId, enable);
+                    });
+                }
+                return;
+            }
+            if (kind == "luma-remove-extension" && settingsPage)
+            {
+                var extId = root.TryGetProperty("id", out value) ? value.GetString() : null;
+                if (!string.IsNullOrWhiteSpace(extId))
+                {
+                    Dispatcher.BeginInvoke(async () =>
+                    {
+                        var profile = tab.View.CoreWebView2?.Profile ?? ExtensionManager.Profile;
+                        await ExtensionManager.RemoveExtensionAsync(profile, extId);
+                        ShowToast("Расширение удалено", "Расширение успешно удалено");
+                        await view.CoreWebView2.ExecuteScriptAsync($"window.location.reload()");
+                    });
+                }
+                return;
+            }
+            if (kind == "luma-import-extension" && settingsPage)
+            {
+                Dispatcher.BeginInvoke(async () =>
+                {
+                    var dlg = new Microsoft.Win32.OpenFileDialog
+                    {
+                        Filter = "Расширения Chromium (*.crx;*.zip)|*.crx;*.zip|Все файлы (*.*)|*.*",
+                        Title = "Выберите файл расширения"
+                    };
+                    if (dlg.ShowDialog() == true)
+                    {
+                        var profile = tab.View.CoreWebView2?.Profile;
+                        if (profile != null)
+                        {
+                            var meta = await ExtensionManager.InstallFromLocalFileAsync(profile, dlg.FileName);
+                            if (meta != null)
+                            {
+                                ShowToast("Расширение импортировано", meta.Name);
+                                await view.CoreWebView2.ExecuteScriptAsync($"window.location.reload()");
+                            }
+                            else
+                            {
+                                ShowToast("Ошибка импорта", "Не удалось прочитать файл расширения", true);
+                            }
+                        }
+                    }
+                });
+                return;
+            }
             if (kind != "luma-context") return;
             var mode = root.TryGetProperty("mode", out value) ? value.GetString() ?? "page" : "page";
             var link = root.TryGetProperty("link", out value) ? value.GetString() ?? "" : "";

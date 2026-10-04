@@ -58,6 +58,13 @@ namespace Luma;
 public partial class MainWindow
 {
     private async Task OpenSettingsAsync() { RecordTesterAction("Открыты настройки"); await OpenInternalPageAsync("luma://settings", "Настройки Luma", InternalPages.Settings(_state)); }
+    private async Task OpenExtensionsAsync()
+    {
+        await OpenSettingsAsync(); await Task.Delay(140);
+        var tab = CurrentTab;
+        if (tab?.IsInternal == true && tab.InternalPageKind == "luma://settings" && tab.ActiveView.CoreWebView2 is not null)
+            await Script(tab.ActiveView, "document.querySelector('[data-page=extensions]')?.click()");
+    }
     private async Task OpenAboutAsync()
     {
         await OpenSettingsAsync(); await Task.Delay(140);

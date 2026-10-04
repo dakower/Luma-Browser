@@ -13,7 +13,7 @@ public static class UrlTools
         // Absolute URIs with recognized schemes
         if (Uri.TryCreate(input, UriKind.Absolute, out var uri))
         {
-            if (uri.Scheme is "http" or "https" or "view-source" or "luma" or "file" or "blob" or "data" or "about" or "chrome" or "edge")
+            if (uri.Scheme is "http" or "https" or "view-source" or "luma" or "file" or "blob" or "data" or "about" or "chrome" or "edge" or "chrome-extension")
                 return uri.ToString();
         }
 

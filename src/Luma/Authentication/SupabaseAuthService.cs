@@ -37,7 +37,7 @@ public sealed class SupabaseAuthService : IAuthService
     public SupabaseAuthService(SupabaseOptions options, IAuthSessionStore store)
     {
         this.options = options; this.store = store;
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("Luma-Browser/2.1.4");
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("Luma-Browser/2.1.5");
     }
     public bool IsConfigured => options.IsConfigured;
     public AuthUser? CurrentUser => session?.User;

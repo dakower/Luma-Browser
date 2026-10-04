@@ -63,23 +63,6 @@ public partial class MainWindow
         {
             GC.Collect(1, GCCollectionMode.Optimized, false);
             EmptyWorkingSet(Process.GetCurrentProcess().Handle);
-
-            var currentSessionId = Process.GetCurrentProcess().SessionId;
-            foreach (var proc in Process.GetProcessesByName("msedgewebview2"))
-            {
-                try
-                {
-                    if (proc.SessionId == currentSessionId)
-                    {
-                        EmptyWorkingSet(proc.Handle);
-                    }
-                }
-                catch { }
-                finally
-                {
-                    proc.Dispose();
-                }
-            }
         }
         catch { }
     }

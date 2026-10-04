@@ -137,8 +137,9 @@ public partial class MainWindow
         var app = (App)Application.Current;
         var options = new CoreWebView2EnvironmentOptions
         {
-            AdditionalBrowserArguments = "--disable-features=CalculateNativeWinOcclusion --renderer-process-limit=4 --enable-features=TurnOffStreamingMediaWithBackgroundTab,ResourceScheduler,ProcessPerSite --js-flags=\"--max-old-space-size=512\" --disk-cache-size=104857600 --enable-smooth-scrolling --autoplay-policy=no-user-gesture-required --enable-usermedia-screen-capturing",
+            AdditionalBrowserArguments = "--disable-features=CalculateNativeWinOcclusion --enable-smooth-scrolling --autoplay-policy=no-user-gesture-required --enable-usermedia-screen-capturing --disk-cache-size=104857600",
             Language = ResolveBrowserLanguage(),
+            AreBrowserExtensionsEnabled = true,
         };
         await EnvironmentGate.WaitAsync();
         try
@@ -441,8 +442,11 @@ public partial class MainWindow
             await web.AddScriptToExecuteOnDocumentCreatedAsync(BrowserScripts.MediaMemory);
             await web.AddScriptToExecuteOnDocumentCreatedAsync(BrowserScripts.MediaWatch);
             await web.AddScriptToExecuteOnDocumentCreatedAsync(BrowserScripts.DarkAuto(_state.ForceDarkDomains));
+            await web.AddScriptToExecuteOnDocumentCreatedAsync(BrowserScripts.ChromeWebStoreScript);
+            await ExtensionManager.InitializeExtensionsAsync(web.Profile);
             web.WebMessageReceived += (_, e) => ReceiveWebMessage(tab, view, e.WebMessageAsJson);
             web.IsDocumentPlayingAudioChanged += async (_, _) => await SyncDocumentAudioStateAsync(tab, view);
+            web.ProcessFailed += (_, e) => HandleProcessFailed(tab, view, e);
             if (tab != CurrentTab) web.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Low;
             web.NavigationStarting += (_, args) => Dispatcher.Invoke(() =>
             {
@@ -525,7 +529,12 @@ public partial class MainWindow
                 if (ReferenceEquals(tab.SecondaryView, view)) tab.SecondaryFavicon = icon; else tab.Favicon = icon;
             });
             web.DownloadStarting += (_, e) => Dispatcher.Invoke(() => { _lastDownloadStartedUtc[view] = DateTime.UtcNow; HandleDownloadStarting(e); });
-            web.DOMContentLoaded += async (_, _) => { await ApplyAmbientLightAsync(view); await ApplyTranslationAsync(view, false); };
+            web.DOMContentLoaded += async (_, _) =>
+            {
+                await ApplyAmbientLightAsync(view);
+                await ApplyTranslationAsync(view, false);
+                try { await web.ExecuteScriptAsync(BrowserScripts.ChromeWebStoreScript); } catch { }
+            };
             web.NavigationCompleted += async (_, args) =>
             {
                 tab.IsNavigating = false;
@@ -588,6 +597,40 @@ public partial class MainWindow
             web.Navigate(url);
         }
         catch (Exception ex) { App.Log(ex); ShowToast("Ошибка загрузки", ex.Message); }
+    }
+
+    private void HandleProcessFailed(BrowserTab tab, WebView2 view, CoreWebView2ProcessFailedEventArgs args)
+    {
+        try
+        {
+            App.Log(new Exception($"WebView ProcessFailed: Kind={args.ProcessFailedKind}, Reason={args.Reason}, ExitCode={args.ExitCode}, Description={args.ProcessDescription}"));
+            if (args.ProcessFailedKind == CoreWebView2ProcessFailedKind.BrowserProcessExited)
+            {
+                Dispatcher.BeginInvoke(async () =>
+                {
+                    try
+                    {
+                        if (tab is not null && !tab.IsHome)
+                        {
+                            await ConfigureViewAsync(tab, view, tab.ActiveUrl);
+                        }
+                    }
+                    catch (Exception ex) { App.Log(ex); }
+                });
+            }
+            else if (args.ProcessFailedKind == CoreWebView2ProcessFailedKind.RenderProcessExited ||
+                     args.ProcessFailedKind == CoreWebView2ProcessFailedKind.RenderProcessUnresponsive)
+            {
+                Dispatcher.BeginInvoke(() =>
+                {
+                    try { view.Reload(); } catch (Exception ex) { App.Log(ex); }
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            App.Log(ex);
+        }
     }
 
     private void RetryNetworkPage(BrowserTab tab, WebView2 view)

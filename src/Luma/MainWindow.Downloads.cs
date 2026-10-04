@@ -178,6 +178,19 @@ public partial class MainWindow
                 : _state.DownloadPath;
             Directory.CreateDirectory(folder);
             var suggested = Path.GetFileName(args.ResultFilePath);
+            var uriStr = args.DownloadOperation.Uri ?? "";
+            var mime = args.DownloadOperation.MimeType ?? "";
+
+            bool isCrx = (suggested != null && suggested.EndsWith(".crx", StringComparison.OrdinalIgnoreCase))
+                || uriStr.Contains(".crx", StringComparison.OrdinalIgnoreCase)
+                || mime.Equals("application/x-chrome-extension", StringComparison.OrdinalIgnoreCase);
+
+            if (isCrx)
+            {
+                HandleCrxDownload(args);
+                return;
+            }
+
             if (string.IsNullOrWhiteSpace(suggested))
             {
                 suggested = Uri.TryCreate(args.DownloadOperation.Uri, UriKind.Absolute, out var uri)
@@ -223,6 +236,50 @@ public partial class MainWindow
         {
             App.Log(ex);
             ShowToast("Не удалось начать загрузку", ex.Message, true);
+        }
+    }
+
+    private void HandleCrxDownload(CoreWebView2DownloadStartingEventArgs args)
+    {
+        try
+        {
+            var tempFolder = Path.Combine(Path.GetTempPath(), "LumaExtensions");
+            Directory.CreateDirectory(tempFolder);
+            var tempCrx = Path.Combine(tempFolder, $"{Guid.NewGuid():N}.crx");
+            args.ResultFilePath = tempCrx;
+            args.Handled = true;
+
+            var operation = args.DownloadOperation;
+            operation.StateChanged += (_, _) =>
+            {
+                if (operation.State == CoreWebView2DownloadState.Completed)
+                {
+                    Dispatcher.BeginInvoke(async () =>
+                    {
+                        try
+                        {
+                            if (File.Exists(tempCrx))
+                            {
+                                var bytes = await File.ReadAllBytesAsync(tempCrx);
+                                var info = ExtensionManager.ReadManifestFromCrxBytes(bytes);
+                                ShowExtensionPromptForLocalCrx(tempCrx, info.Name, info.Permissions, info.IconBytes);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            App.Log(ex);
+                        }
+                    });
+                }
+                else if (operation.State == CoreWebView2DownloadState.Interrupted)
+                {
+                    try { if (File.Exists(tempCrx)) File.Delete(tempCrx); } catch { }
+                }
+            };
+        }
+        catch (Exception ex)
+        {
+            App.Log(ex);
         }
     }
 
