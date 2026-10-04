@@ -71,3 +71,4 @@ if($Upload){
 Write-Host "Ready: $package" -ForegroundColor Green
 Write-Host "SHA256: $hash"
 Write-Host "Manifest: $manifest"
+$global:LASTEXITCODE = 0

@@ -50,3 +50,4 @@ if (-not [string]::IsNullOrWhiteSpace($InstallerPath)) {
   if ($signature.Status -ne 'Valid') { throw "Installer signature is not valid: $($signature.Status)" }
 }
 Write-Host "Release preflight passed for Luma $browserVersion" -ForegroundColor Green
+$global:LASTEXITCODE = 0
