@@ -16,23 +16,29 @@ public static class BrowserAgentScripts
     (() => {
       try {
         const vw = innerWidth, vh = innerHeight;
-        const SEL = 'a[href],button,input:not([type=hidden]),textarea,select,summary,label,[role=button],[role=link],[role=tab],[role=menuitem],[role=menuitemcheckbox],[role=menuitemradio],[role=option],[role=checkbox],[role=radio],[role=switch],[role=textbox],[role=combobox],[role=searchbox],[role=treeitem],[contenteditable=""],[contenteditable="true"],[onclick],[tabindex]:not([tabindex="-1"]),.test-option,.test-option-inner,.question-option,[class*="test-option"],[class*="test-multichoice"],[class*="test-answer"],[class*="homework-test"],[class*="answer"],[class*="choice"],[class*="variant"],[data-answer],[data-option],[data-choice]';
+        const hasChildOption = el => {
+          try {
+            return !!el.querySelector('.test-option, .question-option, [class*="test-option"], .answer, .choice, [role="radio"], [role="checkbox"]');
+          } catch (_) { return false; }
+        };
+        const isCardClass = cls => /test-option|question-option|test-answer|\banswer\b|\bchoice\b|\bvariant\b/i.test(cls);
+
+        const SEL = 'a[href],button,input:not([type=hidden]),textarea,select,summary,label,[role=button],[role=link],[role=tab],[role=menuitem],[role=menuitemcheckbox],[role=menuitemradio],[role=option],[role=checkbox],[role=radio],[role=switch],[role=textbox],[role=combobox],[role=searchbox],[role=treeitem],[contenteditable=""],[contenteditable="true"],[onclick],[tabindex]:not([tabindex="-1"]),.test-option,.question-option,[class*="test-option"],[class*="test-answer"],[class*="multichoice-submit"],[class*="test-submit"],.answer,.choice,.variant,[data-answer],[data-option],[data-choice]';
         const found = [];
         const seen = new Set();
         const collect = root => {
-          root.querySelectorAll(SEL).forEach(e => { if (!seen.has(e)) { seen.add(e); found.push(e); } });
+          root.querySelectorAll(SEL).forEach(e => {
+            if (hasChildOption(e)) return;
+            if (!seen.has(e)) { seen.add(e); found.push(e); }
+          });
           root.querySelectorAll('div, span, li, p, section, article').forEach(e => {
             if (!seen.has(e)) {
               const cls = typeof e.className === 'string' ? e.className : '';
-              const isCard = cls.includes('test-') || cls.includes('option') || cls.includes('answer') || cls.includes('choice');
-              if (isCard || (e.innerText && e.innerText.trim().length > 0 && e.innerText.trim().length < 400)) {
-                try {
-                  const st = getComputedStyle(e);
-                  if (st.cursor === 'pointer' || isCard) {
-                    seen.add(e);
-                    found.push(e);
-                  }
-                } catch (_) {}
+              const isCard = isCardClass(cls) && !hasChildOption(e);
+              const isSubmitBtn = (cls.includes('submit') || cls.includes('btn')) && (e.innerText || '').trim().length < 60;
+              if (isCard || isSubmitBtn) {
+                seen.add(e);
+                found.push(e);
               }
             }
           });
@@ -49,7 +55,7 @@ public static class BrowserAgentScripts
         };
         const getPageQuestion = () => {
           const qEl = document.querySelector('.test-question, .homework-test-question, [class*="test-question"], .question-title, [class*="question-text"], .test-content-text, [class*="test-content"], [class*="q-title"], h1, h2');
-          return qEl ? clean(qEl.innerText).slice(0, 100) : '';
+          return qEl ? clean(qEl.innerText).slice(0, 140) : '';
         };
         const pageQuestion = getPageQuestion();
         const labelOf = e => {
@@ -70,16 +76,17 @@ public static class BrowserAgentScripts
           }
           return t.slice(0, 110);
         };
-        const kindOf = e => {
+        const kindOf = (e, isOpt) => {
           const tag = e.tagName.toLowerCase(), role = e.getAttribute('role');
           const cls = typeof e.className === 'string' ? e.className : '';
+          const lbl = labelOf(e);
           if (tag === 'input') return 'input[' + (e.type || 'text') + ']';
           if (tag === 'textarea') return 'textarea';
           if (tag === 'select') return 'select';
           if (e.isContentEditable) return 'editable';
           if (tag === 'a') return 'link';
-          if (tag === 'button') return 'button';
-          if (tag === 'label' || cls.includes('test-option') || cls.includes('answer') || cls.includes('option') || cls.includes('choice')) {
+          if (tag === 'button' || role === 'button' || cls.includes('submit') || cls.includes('multichoice-submit') || /^(відповісти|далі|перевірити|ответить|далее|submit|next|готово)$/i.test(lbl)) return 'button';
+          if (isOpt) {
             const inp = e.querySelector('input');
             return inp ? 'option[' + (inp.type || 'choice') + ']' : 'option';
           }
@@ -91,6 +98,9 @@ public static class BrowserAgentScripts
         const fullBodyText = ((document.body && document.body.innerText) || '').toLowerCase();
         if (fullBodyText.includes('повторна відповідь неможлива') || fullBodyText.includes('повторный ответ невозможен')) {
           lines.push('[инфо] На странице сообщение: «Повторна відповідь неможлива». Подожди 2 секунды (действие wait), переход выполнится автоматически.');
+        }
+        if (pageQuestion) {
+          lines.push('[вопрос] "' + pageQuestion + '"');
         }
         const iframes = Array.from(document.querySelectorAll('iframe')).filter(f => f.offsetWidth > 60 && f.offsetHeight > 60);
         if (iframes.length > 0) lines.push('[инфо] На странице есть встроенные фреймы/виджеты (iframe: ' + iframes.length + ')');
@@ -104,31 +114,39 @@ public static class BrowserAgentScripts
           const tag = e.tagName.toLowerCase();
           const isField = tag === 'input' || tag === 'textarea' || tag === 'select' || e.isContentEditable;
           const cls = typeof e.className === 'string' ? e.className : '';
-          const isOptionCard = cls.includes('test-option') || cls.includes('answer') || cls.includes('option') || cls.includes('choice') || tag === 'label';
+          
+          if (hasChildOption(e) && !isField && tag !== 'button' && e.getAttribute('role') !== 'button') continue;
+
+          const cardParent = e.closest('.test-option, [class*="test-option"], .question-option, label, [role=radio], [role=checkbox], .answer, .choice, .variant');
+          if (cardParent && cardParent !== e && included.has(cardParent)) continue;
+
+          const isOptionCard = (isCardClass(cls) || tag === 'label' || e.getAttribute('role') === 'option') && !hasChildOption(e);
           const cx = Math.min(vw - 1, Math.max(0, isField ? r.left + Math.min(r.width / 2, 40) : r.left + r.width / 2));
           const cy = Math.min(vh - 1, Math.max(0, r.top + r.height / 2));
           const top = topAt(cx, cy);
           if (top && !containsDeep(e, top) && !containsDeep(top, e) && !e.contains(top) && !isOptionCard) continue;
+          
           let parentIncluded = false, n = up(e), depth = 0;
           while (n && depth < 6) { if (included.has(n)) { parentIncluded = true; break; } n = up(n); depth++; }
           const label = labelOf(e);
-          if (parentIncluded && !isField) continue;
+          if (parentIncluded && !isField && !isOptionCard) continue;
           if (!label && !isField && tag !== 'button' && e.getAttribute('role') !== 'button' && !isOptionCard) continue;
           included.add(e);
           const id = els.length;
           els.push(e);
-          let line = '[' + id + '] ' + kindOf(e) + ' "' + (label || 'без подписи') + '"';
+          let line = '[' + id + '] ' + kindOf(e, isOptionCard) + ' "' + (label || 'без подписи') + '"';
           const innerInp = (tag === 'input') ? e : e.querySelector('input[type=checkbox],input[type=radio]');
+          const isChecked = () => {
+            if (innerInp && innerInp.checked) return true;
+            if (cls.includes('active') || cls.includes('selected') || cls.includes('checked')) return true;
+            if (e.getAttribute('aria-selected') === 'true' || e.getAttribute('aria-checked') === 'true') return true;
+            if (e.querySelector('.active, .checked, [class*="active"], [class*="checked"], [aria-checked="true"], svg, i.fa-check')) return true;
+            return false;
+          };
           if (innerInp && (innerInp.type === 'checkbox' || innerInp.type === 'radio')) {
             line += innerInp.checked ? ' (отмечено)' : ' (не отмечено)';
-            const fs = e.closest('fieldset, .question, [data-question], .test-question, .quiz-question, form, li');
-            const leg = fs ? fs.querySelector('legend, h2, h3, h4, .question-text, .q-title, .title') : null;
-            const qCtx = leg ? clean(leg.innerText).slice(0, 80) : pageQuestion;
-            if (qCtx) line += ' [контекст вопроса: "' + qCtx + '"]';
           } else if (isOptionCard) {
-            const hasActive = cls.includes('active') || cls.includes('selected') || e.getAttribute('aria-selected') === 'true' || e.getAttribute('aria-checked') === 'true';
-            if (hasActive) line += ' (отмечено)';
-            if (pageQuestion) line += ' [контекст вопроса: "' + pageQuestion + '"]';
+            if (isChecked()) line += ' (отмечено)';
           } else if (tag === 'input' || tag === 'textarea') {
             if (e.value) line += ' value="' + clean(e.value).slice(0, 60) + '"';
           } else if (tag === 'select') {
@@ -139,7 +157,7 @@ public static class BrowserAgentScripts
             if (v) line += ' содержит="' + v.slice(0, 60) + '"';
           }
           const ariaChecked = e.getAttribute('aria-checked') || e.getAttribute('aria-pressed') || e.getAttribute('aria-selected');
-          if (ariaChecked === 'true') line += ' (активно)';
+          if (ariaChecked === 'true' && !line.includes('(отмечено)')) line += ' (активно)';
           if (tag === 'a' && e.href) {
             try {
               const u = new URL(e.href);
