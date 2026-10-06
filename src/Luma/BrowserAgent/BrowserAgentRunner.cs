@@ -65,13 +65,14 @@ public static class BrowserAgentRunner
    а найденный элемент — на экране (для этого подходит find_text).
 9. Пиши thought и answer на языке пользователя.
 10. Важные найденные факты, которые понадобятся позже, сохраняй в поле "memory" — оно будет показываться тебе на следующих шагах.
-11. ПРОХОЖДЕНИЕ ТЕСТОВ, ОПРОСОВ И ВИКТОРУН:
-    - Когда пользователь просит «пройди тест», «реши тест на этой странице», «ответь на вопросы»:
-      а) Внимательно изучи текущий вопрос на странице и все варианты ответов [N] (радиокнопки, чекбоксы, выпадающие списки или поля ввода).
-      б) Выбери наиболее верный ответ (нажатием click на индекс элемента [N], выборкой select или вводом type).
-      в) Найди и нажми кнопку перехода к следующему вопросу (например: «Далее», «Следующий вопрос», «Next», «Ответить», «Завершить»).
-      г) Повторяй этот процесс для каждого вопроса, пока тест не будет полностью завершён.
-      д) После завершения верни итог с оценкой или результатом теста через action "done".
+11. ПРОХОЖДЕНИЕ ТЕСТОВ И ОПРОСОВ (МАКСИМАЛЬНАЯ СКОРОСТЬ):
+    - Все варианты ответов и кнопки «Далее» / «Ответить» уже есть в списке элементов [N]!
+    - КАТЕГОРИЧЕСКИ НЕ ИСПОЛЬЗУЙ eval для поиска вопросов и вариантов! Не пиши скрипты в тестах!
+    - Используй действие "batch", чтобы ВЫБРАТЬ ОТВЕТ И НАЖАТЬ ДАЛЕЕ В ОДИН ШАГ:
+      {"thought":"Вопрос 1: столица Франции — Париж [3]. Выбираю ответ и жму Далее [5]","action":"batch","actions":[{"action":"check","id":3},{"action":"click","id":5}]}
+      Это решает вопрос мгновенно за один шаг без лишних ожиданий!
+    - Если радиокнопка или вариант не кликается обычным click, используй check или js_click.
+    - В поле "thought" ВСЕГДА пиши кратко суть для пользователя (номер вопроса, правильный ответ, что нажимаешь). Этот текст видит пользователь в строке статуса!
 
 ДЕЙСТВИЯ (ровно одно за шаг):
 {"action":"navigate","url":"https://..."}          — открыть адрес во вкладке агента
@@ -84,8 +85,8 @@ public static class BrowserAgentRunner
 {"action":"type","id":N,"text":"...","submit":false} — очистить поле [N] и ввести текст; submit=true нажмёт Enter
 {"action":"select","id":N,"text":"..."}            — выбрать вариант в выпадающем списке [N]
 {"action":"drag","id":N,"deltaX":100,"deltaY":0}   — перетащить ползунок/слайдер от элемента [N] на deltaX, deltaY пикселей
-{"action":"eval","script":"..."}                   — выполнить собственный JS-код на странице (для сложных манипуляций)
-{"action":"batch","actions":[...]}                 — выполнить пачку быстрых действий подряд без ожидания шага
+{"action":"eval","script":"...","description":"..."} — выполнить JS на странице (только если обычные действия не подходят; укажи description)
+{"action":"batch","actions":[...]}                 — выполнить серию действий за один шаг (например: выбрать ответ check + нажать Далее click)
 {"action":"press","key":"Enter"}                   — клавиша: Enter, Escape, Tab, Backspace, ArrowDown, ArrowUp, PageDown, PageUp, Space
 {"action":"scroll","direction":"down","amount":2}  — прокрутить на amount экранов (1–6), direction: down или up
 {"action":"find_text","query":"..."}               — найти текст на всей странице, прокрутить к нему, вернуть контекст совпадений
@@ -97,7 +98,7 @@ public static class BrowserAgentRunner
 {"action":"ask_user","question":"что нужно от пользователя"}
 
 ФОРМАТ ОТВЕТА — строго один JSON-объект, без текста вокруг и без ```:
-{"thought":"коротко: что вижу и зачем этот шаг","memory":"(необязательно) что запомнить","action":"...", ...параметры}
+{"thought":"кратко: суть действия и ответ для пользователя","memory":"(необязательно) что запомнить","action":"...", ...параметры}
 """;
 
     private sealed record Observation(string Title, string Url, string Text, List<string> Elements, int ScrollY, int MaxScroll, int Vw, int Vh, bool Dialog);
@@ -118,7 +119,8 @@ public static class BrowserAgentRunner
         Func<string, Task> onDelta,
         CancellationToken token,
         string conversationContext = "",
-        Action<AssistantQuota>? onQuota = null)
+        Action<AssistantQuota>? onQuota = null,
+        string? preferredTier = null)
     {
         var lang = (language ?? "ru").ToLowerInvariant();
         string L(string ru, string uk, string en) => lang switch { "uk" => uk, "en" => en, _ => ru };
@@ -132,7 +134,8 @@ public static class BrowserAgentRunner
         var memory = new List<string>();
         var recent = new List<string>();
         var lastResult = "";
-        var tier = "pro";
+        var isTestSolving = Regex.IsMatch(goal, @"\b(?:тест|опрос|квиз|quiz|exam|вопрос|экзамен)\b", RegexOptions.IgnoreCase);
+        var tier = isTestSolving ? "fast" : (preferredTier ?? "fast");
 
         await onDelta($"**Luma Agent** · {L("выполняю задачу", "виконую завдання", "working on it")}\n\n");
 
@@ -206,7 +209,21 @@ public static class BrowserAgentRunner
                 var looping = recent.Count >= 3 && recent.Skip(recent.Count - 3).All(s => s == signature) && action != "scroll";
 
                 var label = DescribeAction(action, d, ctx, L);
-                await onDelta($"- {label}\n");
+                string display;
+                if (!string.IsNullOrWhiteSpace(thought))
+                {
+                    var cleanThought = Regex.Replace(thought.Trim(), @"\s+", " ");
+                    var firstSentence = cleanThought.Split(new[] { '.', ';', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim() ?? cleanThought;
+                    if (firstSentence.Length > 110) firstSentence = firstSentence[..110].TrimEnd() + "…";
+                    display = firstSentence.Equals(label, StringComparison.OrdinalIgnoreCase)
+                        ? label
+                        : $"{firstSentence} ({label})";
+                }
+                else
+                {
+                    display = label;
+                }
+                await onDelta($"- {display}\n");
 
                 string result;
                 try
@@ -345,8 +362,10 @@ public static class BrowserAgentRunner
             "hover" => L("Навожу курсор на «", "Наводжу курсор на «", "Hovering over «") + El() + "»",
             "check" => L("Отмечаю «", "Відмічаю «", "Checking «") + El() + "»",
             "drag" => L("Перетаскиваю ползунок «", "Перетягую повзунок «", "Dragging «") + El() + "»",
-            "eval" => L("Выполняю скрипт", "Виконую скрипт", "Evaluating script"),
-            "batch" => L("Выполняю серию действий", "Виконую серію дій", "Executing batch actions"),
+            "eval" => !string.IsNullOrWhiteSpace(Str(d, "description"))
+                ? Str(d, "description")
+                : L("Анализирую элементы страницы", "Аналізую елементи сторінки", "Analyzing page elements"),
+            "batch" => DescribeBatch(d, ctx, L),
             "type" => L("Ввожу «", "Вводжу «", "Typing «") + Trim(Str(d, "text"), 60) + "»" + (Bool(d, "submit") ? " ⏎" : ""),
             "select" => L("Выбираю «", "Обираю «", "Selecting «") + Trim(Str(d, "text"), 60) + "»",
             "press" => L("Нажимаю клавишу ", "Натискаю клавішу ", "Pressing ") + Str(d, "key"),
@@ -358,6 +377,19 @@ public static class BrowserAgentRunner
             "wait" => L("Жду загрузку", "Чекаю завантаження", "Waiting for the page"),
             _ => action,
         };
+    }
+
+    private static string DescribeBatch(JsonElement d, AgentContext ctx, Func<string, string, string, string> L)
+    {
+        if (d.TryGetProperty("actions", out var arr) && arr.ValueKind == JsonValueKind.Array)
+        {
+            var parts = arr.EnumerateArray().Take(4)
+                .Select(sub => DescribeAction(Str(sub, "action").ToLowerInvariant(), sub, ctx, L))
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .ToList();
+            if (parts.Count > 0) return string.Join(" → ", parts);
+        }
+        return L("Выполняю цепочку действий", "Виконую ланцюжок дій", "Executing batch actions");
     }
 
     // ───────────────────────────── actions ─────────────────────────────
@@ -630,19 +662,32 @@ public static class BrowserAgentRunner
                 return $"Неизвестное действие «{action}». Используй только действия из списка.";
         }
 
-        // Clicks and Enter may navigate, open a popup tab or just update the page in place.
-        await Task.Delay(500, token);
+        // In-page actions (check, click, batch, type) don't need heavy delays
+        var isQuick = action is "check" or "hover" or "select" or "type" or "press" or "batch" or "eval";
+        await Task.Delay(isQuick ? 100 : 200, token);
         var newTab = window.Tabs.Where(t => !tabsBefore.Contains(t) && !t.IsInternal).LastOrDefault();
         if (newTab is not null)
         {
             ctx.Tab = newTab;
             window.CurrentTab = newTab;
-            await WaitForLoadAsync(newTab, 9000, token, navigation: true);
+            await WaitForLoadAsync(newTab, 6000, token, navigation: true);
             return outcome + " Открылась новая вкладка — агент перешёл в неё. " + await PageSummaryAsync(newTab, "Страница");
         }
         var navigated = !string.Equals(core.Source, urlBefore, StringComparison.Ordinal);
-        await WaitForLoadAsync(tab, navigated ? 8000 : 2500, token, navigation: navigated);
-        return navigated ? outcome + " " + await PageSummaryAsync(tab, "Перешёл на страницу") : outcome;
+        if (navigated)
+        {
+            await WaitForLoadAsync(tab, 6000, token, navigation: true);
+            return outcome + " " + await PageSummaryAsync(tab, "Перешёл на страницу");
+        }
+        else if (isQuick)
+        {
+            return outcome;
+        }
+        else
+        {
+            await WaitForLoadAsync(tab, 1200, token, navigation: false);
+            return outcome;
+        }
     }
 
     private static async Task<bool> TrustedClickAsync(CoreWebView2 core, double x, double y)
@@ -744,23 +789,23 @@ public static class BrowserAgentRunner
         while (tab.ActiveView?.CoreWebView2 is null)
         {
             if ((DateTime.UtcNow - start).TotalMilliseconds > timeoutMs) return;
-            await Task.Delay(100, token);
+            await Task.Delay(40, token);
         }
         var core = tab.ActiveView.CoreWebView2;
-        if (navigation) await Task.Delay(400, token);
+        if (navigation) await Task.Delay(150, token);
         while ((DateTime.UtcNow - start).TotalMilliseconds < timeoutMs)
         {
             token.ThrowIfCancellationRequested();
             try
             {
                 var state = await core.ExecuteScriptAsync("document.readyState");
-                if (state == "\"complete\"" || (state == "\"interactive\"" && (DateTime.UtcNow - start).TotalMilliseconds > 3000)) break;
+                if (state == "\"complete\"" || (state == "\"interactive\"" && (DateTime.UtcNow - start).TotalMilliseconds > 1500)) break;
             }
             catch { }
-            await Task.Delay(200, token);
+            await Task.Delay(50, token);
         }
         // Let client-side frameworks render after the document itself is ready.
-        await Task.Delay(navigation ? 900 : 350, token);
+        if (navigation) await Task.Delay(300, token);
     }
 
     private static async Task<JsonElement?> JsonAsync(CoreWebView2 core, string script)

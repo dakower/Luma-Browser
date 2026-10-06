@@ -16,7 +16,7 @@ public static class BrowserAgentScripts
     (() => {
       try {
         const vw = innerWidth, vh = innerHeight;
-        const SEL = 'a[href],button,input:not([type=hidden]),textarea,select,summary,[role=button],[role=link],[role=tab],[role=menuitem],[role=menuitemcheckbox],[role=menuitemradio],[role=option],[role=checkbox],[role=radio],[role=switch],[role=textbox],[role=combobox],[role=searchbox],[role=treeitem],[contenteditable=""],[contenteditable="true"],[onclick],[tabindex]:not([tabindex="-1"])';
+        const SEL = 'a[href],button,input:not([type=hidden]),textarea,select,summary,label,[role=button],[role=link],[role=tab],[role=menuitem],[role=menuitemcheckbox],[role=menuitemradio],[role=option],[role=checkbox],[role=radio],[role=switch],[role=textbox],[role=combobox],[role=searchbox],[role=treeitem],[contenteditable=""],[contenteditable="true"],[onclick],[tabindex]:not([tabindex="-1"]),.answer,.option,.choice,[data-answer],[data-option],[data-choice]';
         const found = [];
         const seen = new Set();
         const collect = root => {
@@ -37,6 +37,10 @@ public static class BrowserAgentScripts
           let t = clean(e.getAttribute('aria-label'));
           if (!t && (tag === 'input' || tag === 'textarea' || tag === 'select')) {
             t = clean(e.getAttribute('placeholder')) || clean(e.labels && e.labels[0] && e.labels[0].innerText) || clean(e.getAttribute('title')) || clean(e.getAttribute('name'));
+            if (!t && (e.type === 'checkbox' || e.type === 'radio')) {
+              const p = e.closest('label, li, .answer, .option, tr, div');
+              if (p) t = clean(p.innerText);
+            }
           }
           if (!t) t = clean(e.innerText || e.textContent);
           if (!t) t = clean(e.getAttribute('title')) || clean(e.getAttribute('alt')) || clean(e.getAttribute('data-tooltip'));
@@ -54,6 +58,10 @@ public static class BrowserAgentScripts
           if (e.isContentEditable) return 'editable';
           if (tag === 'a') return 'link';
           if (tag === 'button') return 'button';
+          if (tag === 'label' || e.classList.contains('answer') || e.classList.contains('option')) {
+            const inp = e.querySelector('input');
+            return inp ? 'option[' + (inp.type || 'choice') + ']' : 'option';
+          }
           if (role) return role;
           return tag;
         };
@@ -66,7 +74,8 @@ public static class BrowserAgentScripts
           const r = e.getBoundingClientRect();
           if (r.width < 2 || r.height < 2 || r.bottom < 0 || r.top > vh || r.right < 0 || r.left > vw) continue;
           const st = getComputedStyle(e);
-          if (st.visibility === 'hidden' || st.display === 'none' || parseFloat(st.opacity) < 0.05) continue;
+          if (st.visibility === 'hidden' || st.display === 'none') continue;
+          if (parseFloat(st.opacity) < 0.05 && tag !== 'input' && !e.querySelector('input')) continue;
           const cx = Math.min(vw - 1, Math.max(0, r.left + Math.min(r.width / 2, 40))), cy = Math.min(vh - 1, Math.max(0, r.top + r.height / 2));
           const top = topAt(cx, cy);
           if (top && !containsDeep(e, top) && !containsDeep(top, e)) continue;
@@ -81,16 +90,16 @@ public static class BrowserAgentScripts
           const id = els.length;
           els.push(e);
           let line = '[' + id + '] ' + kindOf(e) + ' "' + (label || 'без подписи') + '"';
-          if (tag === 'input' || tag === 'textarea') {
-            if (e.type === 'checkbox' || e.type === 'radio') {
-              line += e.checked ? ' (отмечено)' : ' (не отмечено)';
-              const fs = e.closest('fieldset, .question, [data-question], .test-question, .quiz-question, form, li');
-              if (fs) {
-                const leg = fs.querySelector('legend, h2, h3, h4, .question-text, .q-title, .title');
-                if (leg) line += ' [контекст вопроса: "' + clean(leg.innerText).slice(0, 80) + '"]';
-              }
+          const innerInp = (tag === 'input') ? e : e.querySelector('input[type=checkbox],input[type=radio]');
+          if (innerInp && (innerInp.type === 'checkbox' || innerInp.type === 'radio')) {
+            line += innerInp.checked ? ' (отмечено)' : ' (не отмечено)';
+            const fs = e.closest('fieldset, .question, [data-question], .test-question, .quiz-question, form, li');
+            if (fs) {
+              const leg = fs.querySelector('legend, h2, h3, h4, .question-text, .q-title, .title');
+              if (leg) line += ' [контекст вопроса: "' + clean(leg.innerText).slice(0, 80) + '"]';
             }
-            else if (e.value) line += ' value="' + clean(e.value).slice(0, 60) + '"';
+          } else if (tag === 'input' || tag === 'textarea') {
+            if (e.value) line += ' value="' + clean(e.value).slice(0, 60) + '"';
           } else if (tag === 'select') {
             const opts = Array.from(e.options || []).slice(0, 12).map(o => clean(o.text)).join(' / ');
             line += ' выбрано="' + clean(e.options[e.selectedIndex] ? e.options[e.selectedIndex].text : '') + '" варианты: ' + opts;

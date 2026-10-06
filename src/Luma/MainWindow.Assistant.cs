@@ -652,7 +652,8 @@ public partial class MainWindow
                         _state.AssistantQuota.Unlimited = quota.Unlimited;
                         _stateStore.Save();
                         PostAssistant(new { kind = "quota", limit = quota.Limit, used = quota.Used, remaining = quota.Remaining, unlimited = quota.Unlimited });
-                    }));
+                    }),
+                    preferredTier: _state.AssistantModel);
                 _assistantHistory.Add(new AssistantMessage { Role = "user", Text = question });
                 if (!string.IsNullOrWhiteSpace(agentAnswer)) _assistantHistory.Add(new AssistantMessage { Role = "assistant", Text = agentAnswer });
                 while (_assistantHistory.Count > 30) _assistantHistory.RemoveAt(0);
