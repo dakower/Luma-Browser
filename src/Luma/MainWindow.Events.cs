@@ -527,6 +527,8 @@ public partial class MainWindow
     {
         if (_closing) return;
         _closing = true;
+        _voiceService?.Dispose();
+        _voiceService = null;
         _auth.SessionChanged -= AccountSessionChanged;
         CloseFloatingVideoForShutdown();
         _floatingMusic?.Close();

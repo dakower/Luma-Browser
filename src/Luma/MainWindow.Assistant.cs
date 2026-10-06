@@ -776,4 +776,44 @@ public partial class MainWindow
         }
         finally { if (ReferenceEquals(_assistantRun, run)) _assistantRun = null; }
     }
+
+    public async Task AskAssistantDirectAsync(string question, Action<string> onDelta, CancellationToken token)
+    {
+        var accessToken = await _auth.GetAccessTokenAsync(token);
+        if (string.IsNullOrWhiteSpace(accessToken))
+        {
+            onDelta("Войдите в аккаунт Luma, чтобы пользоваться LumaAI.");
+            return;
+        }
+
+        var context = new StringBuilder();
+        context.AppendLine("Ты — LumaAI, умный голосовой ассистент, встроенный в браузер Luma. Отвечай кратко, емко, естественно и по делу.");
+        context.AppendLine(AssistantActions.Protocol);
+
+        var request = new List<AssistantMessage>
+        {
+            new() { Role = "system", Text = context.ToString() },
+            new() { Role = "user", Text = question }
+        };
+
+        var answer = new StringBuilder();
+        try
+        {
+            await AssistantClient.StreamAsync(accessToken, _state.AssistantModel, request, async delta =>
+            {
+                answer.Append(delta);
+                onDelta(delta);
+                await Task.CompletedTask;
+            }, token);
+
+            var full = answer.ToString();
+            await RunAssistantActionsAsync(full);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            App.Log(ex);
+            onDelta("Ошибка: " + ex.Message);
+        }
+    }
 }

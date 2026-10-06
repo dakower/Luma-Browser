@@ -11,6 +11,7 @@
 )
 $ErrorActionPreference='Stop'
 $root=Split-Path -Parent $MyInvocation.MyCommand.Path
+$global:LASTEXITCODE = 0
 & (Join-Path $root 'tools\release-preflight.ps1') -SourceOnly
 if($LASTEXITCODE-ne 0){throw 'Release source preflight failed'}
 [xml]$projectXml=Get-Content (Join-Path $root 'src\Luma\Luma.csproj')

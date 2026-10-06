@@ -125,6 +125,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private FloatingMusicWindow? _floatingMusic;
     private bool _floatingMusicDismissed;
     private bool _floatingVideoRequested;
+    private Voice.VoiceAssistantService? _voiceService;
     private string _loadedArtworkSource = "";
     private bool _fullscreen, _fsSidebarWasVisible = true, _fsWasMaximized;
     private FolderState? _folderBeingNamed;
@@ -326,6 +327,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         await _auth.RestoreSessionAsync(!((App)Application.Current).IsPrivateSession);
         UpdateAccountMenu();
         StartAccountUsageTracking();
+        try
+        {
+            _voiceService = new Voice.VoiceAssistantService(this);
+            _voiceService.Initialize();
+        }
+        catch (Exception ex)
+        {
+            App.Log(ex);
+        }
         _hoverHideTimer.Tick += (_, _) => { _hoverHideTimer.Stop(); if (_sidebarAutoShown && !Sidebar.IsMouseOver) SetSidebar(false, true, false, true); };
         _edgeWatch.Tick += (_, _) => EdgeWatchTick(); _edgeWatch.Start();
         _tabInputWatch.Tick += (_, _) => TabInputWatchTick(); _tabInputWatch.Start();

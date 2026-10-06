@@ -19,13 +19,15 @@ public static class BrowserAgentRunner
     // Only clear "do something in the browser for me" requests auto-start the agent; plain
     // questions stay with the regular assistant. The agent toggle in the panel forces it anyway.
     private static readonly Regex AgentIntentRegex = new(
-        @"(?:\b(?:зайди|перейди|нажми|натисни|кликни|заполни|залогинься|авторизуйся|подпишись|отпишись|лайкни|дизлайкни|прокрути|пролистай|закажи|купи|оформи|замов)\b"
+        @"(?:\b(?:зайди|перейди|нажми|натисни|кликни|заполни|залогинься|авторизуйся|подпишись|отпишись|лайкни|дизлайкни|прокрути|пролистай|закажи|купи|оформи|замов|пройди|реши|сдай|ответь)\b"
+        + @"|(?:пройди|реши|сдай|ответь|выполни)\s+.{0,60}?(?:тест|опрос|квиз|вопрос|экзамен|задание|викторин|опитування|тестування)"
         + @"|(?:добавь|положи|додай)\s+в\s+(?:корзину|кошик)"
         + @"|поставь\s+лайк"
         + @"|(?:найди|знайди|отыщи)\s+.{0,90}?(?:коммент|отзыв|відгук|пост|сообщени|повідомлен|ответ|твит|видео|відео|ролик|канал|на\s+сайте|на\s+странице|на\s+ютуб|в\s+ютуб|на\s+youtube|в\s+гугл)"
         + @"|(?:открой|відкрий)\s+.{1,90}?\s(?:и|і|затем|потом|а\s+потом|та)\s+(?:найди|знайди|открой|відкрий|нажми|натисни|напиши|включи|перейди|зайди|отправ|надішли|проверь|посмотри|вбей|введи)"
         + @"|(?:напиши|отправь|надішли)\s+.{0,60}?(?:письмо|лист|сообщение|повідомлення|коммент|в\s+чат|в\s+поддержку)"
-        + @"|\b(?:go\s+to|click|fill\s+(?:in|out)|add\s+to\s+cart|log\s+in\s+to|sign\s+in\s+to)\b"
+        + @"|\b(?:go\s+to|click|fill\s+(?:in|out)|add\s+to\s+cart|log\s+in\s+to|sign\s+in\s+to|solve|take|pass)\b"
+        + @"|\b(?:solve|take|pass|answer)\s+.{0,60}?(?:test|quiz|exam|questions|form)"
         + @"|\bfind\s+.{0,80}?(?:comment|review|post|video|on\s+youtube|on\s+the\s+site)"
         + @"|\bopen\s+.{1,80}?\sand\s+(?:find|open|click|write|type|send|check|go))",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
@@ -63,14 +65,27 @@ public static class BrowserAgentRunner
    а найденный элемент — на экране (для этого подходит find_text).
 9. Пиши thought и answer на языке пользователя.
 10. Важные найденные факты, которые понадобятся позже, сохраняй в поле "memory" — оно будет показываться тебе на следующих шагах.
+11. ПРОХОЖДЕНИЕ ТЕСТОВ, ОПРОСОВ И ВИКТОРУН:
+    - Когда пользователь просит «пройди тест», «реши тест на этой странице», «ответь на вопросы»:
+      а) Внимательно изучи текущий вопрос на странице и все варианты ответов [N] (радиокнопки, чекбоксы, выпадающие списки или поля ввода).
+      б) Выбери наиболее верный ответ (нажатием click на индекс элемента [N], выборкой select или вводом type).
+      в) Найди и нажми кнопку перехода к следующему вопросу (например: «Далее», «Следующий вопрос», «Next», «Ответить», «Завершить»).
+      г) Повторяй этот процесс для каждого вопроса, пока тест не будет полностью завершён.
+      д) После завершения верни итог с оценкой или результатом теста через action "done".
 
 ДЕЙСТВИЯ (ровно одно за шаг):
 {"action":"navigate","url":"https://..."}          — открыть адрес во вкладке агента
 {"action":"new_tab","url":"https://..."}           — открыть адрес в новой вкладке (если нужно держать несколько страниц)
 {"action":"web_search","query":"..."}              — поиск в интернете; вернёт ссылки с описаниями, страницу не меняет
 {"action":"click","id":N}                          — нажать элемент [N] из списка
+{"action":"js_click","id":N}                       — прямой клик через JS по [N] (если обычный click перекрыт оверлеем или баннером)
+{"action":"hover","id":N}                          — навести курсор на элемент [N] (для выпадающих меню, подсказок, списков)
+{"action":"check","id":N,"checked":true}           — отметить или снять отметку с чекбокса/радиокнопки [N] (для тестов, форм, настроек)
 {"action":"type","id":N,"text":"...","submit":false} — очистить поле [N] и ввести текст; submit=true нажмёт Enter
 {"action":"select","id":N,"text":"..."}            — выбрать вариант в выпадающем списке [N]
+{"action":"drag","id":N,"deltaX":100,"deltaY":0}   — перетащить ползунок/слайдер от элемента [N] на deltaX, deltaY пикселей
+{"action":"eval","script":"..."}                   — выполнить собственный JS-код на странице (для сложных манипуляций)
+{"action":"batch","actions":[...]}                 — выполнить пачку быстрых действий подряд без ожидания шага
 {"action":"press","key":"Enter"}                   — клавиша: Enter, Escape, Tab, Backspace, ArrowDown, ArrowUp, PageDown, PageUp, Space
 {"action":"scroll","direction":"down","amount":2}  — прокрутить на amount экранов (1–6), direction: down или up
 {"action":"find_text","query":"..."}               — найти текст на всей странице, прокрутить к нему, вернуть контекст совпадений
@@ -326,6 +341,12 @@ public static class BrowserAgentRunner
             "new_tab" => L("Открываю в новой вкладке ", "Відкриваю в новій вкладці ", "Opening in a new tab ") + PrettyUrl(Str(d, "url")),
             "web_search" => L("Ищу в интернете: «", "Шукаю в інтернеті: «", "Searching the web: «") + Trim(Str(d, "query"), 80) + "»",
             "click" => L("Нажимаю «", "Натискаю «", "Clicking «") + El() + "»",
+            "js_click" => L("Нажимаю через JS «", "Натискаю через JS «", "JS-clicking «") + El() + "»",
+            "hover" => L("Навожу курсор на «", "Наводжу курсор на «", "Hovering over «") + El() + "»",
+            "check" => L("Отмечаю «", "Відмічаю «", "Checking «") + El() + "»",
+            "drag" => L("Перетаскиваю ползунок «", "Перетягую повзунок «", "Dragging «") + El() + "»",
+            "eval" => L("Выполняю скрипт", "Виконую скрипт", "Evaluating script"),
+            "batch" => L("Выполняю серию действий", "Виконую серію дій", "Executing batch actions"),
             "type" => L("Ввожу «", "Вводжу «", "Typing «") + Trim(Str(d, "text"), 60) + "»" + (Bool(d, "submit") ? " ⏎" : ""),
             "select" => L("Выбираю «", "Обираю «", "Selecting «") + Trim(Str(d, "text"), 60) + "»",
             "press" => L("Нажимаю клавишу ", "Натискаю клавішу ", "Pressing ") + Str(d, "key"),
@@ -416,6 +437,73 @@ public static class BrowserAgentRunner
                 var clicked = await TrustedClickAsync(core, Dbl(point.Value, "x"), Dbl(point.Value, "y"));
                 if (!clicked) await core.ExecuteScriptAsync(BrowserAgentScripts.JsClickScript(id));
                 outcome = "Нажато.";
+                break;
+            }
+
+            case "js_click":
+            {
+                var id = Int(d, "id", -1);
+                var res = await JsonAsync(core, BrowserAgentScripts.JsClickScript(id));
+                if (res is null || !Bool(res.Value, "ok"))
+                    return $"Элемент [{id}] не найден для JS-клика.";
+                outcome = "Нажато через JS.";
+                break;
+            }
+
+            case "hover":
+            {
+                var id = Int(d, "id", -1);
+                var hoverRes = await JsonAsync(core, BrowserAgentScripts.HoverScript(id));
+                if (hoverRes is null || !Bool(hoverRes.Value, "ok"))
+                    return $"Элемент [{id}] не найден для наведения курсора.";
+                outcome = "Курсор наведён.";
+                break;
+            }
+
+            case "check":
+            {
+                var id = Int(d, "id", -1);
+                bool? want = d.TryGetProperty("checked", out var ch) ? ch.GetBoolean() : null;
+                var res = await JsonAsync(core, BrowserAgentScripts.CheckScript(id, want));
+                if (res is null || !Bool(res.Value, "ok"))
+                    return $"Элемент [{id}] не найден для изменения отметки.";
+                outcome = Bool(res.Value, "checked") ? "Отметка установлена." : "Отметка снята.";
+                break;
+            }
+
+            case "drag":
+            {
+                var id = Int(d, "id", -1);
+                var dx = Dbl(d, "deltaX", 50);
+                var dy = Dbl(d, "deltaY", 0);
+                var res = await JsonAsync(core, BrowserAgentScripts.DragScript(id, dx, dy));
+                if (res is null || !Bool(res.Value, "ok"))
+                    return $"Элемент [{id}] не найден для перетаскивания.";
+                outcome = "Перетащено.";
+                break;
+            }
+
+            case "eval":
+            {
+                var script = Str(d, "script");
+                if (string.IsNullOrWhiteSpace(script)) return "Пустой скрипт.";
+                var res = await JsonAsync(core, BrowserAgentScripts.EvalScript(script));
+                if (res is null) return "Ошибка выполнения eval.";
+                outcome = Bool(res.Value, "ok") ? "Скрипт выполнен: " + Str(res.Value, "value") : "Ошибка скрипта: " + Str(res.Value, "error");
+                break;
+            }
+
+            case "batch":
+            {
+                if (!d.TryGetProperty("actions", out var arr) || arr.ValueKind != JsonValueKind.Array)
+                    return "Параметр 'actions' должен быть массивом действий.";
+                var results = new List<string>();
+                foreach (var item in arr.EnumerateArray().Take(6))
+                {
+                    var subAction = Str(item, "action").ToLowerInvariant();
+                    results.Add(await PerformAsync(subAction, item, ctx, window, token));
+                }
+                outcome = "Серия действий завершена:\n" + string.Join("\n", results);
                 break;
             }
 
@@ -776,8 +864,13 @@ public static class BrowserAgentRunner
         return fallback;
     }
 
-    private static double Dbl(JsonElement e, string name)
-        => e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDouble() : 0;
+    private static double Dbl(JsonElement e, string name, double fallback = 0)
+    {
+        if (!e.TryGetProperty(name, out var v)) return fallback;
+        if (v.ValueKind == JsonValueKind.Number && v.TryGetDouble(out var d)) return d;
+        if (v.ValueKind == JsonValueKind.String && double.TryParse(v.GetString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var p)) return p;
+        return fallback;
+    }
 
     private static bool Bool(JsonElement e, string name)
         => e.TryGetProperty(name, out var v) && (v.ValueKind == JsonValueKind.True || (v.ValueKind == JsonValueKind.String && v.GetString() == "true"));

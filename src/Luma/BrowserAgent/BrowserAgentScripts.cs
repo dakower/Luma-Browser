@@ -59,8 +59,10 @@ public static class BrowserAgentScripts
         };
         const included = new Set();
         const els = [], lines = [];
+        const iframes = Array.from(document.querySelectorAll('iframe')).filter(f => f.offsetWidth > 60 && f.offsetHeight > 60);
+        if (iframes.length > 0) lines.push('[инфо] На странице есть встроенные фреймы/виджеты (iframe: ' + iframes.length + ')');
         for (const e of found) {
-          if (els.length >= 160) break;
+          if (els.length >= 240) break;
           const r = e.getBoundingClientRect();
           if (r.width < 2 || r.height < 2 || r.bottom < 0 || r.top > vh || r.right < 0 || r.left > vw) continue;
           const st = getComputedStyle(e);
@@ -80,7 +82,14 @@ public static class BrowserAgentScripts
           els.push(e);
           let line = '[' + id + '] ' + kindOf(e) + ' "' + (label || 'без подписи') + '"';
           if (tag === 'input' || tag === 'textarea') {
-            if (e.type === 'checkbox' || e.type === 'radio') line += e.checked ? ' (отмечено)' : ' (не отмечено)';
+            if (e.type === 'checkbox' || e.type === 'radio') {
+              line += e.checked ? ' (отмечено)' : ' (не отмечено)';
+              const fs = e.closest('fieldset, .question, [data-question], .test-question, .quiz-question, form, li');
+              if (fs) {
+                const leg = fs.querySelector('legend, h2, h3, h4, .question-text, .q-title, .title');
+                if (leg) line += ' [контекст вопроса: "' + clean(leg.innerText).slice(0, 80) + '"]';
+              }
+            }
             else if (e.value) line += ' value="' + clean(e.value).slice(0, 60) + '"';
           } else if (tag === 'select') {
             const opts = Array.from(e.options || []).slice(0, 12).map(o => clean(o.text)).join(' / ');
@@ -286,6 +295,81 @@ public static class BrowserAgentScripts
         }
       }
       return JSON.stringify({ ok: true });
+    })()
+    """;
+
+    /// <summary>Dispatches pointer and mouse hover events over element N.</summary>
+    public static string HoverScript(int id) => $$"""
+    (() => {
+      const e = (window.__lumaAgentEls || [])[{{id}}];
+      if (!e || !e.isConnected) return JSON.stringify({ ok: false, reason: 'stale' });
+      try { e.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' }); } catch (_) { e.scrollIntoView(); }
+      const r = e.getBoundingClientRect();
+      const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      ['pointerenter', 'mouseenter', 'pointerover', 'mouseover', 'pointermove', 'mousemove'].forEach(t => {
+        e.dispatchEvent(new MouseEvent(t, { bubbles: true, cancelable: true, composed: true, clientX: cx, clientY: cy, view: window }));
+      });
+      return JSON.stringify({ ok: true, x: cx, y: cy });
+    })()
+    """;
+
+    /// <summary>Explicitly toggles or sets checkboxes, radio buttons, and aria-checked controls.</summary>
+    public static string CheckScript(int id, bool? targetChecked) => $$"""
+    (() => {
+      const e = (window.__lumaAgentEls || [])[{{id}}];
+      if (!e || !e.isConnected) return JSON.stringify({ ok: false, reason: 'stale' });
+      try { e.scrollIntoView({ block: 'center', behavior: 'instant' }); } catch (_) {}
+      const want = {{(targetChecked.HasValue ? (targetChecked.Value ? "true" : "false") : "null")}};
+      const tag = e.tagName.toLowerCase();
+      if (tag === 'input' && (e.type === 'checkbox' || e.type === 'radio')) {
+        const next = want !== null ? want : (e.type === 'checkbox' ? !e.checked : true);
+        e.checked = next;
+        e.dispatchEvent(new Event('input', { bubbles: true }));
+        e.dispatchEvent(new Event('change', { bubbles: true }));
+        e.click();
+        return JSON.stringify({ ok: true, checked: e.checked });
+      }
+      if (e.hasAttribute('aria-checked')) {
+        const cur = e.getAttribute('aria-checked') === 'true';
+        const next = want !== null ? want : !cur;
+        e.setAttribute('aria-checked', next ? 'true' : 'false');
+        e.click();
+        return JSON.stringify({ ok: true, checked: next });
+      }
+      e.click();
+      return JSON.stringify({ ok: true, clicked: true });
+    })()
+    """;
+
+    /// <summary>Simulates mouse drag from element centre by deltaX and deltaY (sliders, drag handles).</summary>
+    public static string DragScript(int id, double deltaX, double deltaY) => $$"""
+    (() => {
+      const e = (window.__lumaAgentEls || [])[{{id}}];
+      if (!e || !e.isConnected) return JSON.stringify({ ok: false, reason: 'stale' });
+      try { e.scrollIntoView({ block: 'center', behavior: 'instant' }); } catch (_) {}
+      const r = e.getBoundingClientRect();
+      const sx = r.left + r.width / 2, sy = r.top + r.height / 2;
+      const ex = sx + {{deltaX}}, ey = sy + {{deltaY}};
+      e.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, clientX: sx, clientY: sy, buttons: 1 }));
+      e.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, clientX: sx, clientY: sy, button: 0 }));
+      window.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, cancelable: true, clientX: ex, clientY: ey, buttons: 1 }));
+      window.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, cancelable: true, clientX: ex, clientY: ey, button: 0 }));
+      window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, clientX: ex, clientY: ey, buttons: 0 }));
+      window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, clientX: ex, clientY: ey, button: 0 }));
+      return JSON.stringify({ ok: true, sx, sy, ex, ey });
+    })()
+    """;
+
+    /// <summary>Runs custom JavaScript in the page context and returns the result safely.</summary>
+    public static string EvalScript(string code) => $$"""
+    (() => {
+      try {
+        const fn = new Function({{System.Text.Json.JsonSerializer.Serialize(code)}});
+        const res = fn();
+        return JSON.stringify({ ok: true, value: typeof res === 'undefined' ? null : res });
+      } catch (err) {
+        return JSON.stringify({ ok: false, error: String(err) });
+      }
     })()
     """;
 }
