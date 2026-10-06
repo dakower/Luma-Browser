@@ -16,11 +16,26 @@ public static class BrowserAgentScripts
     (() => {
       try {
         const vw = innerWidth, vh = innerHeight;
-        const SEL = 'a[href],button,input:not([type=hidden]),textarea,select,summary,label,[role=button],[role=link],[role=tab],[role=menuitem],[role=menuitemcheckbox],[role=menuitemradio],[role=option],[role=checkbox],[role=radio],[role=switch],[role=textbox],[role=combobox],[role=searchbox],[role=treeitem],[contenteditable=""],[contenteditable="true"],[onclick],[tabindex]:not([tabindex="-1"]),.answer,.option,.choice,[data-answer],[data-option],[data-choice]';
+        const SEL = 'a[href],button,input:not([type=hidden]),textarea,select,summary,label,[role=button],[role=link],[role=tab],[role=menuitem],[role=menuitemcheckbox],[role=menuitemradio],[role=option],[role=checkbox],[role=radio],[role=switch],[role=textbox],[role=combobox],[role=searchbox],[role=treeitem],[contenteditable=""],[contenteditable="true"],[onclick],[tabindex]:not([tabindex="-1"]),.test-option,.test-option-inner,.question-option,[class*="test-option"],[class*="test-multichoice"],[class*="test-answer"],[class*="homework-test"],[class*="answer"],[class*="choice"],[class*="variant"],[data-answer],[data-option],[data-choice]';
         const found = [];
         const seen = new Set();
         const collect = root => {
           root.querySelectorAll(SEL).forEach(e => { if (!seen.has(e)) { seen.add(e); found.push(e); } });
+          root.querySelectorAll('div, span, li, p, section, article').forEach(e => {
+            if (!seen.has(e)) {
+              const cls = typeof e.className === 'string' ? e.className : '';
+              const isCard = cls.includes('test-') || cls.includes('option') || cls.includes('answer') || cls.includes('choice');
+              if (isCard || (e.innerText && e.innerText.trim().length > 0 && e.innerText.trim().length < 400)) {
+                try {
+                  const st = getComputedStyle(e);
+                  if (st.cursor === 'pointer' || isCard) {
+                    seen.add(e);
+                    found.push(e);
+                  }
+                } catch (_) {}
+              }
+            }
+          });
           root.querySelectorAll('*').forEach(e => { if (e.shadowRoot) collect(e.shadowRoot); });
         };
         collect(document);
@@ -32,6 +47,11 @@ public static class BrowserAgentScripts
           while (t && t.shadowRoot) { const inner = t.shadowRoot.elementFromPoint(x, y); if (!inner || inner === t) break; t = inner; }
           return t;
         };
+        const getPageQuestion = () => {
+          const qEl = document.querySelector('.test-question, .homework-test-question, [class*="test-question"], .question-title, [class*="question-text"], .test-content-text, [class*="test-content"], [class*="q-title"], h1, h2');
+          return qEl ? clean(qEl.innerText).slice(0, 100) : '';
+        };
+        const pageQuestion = getPageQuestion();
         const labelOf = e => {
           const tag = e.tagName.toLowerCase();
           let t = clean(e.getAttribute('aria-label'));
@@ -52,13 +72,14 @@ public static class BrowserAgentScripts
         };
         const kindOf = e => {
           const tag = e.tagName.toLowerCase(), role = e.getAttribute('role');
+          const cls = typeof e.className === 'string' ? e.className : '';
           if (tag === 'input') return 'input[' + (e.type || 'text') + ']';
           if (tag === 'textarea') return 'textarea';
           if (tag === 'select') return 'select';
           if (e.isContentEditable) return 'editable';
           if (tag === 'a') return 'link';
           if (tag === 'button') return 'button';
-          if (tag === 'label' || e.classList.contains('answer') || e.classList.contains('option')) {
+          if (tag === 'label' || cls.includes('test-option') || cls.includes('answer') || cls.includes('option') || cls.includes('choice')) {
             const inp = e.querySelector('input');
             return inp ? 'option[' + (inp.type || 'choice') + ']' : 'option';
           }
@@ -76,16 +97,19 @@ public static class BrowserAgentScripts
           const st = getComputedStyle(e);
           if (st.visibility === 'hidden' || st.display === 'none') continue;
           if (parseFloat(st.opacity) < 0.05 && tag !== 'input' && !e.querySelector('input')) continue;
-          const cx = Math.min(vw - 1, Math.max(0, r.left + Math.min(r.width / 2, 40))), cy = Math.min(vh - 1, Math.max(0, r.top + r.height / 2));
-          const top = topAt(cx, cy);
-          if (top && !containsDeep(e, top) && !containsDeep(top, e)) continue;
           const tag = e.tagName.toLowerCase();
           const isField = tag === 'input' || tag === 'textarea' || tag === 'select' || e.isContentEditable;
+          const cls = typeof e.className === 'string' ? e.className : '';
+          const isOptionCard = cls.includes('test-option') || cls.includes('answer') || cls.includes('option') || cls.includes('choice') || tag === 'label';
+          const cx = Math.min(vw - 1, Math.max(0, isField ? r.left + Math.min(r.width / 2, 40) : r.left + r.width / 2));
+          const cy = Math.min(vh - 1, Math.max(0, r.top + r.height / 2));
+          const top = topAt(cx, cy);
+          if (top && !containsDeep(e, top) && !containsDeep(top, e) && !e.contains(top) && !isOptionCard) continue;
           let parentIncluded = false, n = up(e), depth = 0;
           while (n && depth < 6) { if (included.has(n)) { parentIncluded = true; break; } n = up(n); depth++; }
           const label = labelOf(e);
-          if (parentIncluded && !isField) continue;
-          if (!label && !isField && tag !== 'button' && e.getAttribute('role') !== 'button') continue;
+          if (parentIncluded && !isField && !isOptionCard) continue;
+          if (!label && !isField && tag !== 'button' && e.getAttribute('role') !== 'button' && !isOptionCard) continue;
           included.add(e);
           const id = els.length;
           els.push(e);
@@ -94,10 +118,13 @@ public static class BrowserAgentScripts
           if (innerInp && (innerInp.type === 'checkbox' || innerInp.type === 'radio')) {
             line += innerInp.checked ? ' (отмечено)' : ' (не отмечено)';
             const fs = e.closest('fieldset, .question, [data-question], .test-question, .quiz-question, form, li');
-            if (fs) {
-              const leg = fs.querySelector('legend, h2, h3, h4, .question-text, .q-title, .title');
-              if (leg) line += ' [контекст вопроса: "' + clean(leg.innerText).slice(0, 80) + '"]';
-            }
+            const leg = fs ? fs.querySelector('legend, h2, h3, h4, .question-text, .q-title, .title') : null;
+            const qCtx = leg ? clean(leg.innerText).slice(0, 80) : pageQuestion;
+            if (qCtx) line += ' [контекст вопроса: "' + qCtx + '"]';
+          } else if (isOptionCard) {
+            const hasActive = cls.includes('active') || cls.includes('selected') || e.getAttribute('aria-selected') === 'true' || e.getAttribute('aria-checked') === 'true';
+            if (hasActive) line += ' (отмечено)';
+            if (pageQuestion) line += ' [контекст вопроса: "' + pageQuestion + '"]';
           } else if (tag === 'input' || tag === 'textarea') {
             if (e.value) line += ' value="' + clean(e.value).slice(0, 60) + '"';
           } else if (tag === 'select') {
@@ -171,7 +198,10 @@ public static class BrowserAgentScripts
       const r = e.getBoundingClientRect();
       e.style.outline = '2px solid #7468c7'; e.style.outlineOffset = '2px';
       setTimeout(() => { try { e.style.outline = ''; e.style.outlineOffset = ''; } catch (_) {} }, 900);
-      return JSON.stringify({ ok: true, x: r.left + Math.min(r.width / 2, 40), y: r.top + r.height / 2, tag: e.tagName.toLowerCase() });
+      const isInput = e.tagName.toLowerCase() === 'input' && e.type !== 'checkbox' && e.type !== 'radio';
+      const x = isInput ? r.left + Math.min(r.width / 2, 40) : r.left + r.width / 2;
+      const y = r.top + r.height / 2;
+      return JSON.stringify({ ok: true, x, y, tag: e.tagName.toLowerCase() });
     })()
     """;
 
@@ -180,8 +210,17 @@ public static class BrowserAgentScripts
     (() => {
       const e = (window.__lumaAgentEls || [])[{{id}}];
       if (!e || !e.isConnected) return JSON.stringify({ ok: false, reason: 'stale' });
-      ['pointerdown', 'mousedown', 'pointerup', 'mouseup'].forEach(t => e.dispatchEvent(new MouseEvent(t, { bubbles: true, cancelable: true, composed: true, view: window })));
-      e.click();
+      const target = e.querySelector('.test-option-inner, p, span, div') || e;
+      const trigger = el => {
+        ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'].forEach(t => {
+          el.dispatchEvent(new MouseEvent(t, { bubbles: true, cancelable: true, composed: true, view: window }));
+        });
+        if (el.click) el.click();
+      };
+      trigger(e);
+      if (target !== e) trigger(target);
+      const optParent = e.closest('.test-option, [class*="test-option"], .question-option, [role="button"]');
+      if (optParent && optParent !== e) trigger(optParent);
       return JSON.stringify({ ok: true });
     })()
     """;
@@ -330,23 +369,26 @@ public static class BrowserAgentScripts
       try { e.scrollIntoView({ block: 'center', behavior: 'instant' }); } catch (_) {}
       const want = {{(targetChecked.HasValue ? (targetChecked.Value ? "true" : "false") : "null")}};
       const tag = e.tagName.toLowerCase();
-      if (tag === 'input' && (e.type === 'checkbox' || e.type === 'radio')) {
-        const next = want !== null ? want : (e.type === 'checkbox' ? !e.checked : true);
-        e.checked = next;
-        e.dispatchEvent(new Event('input', { bubbles: true }));
-        e.dispatchEvent(new Event('change', { bubbles: true }));
-        e.click();
-        return JSON.stringify({ ok: true, checked: e.checked });
+      const inp = (tag === 'input') ? e : e.querySelector('input[type=checkbox],input[type=radio]');
+      if (inp) {
+        const next = want !== null ? want : (inp.type === 'checkbox' ? !inp.checked : true);
+        inp.checked = next;
+        inp.dispatchEvent(new Event('input', { bubbles: true }));
+        inp.dispatchEvent(new Event('change', { bubbles: true }));
+        if (inp.click) inp.click();
       }
       if (e.hasAttribute('aria-checked')) {
         const cur = e.getAttribute('aria-checked') === 'true';
         const next = want !== null ? want : !cur;
         e.setAttribute('aria-checked', next ? 'true' : 'false');
-        e.click();
-        return JSON.stringify({ ok: true, checked: next });
       }
-      e.click();
-      return JSON.stringify({ ok: true, clicked: true });
+      ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'].forEach(t => {
+        e.dispatchEvent(new MouseEvent(t, { bubbles: true, cancelable: true, composed: true, view: window }));
+      });
+      if (e.click) e.click();
+      const target = e.querySelector('.test-option-inner, p, span, div') || e;
+      if (target !== e && target.click) target.click();
+      return JSON.stringify({ ok: true, checked: inp ? inp.checked : true });
     })()
     """;
 

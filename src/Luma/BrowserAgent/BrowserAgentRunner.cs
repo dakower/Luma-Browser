@@ -336,6 +336,11 @@ public static class BrowserAgentRunner
             sb.AppendLine();
             sb.AppendLine("ВИДИМЫЙ ТЕКСТ:");
             sb.AppendLine(o.Text.Length > 5000 ? o.Text[..5000] + "…" : o.Text);
+            if (o.Elements.Any(e => e.Contains("option") || e.Contains("контекст вопроса")))
+            {
+                sb.AppendLine();
+                sb.AppendLine("ИНСТРУКЦИЯ К ТЕСТУ: перед тобой вопрос и варианты ответов с типом option [N]. Сравни вопрос с вариантами, выбери правильный ответ и нажми его через click или batch с переходом дальше. Не используй eval!");
+            }
         }
         sb.AppendLine();
         sb.AppendLine("Выбери следующее действие. Ответ — один JSON-объект.");
@@ -465,9 +470,11 @@ public static class BrowserAgentRunner
                 var point = await JsonAsync(core, BrowserAgentScripts.PointScript(id));
                 if (point is null || !Bool(point.Value, "ok"))
                     return $"Элемент [{id}] не найден (страница изменилась). Посмотри на новый список элементов.";
-                await Task.Delay(120, token);
-                var clicked = await TrustedClickAsync(core, Dbl(point.Value, "x"), Dbl(point.Value, "y"));
-                if (!clicked) await core.ExecuteScriptAsync(BrowserAgentScripts.JsClickScript(id));
+                await Task.Delay(40, token);
+                var x = Dbl(point.Value, "x");
+                var y = Dbl(point.Value, "y");
+                await TrustedClickAsync(core, x, y);
+                await core.ExecuteScriptAsync(BrowserAgentScripts.JsClickScript(id));
                 outcome = "Нажато.";
                 break;
             }
