@@ -88,6 +88,10 @@ public static class BrowserAgentScripts
         };
         const included = new Set();
         const els = [], lines = [];
+        const fullBodyText = ((document.body && document.body.innerText) || '').toLowerCase();
+        if (fullBodyText.includes('повторна відповідь неможлива') || fullBodyText.includes('повторный ответ невозможен')) {
+          lines.push('[инфо] На странице сообщение: «Повторна відповідь неможлива». Подожди 2 секунды (действие wait), переход выполнится автоматически.');
+        }
         const iframes = Array.from(document.querySelectorAll('iframe')).filter(f => f.offsetWidth > 60 && f.offsetHeight > 60);
         if (iframes.length > 0) lines.push('[инфо] На странице есть встроенные фреймы/виджеты (iframe: ' + iframes.length + ')');
         for (const e of found) {
@@ -108,7 +112,7 @@ public static class BrowserAgentScripts
           let parentIncluded = false, n = up(e), depth = 0;
           while (n && depth < 6) { if (included.has(n)) { parentIncluded = true; break; } n = up(n); depth++; }
           const label = labelOf(e);
-          if (parentIncluded && !isField && !isOptionCard) continue;
+          if (parentIncluded && !isField) continue;
           if (!label && !isField && tag !== 'button' && e.getAttribute('role') !== 'button' && !isOptionCard) continue;
           included.add(e);
           const id = els.length;
@@ -210,17 +214,26 @@ public static class BrowserAgentScripts
     (() => {
       const e = (window.__lumaAgentEls || [])[{{id}}];
       if (!e || !e.isConnected) return JSON.stringify({ ok: false, reason: 'stale' });
-      const target = e.querySelector('.test-option-inner, p, span, div') || e;
-      const trigger = el => {
-        ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'].forEach(t => {
-          el.dispatchEvent(new MouseEvent(t, { bubbles: true, cancelable: true, composed: true, view: window }));
-        });
-        if (el.click) el.click();
-      };
-      trigger(e);
-      if (target !== e) trigger(target);
-      const optParent = e.closest('.test-option, [class*="test-option"], .question-option, [role="button"]');
-      if (optParent && optParent !== e) trigger(optParent);
+      const now = Date.now();
+      if (window.__lumaLastClickTime && (now - window.__lumaLastClickTime < 500) && window.__lumaLastClickEl === e) {
+        return JSON.stringify({ ok: true, debounced: true });
+      }
+      window.__lumaLastClickTime = now;
+      window.__lumaLastClickEl = e;
+      try { e.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' }); } catch (_) {}
+      try {
+        e.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, composed: true, view: window }));
+        e.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, composed: true, view: window }));
+        e.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, cancelable: true, composed: true, view: window }));
+        e.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, composed: true, view: window }));
+        if (typeof e.click === 'function') {
+          e.click();
+        } else {
+          e.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, view: window }));
+        }
+      } catch (_) {
+        try { if (typeof e.click === 'function') e.click(); } catch (_) {}
+      }
       return JSON.stringify({ ok: true });
     })()
     """;
@@ -366,28 +379,36 @@ public static class BrowserAgentScripts
     (() => {
       const e = (window.__lumaAgentEls || [])[{{id}}];
       if (!e || !e.isConnected) return JSON.stringify({ ok: false, reason: 'stale' });
-      try { e.scrollIntoView({ block: 'center', behavior: 'instant' }); } catch (_) {}
+      const now = Date.now();
+      if (window.__lumaLastClickTime && (now - window.__lumaLastClickTime < 500) && window.__lumaLastClickEl === e) {
+        return JSON.stringify({ ok: true, debounced: true, checked: true });
+      }
+      window.__lumaLastClickTime = now;
+      window.__lumaLastClickEl = e;
+      try { e.scrollIntoView({ block: 'nearest', behavior: 'instant' }); } catch (_) {}
       const want = {{(targetChecked.HasValue ? (targetChecked.Value ? "true" : "false") : "null")}};
       const tag = e.tagName.toLowerCase();
       const inp = (tag === 'input') ? e : e.querySelector('input[type=checkbox],input[type=radio]');
       if (inp) {
         const next = want !== null ? want : (inp.type === 'checkbox' ? !inp.checked : true);
-        inp.checked = next;
-        inp.dispatchEvent(new Event('input', { bubbles: true }));
-        inp.dispatchEvent(new Event('change', { bubbles: true }));
-        if (inp.click) inp.click();
+        if (inp.checked !== next) {
+          inp.checked = next;
+          inp.dispatchEvent(new Event('input', { bubbles: true }));
+          inp.dispatchEvent(new Event('change', { bubbles: true }));
+        }
       }
       if (e.hasAttribute('aria-checked')) {
         const cur = e.getAttribute('aria-checked') === 'true';
         const next = want !== null ? want : !cur;
         e.setAttribute('aria-checked', next ? 'true' : 'false');
       }
-      ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'].forEach(t => {
-        e.dispatchEvent(new MouseEvent(t, { bubbles: true, cancelable: true, composed: true, view: window }));
-      });
-      if (e.click) e.click();
-      const target = e.querySelector('.test-option-inner, p, span, div') || e;
-      if (target !== e && target.click) target.click();
+      try {
+        if (typeof e.click === 'function') {
+          e.click();
+        } else {
+          e.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, view: window }));
+        }
+      } catch (_) {}
       return JSON.stringify({ ok: true, checked: inp ? inp.checked : true });
     })()
     """;

@@ -65,14 +65,13 @@ public static class BrowserAgentRunner
    а найденный элемент — на экране (для этого подходит find_text).
 9. Пиши thought и answer на языке пользователя.
 10. Важные найденные факты, которые понадобятся позже, сохраняй в поле "memory" — оно будет показываться тебе на следующих шагах.
-11. ПРОХОЖДЕНИЕ ТЕСТОВ И ОПРОСОВ (МАКСИМАЛЬНАЯ СКОРОСТЬ):
-    - Все варианты ответов и кнопки «Далее» / «Ответить» уже есть в списке элементов [N]!
+11. ПРОХОЖДЕНИЕ ТЕСТОВ И ОПРОСОВ (АККУРАТНО И НАДЁЖНО):
+    - Все варианты ответов уже есть в списке элементов [N] с пометкой kindOf (option, label, [контекст вопроса]).
     - КАТЕГОРИЧЕСКИ НЕ ИСПОЛЬЗУЙ eval для поиска вопросов и вариантов! Не пиши скрипты в тестах!
-    - Используй действие "batch", чтобы ВЫБРАТЬ ОТВЕТ И НАЖАТЬ ДАЛЕЕ В ОДИН ШАГ:
-      {"thought":"Вопрос 1: столица Франции — Париж [3]. Выбираю ответ и жму Далее [5]","action":"batch","actions":[{"action":"check","id":3},{"action":"click","id":5}]}
-      Это решает вопрос мгновенно за один шаг без лишних ожиданий!
-    - Если радиокнопка или вариант не кликается обычным click, используй check или js_click.
-    - В поле "thought" ВСЕГДА пиши кратко суть для пользователя (номер вопроса, правильный ответ, что нажимаешь). Этот текст видит пользователь в строке статуса!
+    - В большинстве тестов (например, на «На Урок» / naurok.ua) нажатие на карточку с правильным вариантом (click) СРАЗУ отправляет ответ на сервер. Нажимай ОДИН раз на нужный вариант! Не нажимай повторно и не спамь кликами.
+    - Если в тесте есть отдельная кнопка «Відповісти» / «Далі», используй "batch" (сначала выбор ответа check/click, затем кнопка).
+    - Если на экране анимация перехода или надпись «Повторна відповідь неможлива» — сделай wait 2, сайт сам переключится на следующий вопрос.
+    - В поле "thought" ВСЕГДА пиши кратко суть для пользователя: номер вопроса, правильный ответ, что нажимаешь (например: «Вопрос 1: столица Франции — Париж (выбираю вариант 2)»). Этот текст видит пользователь в строке статуса!
 
 ДЕЙСТВИЯ (ровно одно за шаг):
 {"action":"navigate","url":"https://..."}          — открыть адрес во вкладке агента
@@ -107,6 +106,7 @@ public static class BrowserAgentRunner
     {
         public required MainWindow Window { get; init; }
         public required string Lang { get; init; }
+        public bool IsTestSolving { get; set; }
         public BrowserTab? Tab { get; set; }
         public Observation? Last { get; set; }
     }
@@ -125,7 +125,8 @@ public static class BrowserAgentRunner
         var lang = (language ?? "ru").ToLowerInvariant();
         string L(string ru, string uk, string en) => lang switch { "uk" => uk, "en" => en, _ => ru };
 
-        var ctx = new AgentContext { Window = window, Lang = lang };
+        var isTestSolving = Regex.IsMatch(goal, @"\b(?:тест|опрос|квиз|quiz|exam|вопрос|экзамен)\b", RegexOptions.IgnoreCase);
+        var ctx = new AgentContext { Window = window, Lang = lang, IsTestSolving = isTestSolving };
         var current = window.CurrentTab;
         if (current is { IsInternal: false } && current.ActiveView?.CoreWebView2 is not null) ctx.Tab = current;
 
@@ -134,7 +135,6 @@ public static class BrowserAgentRunner
         var memory = new List<string>();
         var recent = new List<string>();
         var lastResult = "";
-        var isTestSolving = Regex.IsMatch(goal, @"\b(?:тест|опрос|квиз|quiz|exam|вопрос|экзамен)\b", RegexOptions.IgnoreCase);
         var tier = isTestSolving ? "fast" : (preferredTier ?? "fast");
 
         await onDelta($"**Luma Agent** · {L("выполняю задачу", "виконую завдання", "working on it")}\n\n");
@@ -473,8 +473,11 @@ public static class BrowserAgentRunner
                 await Task.Delay(40, token);
                 var x = Dbl(point.Value, "x");
                 var y = Dbl(point.Value, "y");
-                await TrustedClickAsync(core, x, y);
-                await core.ExecuteScriptAsync(BrowserAgentScripts.JsClickScript(id));
+                var clicked = await TrustedClickAsync(core, x, y);
+                if (!clicked)
+                {
+                    await core.ExecuteScriptAsync(BrowserAgentScripts.JsClickScript(id));
+                }
                 outcome = "Нажато.";
                 break;
             }
@@ -541,6 +544,7 @@ public static class BrowserAgentRunner
                 {
                     var subAction = Str(item, "action").ToLowerInvariant();
                     results.Add(await PerformAsync(subAction, item, ctx, window, token));
+                    await Task.Delay(500, token);
                 }
                 outcome = "Серия действий завершена:\n" + string.Join("\n", results);
                 break;
@@ -669,9 +673,26 @@ public static class BrowserAgentRunner
                 return $"Неизвестное действие «{action}». Используй только действия из списка.";
         }
 
-        // In-page actions (check, click, batch, type) don't need heavy delays
+        var isTestContext = ctx.IsTestSolving
+            || (ctx.Last?.Url?.Contains("naurok", StringComparison.OrdinalIgnoreCase) == true)
+            || (ctx.Last?.Text?.Contains("тест", StringComparison.OrdinalIgnoreCase) == true && ctx.Last?.Elements.Any(e => e.Contains("option") || e.Contains("контекст вопроса")) == true);
+
+        var clickedId = Int(d, "id", -1);
+        var isOptionInteraction = (action is "click" or "js_click" or "check") &&
+            (ctx.Last?.Elements.Any(e => e.StartsWith($"[{clickedId}]") && (e.Contains("option") || e.Contains("отмечено") || e.Contains("контекст вопроса"))) == true);
+
         var isQuick = action is "check" or "hover" or "select" or "type" or "press" or "batch" or "eval";
-        await Task.Delay(isQuick ? 100 : 200, token);
+
+        if (isTestContext || isOptionInteraction)
+        {
+            // Pacing delay: Give the test platform and animations 1100ms to register the answer and transition smoothly
+            await Task.Delay(1100, token);
+        }
+        else
+        {
+            await Task.Delay(isQuick ? 100 : 200, token);
+        }
+
         var newTab = window.Tabs.Where(t => !tabsBefore.Contains(t) && !t.IsInternal).LastOrDefault();
         if (newTab is not null)
         {
@@ -686,7 +707,7 @@ public static class BrowserAgentRunner
             await WaitForLoadAsync(tab, 6000, token, navigation: true);
             return outcome + " " + await PageSummaryAsync(tab, "Перешёл на страницу");
         }
-        else if (isQuick)
+        else if (isTestContext || isOptionInteraction || isQuick)
         {
             return outcome;
         }
