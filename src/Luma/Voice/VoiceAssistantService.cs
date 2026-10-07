@@ -339,6 +339,10 @@ public sealed class VoiceAssistantService : IDisposable
     {
         if (_hud == null || string.IsNullOrWhiteSpace(command)) return;
 
+        // Capture user's screen at the exact moment of the question!
+        // Run immediately in background so it doesn't stutter the UI thread
+        var screenTask = Task.Run(() => DesktopCapture.CaptureScreenBase64());
+
         _hud.ShowListening();
         _hud.SetQuery(command);
 
@@ -353,6 +357,8 @@ public sealed class VoiceAssistantService : IDisposable
             {
                 return;
             }
+
+            var screenCapture = await screenTask;
 
             // If the query asks to play/open something specific (e.g. "включи мне реинкарнацию безработного", "открой ютуб")
             // Note: queries like "найди..." are information questions, NOT navigation commands!
@@ -370,7 +376,7 @@ public sealed class VoiceAssistantService : IDisposable
                 await _mainWindow.AskAssistantDirectAsync(command, onDelta: delta =>
                 {
                     _hud.AppendResponseDelta(delta);
-                }, ct);
+                }, ct, screenCapture);
 
                 _hud.CompleteResponse("Выполняю запрос в браузере Luma.", () =>
                 {
@@ -379,13 +385,14 @@ public sealed class VoiceAssistantService : IDisposable
                 return;
             }
 
-            // General Q&A query ("что такое привет", "объясни...", "переведи...")
+            // General Q&A query ("найди...", "что такое...", "что на экране...", "кто это...", "помоги пройти...")
+            // Like Gemini: sees user's screen in real-time, searches internet silently in background and answers directly in Voice HUD without opening browser tabs!
             var fullAnswer = "";
             await _mainWindow.AskAssistantDirectAsync(command, onDelta: delta =>
             {
                 fullAnswer += delta;
                 _hud.AppendResponseDelta(delta);
-            }, ct);
+            }, ct, screenCapture);
 
             _hud.CompleteResponse(fullAnswer, () =>
             {

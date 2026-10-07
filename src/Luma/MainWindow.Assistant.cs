@@ -807,10 +807,31 @@ public partial class MainWindow
 
     private readonly List<AssistantMessage> _voiceAssistantHistory = [];
 
-    public async Task AskAssistantDirectAsync(string question, Action<string> onDelta, CancellationToken token)
+    public async Task AskAssistantDirectAsync(string question, Action<string> onDelta, CancellationToken token, string? screenImageBase64 = null)
     {
         var accessToken = await _auth.GetAccessTokenAsync(token);
         var tokenAuth = !string.IsNullOrWhiteSpace(accessToken) ? accessToken : Authentication.SupabaseOptions.PublishableKey;
+
+        // If screen capture was not provided explicitly, capture current screen automatically
+        if (string.IsNullOrWhiteSpace(screenImageBase64))
+        {
+            try
+            {
+                screenImageBase64 = Voice.DesktopCapture.CaptureScreenBase64();
+            }
+            catch { }
+        }
+
+        var images = new List<AssistantImage>();
+        if (!string.IsNullOrWhiteSpace(screenImageBase64))
+        {
+            images.Add(new AssistantImage
+            {
+                Base64 = screenImageBase64,
+                MimeType = "image/jpeg",
+                Name = "screen.jpg"
+            });
+        }
 
         // Silent Web Grounding (like Gemini): perform quick background search for the question
         // without opening any browser tabs or search engine pages.
@@ -829,7 +850,10 @@ public partial class MainWindow
         catch { /* best-effort silent web search */ }
 
         var context = new StringBuilder();
-        context.AppendLine("Ты — LumaAI, умный голосовой ассистент браузера Luma (работаешь как Gemini).");
+        context.AppendLine("Ты — LumaAI, умный голосовой ассистент браузера Luma с компьютерным зрением (работаешь как Gemini Live / Project Astra).");
+        context.AppendLine("ТЕБЕ ПЕРЕДАН АКТУАЛЬНЫЙ СНИМОК ЭКРАНА ПОЛЬЗОВАТЕЛЯ в момент вопроса (игра, приложение, окно, рабочий стол, сайт, видео или документ). Курсор мыши пользователя отображен на снимке.");
+        context.AppendLine("Ты ВИДИШЬ экран пользователя и всё, что на нём отображается: игры, интерфейсы, персонажей, текст, ошибки, кнопки, предметы, здоровье, графику.");
+        context.AppendLine("Когда пользователь спрашивает: «что это такое?», «что на экране?», «помоги пройти», «что это за предмет/персонаж», «переведи это», «кто это?», «что делать дальше?» — внимательно изучи снимок экрана и дай точный, понятный и полезный ответ.");
         context.AppendLine("Отвечай кратко, емко, естественно, дружелюбно и по делу приятным разговорным языком без лишней 'воды'.");
         context.AppendLine("ГЛАВНОЕ ПРАВИЛО: Ты сам находишь актуальную информацию в интернете. НИКОГДА не открывай поисковики, расширенный поиск или страницы поиска во вкладках браузера. Отвечай на вопросы пользователя прямо здесь своим голосом и текстом.");
         context.AppendLine("Если пользователь просит именно открыть конкретный сайт или запустить плеер («открой ютуб», «включи песню...»), только тогда используй протокол действий:");
@@ -843,8 +867,14 @@ public partial class MainWindow
         }
 
         // Maintain conversation context of up to 20 messages for Voice Luma
-        _voiceAssistantHistory.Add(new AssistantMessage { Role = "user", Text = question });
+        _voiceAssistantHistory.Add(new AssistantMessage { Role = "user", Text = question, Images = images });
         while (_voiceAssistantHistory.Count > 20) _voiceAssistantHistory.RemoveAt(0);
+
+        // Keep images only on the most recent 1-2 turns to save bandwidth and token limits while preserving text history
+        foreach (var old in _voiceAssistantHistory.Where(m => m.Images.Count > 0).Reverse().Skip(1))
+        {
+            old.Images.Clear();
+        }
 
         var request = new List<AssistantMessage>
         {
