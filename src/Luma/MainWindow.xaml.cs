@@ -71,6 +71,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private readonly IClock _clock;
     private readonly LumaState _state;
     internal LumaState State => _state;
+    internal void SaveState() => _stateStore.Save();
     private readonly List<RuntimeSpace> _spaces = new();
     private readonly ObservableCollection<SearchSuggestion> _searchResults = new();
     private readonly Dictionary<string, FolderVisual> _folderVisuals = new();

@@ -51,6 +51,18 @@ public sealed class VoiceAssistantService : IDisposable
         try
         {
             _hud = new VoiceHudWindow();
+            _hud.SetMuted(_mainWindow.State.VoiceAssistantMuted);
+            _hud.OnMuteToggled = muted =>
+            {
+                _mainWindow.State.VoiceAssistantMuted = muted;
+                _mainWindow.SaveState();
+                SetVoiceMuted(muted);
+            };
+            _hud.OnHudHiding = () =>
+            {
+                StopSpeaking();
+            };
+
             InitGlobalHotkey();
             await InitSpeechEngineAsync();
         }
@@ -158,6 +170,18 @@ public sealed class VoiceAssistantService : IDisposable
         }
     }
 
+    public static string ExtractCommandAfterWake(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return "";
+        var m = WakeRegex.Match(text);
+        if (m.Success)
+        {
+            var after = text.Substring(m.Index + m.Length).TrimStart(' ', ',', ':', ';', '!', '?', '-');
+            return after.Trim();
+        }
+        return text.Trim();
+    }
+
     public static string CleanVoiceCommand(string command)
     {
         if (string.IsNullOrWhiteSpace(command)) return "";
@@ -189,17 +213,21 @@ public sealed class VoiceAssistantService : IDisposable
 
                 var isHudVisible = _hud?.IsVisible == true;
 
-                if (hasWakeWord || isHudVisible)
+                if (hasWakeWord)
                 {
-                    var rawTarget = hasWakeWord && !string.IsNullOrWhiteSpace(cleanCommand) ? cleanCommand : transcript;
-                    var command = CleanVoiceCommand(rawTarget);
+                    // Discard everything spoken before "Люма" (background chat in Discord/games, etc.)
+                    var rawTarget = !string.IsNullOrWhiteSpace(cleanCommand) ? cleanCommand : transcript;
+                    var command = ExtractCommandAfterWake(rawTarget);
+                    command = CleanVoiceCommand(command);
 
                     // If it's just the wake word alone (e.g. "Люма!" / "Лима!"), show listening prompt
-                    if (IsWakeWordOnly(command))
+                    if (string.IsNullOrWhiteSpace(command) || IsWakeWordOnly(command))
                     {
                         _mainWindow.Dispatcher.Invoke(() =>
                         {
-                            _hud?.ShowListening("Слушаю вас...");
+                            if (_hud == null) return;
+                            if (!_hud.IsVisible) _hud.ShowListening("Слушаю вас...");
+                            else _hud.SetStatus("Слушаю вас...");
                         });
                         return;
                     }
@@ -222,6 +250,39 @@ public sealed class VoiceAssistantService : IDisposable
                         }
                     });
                 }
+                else if (isHudVisible)
+                {
+                    // Follow-up speech while HUD is already open
+                    var command = CleanVoiceCommand(transcript);
+                    if (string.IsNullOrWhiteSpace(command)) return;
+
+                    _mainWindow.Dispatcher.Invoke(() =>
+                    {
+                        if (_hud == null) return;
+                        if (!isFinal)
+                        {
+                            _hud.SetQuery(command);
+                        }
+                        else
+                        {
+                            HandleVoiceCommand(command);
+                        }
+                    });
+                }
+            }
+            else if (kind == "speech-playback-started")
+            {
+                _mainWindow.Dispatcher.Invoke(() =>
+                {
+                    _hud?.SetSpeakingState(true);
+                });
+            }
+            else if (kind == "speech-playback-ended")
+            {
+                _mainWindow.Dispatcher.Invoke(() =>
+                {
+                    _hud?.SetSpeakingState(false);
+                });
             }
             else if (kind == "speech-error")
             {
@@ -242,6 +303,38 @@ public sealed class VoiceAssistantService : IDisposable
         }
     }
 
+    public void SpeakText(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text) || _hud?.IsMuted == true || _speechView?.CoreWebView2 == null) return;
+        try
+        {
+            var jsonText = JsonSerializer.Serialize(text);
+            _speechView.CoreWebView2.ExecuteScriptAsync($"window.__speakText && window.__speakText({jsonText});");
+        }
+        catch (Exception ex)
+        {
+            App.Log(ex);
+        }
+    }
+
+    public void StopSpeaking()
+    {
+        try
+        {
+            _speechView?.CoreWebView2?.ExecuteScriptAsync("window.__stopSpeaking && window.__stopSpeaking();");
+        }
+        catch { }
+    }
+
+    public void SetVoiceMuted(bool muted)
+    {
+        try
+        {
+            _speechView?.CoreWebView2?.ExecuteScriptAsync($"window.__setVoiceMuted && window.__setVoiceMuted({(muted ? "true" : "false")});");
+        }
+        catch { }
+    }
+
     private async Task<bool> TryExecuteFastActionAsync(string rawCommand)
     {
         var cmd = rawCommand.Trim().ToLowerInvariant().TrimEnd('.', '!', '?', ',');
@@ -251,6 +344,7 @@ public sealed class VoiceAssistantService : IDisposable
         {
             await _mainWindow.AddTabAsync("https://www.youtube.com");
             _hud?.CompleteResponse("Открываю YouTube.");
+            SpeakText("Открываю YouTube.");
             _mainWindow.Activate();
             return true;
         }
@@ -258,6 +352,7 @@ public sealed class VoiceAssistantService : IDisposable
         {
             await _mainWindow.AddTabAsync("https://www.google.com");
             _hud?.CompleteResponse("Открываю Google.");
+            SpeakText("Открываю Google.");
             _mainWindow.Activate();
             return true;
         }
@@ -265,6 +360,7 @@ public sealed class VoiceAssistantService : IDisposable
         {
             await _mainWindow.AddTabAsync("https://ya.ru");
             _hud?.CompleteResponse("Открываю Яндекс.");
+            SpeakText("Открываю Яндекс.");
             _mainWindow.Activate();
             return true;
         }
@@ -272,6 +368,7 @@ public sealed class VoiceAssistantService : IDisposable
         {
             await _mainWindow.AddTabAsync("https://vk.com");
             _hud?.CompleteResponse("Открываю ВКонтакте.");
+            SpeakText("Открываю ВКонтакте.");
             _mainWindow.Activate();
             return true;
         }
@@ -279,6 +376,7 @@ public sealed class VoiceAssistantService : IDisposable
         {
             await _mainWindow.AddTabAsync("https://web.telegram.org");
             _hud?.CompleteResponse("Открываю Telegram.");
+            SpeakText("Открываю Telegram.");
             _mainWindow.Activate();
             return true;
         }
@@ -286,6 +384,7 @@ public sealed class VoiceAssistantService : IDisposable
         {
             await _mainWindow.AddTabAsync("https://www.kinopoisk.ru");
             _hud?.CompleteResponse("Открываю Кинопоиск.");
+            SpeakText("Открываю Кинопоиск.");
             _mainWindow.Activate();
             return true;
         }
@@ -293,6 +392,7 @@ public sealed class VoiceAssistantService : IDisposable
         {
             await _mainWindow.AddTabAsync("https://ru.wikipedia.org");
             _hud?.CompleteResponse("Открываю Википедию.");
+            SpeakText("Открываю Википедию.");
             _mainWindow.Activate();
             return true;
         }
@@ -302,6 +402,7 @@ public sealed class VoiceAssistantService : IDisposable
         {
             _mainWindow.OpenNewHomeTab();
             _hud?.CompleteResponse("Новая вкладка открыта.");
+            SpeakText("Новая вкладка открыта.");
             _mainWindow.Activate();
             return true;
         }
@@ -309,18 +410,21 @@ public sealed class VoiceAssistantService : IDisposable
         {
             if (_mainWindow.CurrentTab != null) _mainWindow.CloseTab(_mainWindow.CurrentTab);
             _hud?.CompleteResponse("Вкладка закрыта.");
+            SpeakText("Вкладка закрыта.");
             return true;
         }
         if (Regex.IsMatch(cmd, @"^(?:обнови страницу|обнови|перезагрузи|перезагрузи страницу)\b"))
         {
             _mainWindow.CurrentTab?.ActiveView?.Reload();
             _hud?.CompleteResponse("Страница обновлена.");
+            SpeakText("Страница обновлена.");
             return true;
         }
         if (Regex.IsMatch(cmd, @"^(?:история|открой историю|покажи историю)\b"))
         {
             _mainWindow.OpenHistory();
             _hud?.CompleteResponse("История открыта.");
+            SpeakText("История открыта.");
             _mainWindow.Activate();
             return true;
         }
@@ -328,6 +432,7 @@ public sealed class VoiceAssistantService : IDisposable
         {
             await _mainWindow.AddTabAsync("luma://settings");
             _hud?.CompleteResponse("Настройки открыты.");
+            SpeakText("Настройки открыты.");
             _mainWindow.Activate();
             return true;
         }
@@ -361,7 +466,6 @@ public sealed class VoiceAssistantService : IDisposable
             var screenCapture = await screenTask;
 
             // If the query asks to play/open something specific (e.g. "включи мне реинкарнацию безработного", "открой ютуб")
-            // Note: queries like "найди..." are information questions, NOT navigation commands!
             var isExplicitMediaOpen = Regex.IsMatch(command, @"^(?:включи|поставь|запусти|открой|play|open)\s+", RegexOptions.IgnoreCase);
             if (isExplicitMediaOpen)
             {
@@ -382,6 +486,7 @@ public sealed class VoiceAssistantService : IDisposable
                 {
                     _mainWindow.Activate();
                 });
+                SpeakText("Выполняю запрос в браузере Luma.");
                 return;
             }
 
@@ -398,6 +503,9 @@ public sealed class VoiceAssistantService : IDisposable
             {
                 _mainWindow.Activate();
             });
+
+            // Speak answer aloud with female voice in real-time
+            SpeakText(fullAnswer);
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
@@ -426,7 +534,6 @@ public sealed class VoiceAssistantService : IDisposable
 
   // Wake word regex matching variants of "Люма" / "Luma" (including common misrecognitions like "Лима", "Лума", "Дюма", "Юма")
   const WAKE_WORD_REGEX = /(?:^|[\s,.:;!?])(?:(?:эй|хей|hey|ок|окей|слушай|привет)\s+)?(?:люм[а-яё]*|лима|лиму|лимо|лума|луму|лем[а-я]*|дюма|юма|рюма|luma|lima|looma|lume|lema)(?=$|[\s,.:;!?])/iu;
-  const LEADING_WAKE_REGEX = /^\s*(?:(?:эй|хей|hey|ок|окей|слушай|привет)\s+)?(?:люм[а-яё]*|лима|лиму|лимо|лума|луму|лем[а-я]*|дюма|юма|рюма|luma|lima|looma|lume|lema)\s*[,.:;!?]?\s*/iu;
 
   let recognition = null;
   let restartTimeout = null;
@@ -447,6 +554,15 @@ public sealed class VoiceAssistantService : IDisposable
     return s;
   }
 
+  function extractCommandAfterWake(text) {
+    if (!text) return { hasWake: false, after: '' };
+    const match = text.match(WAKE_WORD_REGEX);
+    if (!match) return { hasWake: false, after: '' };
+    // Cut everything before and including the wake-word
+    const after = text.substring(match.index + match[0].length).replace(/^[,.:;!?\s]+/, '').trim();
+    return { hasWake: true, after: after };
+  }
+
   function createRecognition() {
     const rec = new SpeechRec();
     rec.continuous = true;
@@ -465,29 +581,31 @@ public sealed class VoiceAssistantService : IDisposable
         const res = event.results[i];
         if (!res || res.length === 0) continue;
 
-        // Check all alternatives for wake-word presence
         let bestTranscript = (res[0].transcript || '').trim();
         let hasWakeWord = false;
+        let commandAfterWake = '';
 
+        // Check all alternatives for wake-word presence
         for (let a = 0; a < res.length; a++) {
           const altText = (res[a].transcript || '').trim();
-          if (WAKE_WORD_REGEX.test(altText)) {
+          const extracted = extractCommandAfterWake(altText);
+          if (extracted.hasWake) {
             hasWakeWord = true;
             bestTranscript = altText;
+            commandAfterWake = extracted.after;
             break;
           }
         }
 
-        if (!hasWakeWord && WAKE_WORD_REGEX.test(bestTranscript)) {
-          hasWakeWord = true;
+        if (!hasWakeWord) {
+          const extracted = extractCommandAfterWake(bestTranscript);
+          if (extracted.hasWake) {
+            hasWakeWord = true;
+            commandAfterWake = extracted.after;
+          }
         }
 
-        let cleanCommand = '';
-        if (hasWakeWord) {
-          cleanCommand = bestTranscript.replace(LEADING_WAKE_REGEX, '').trim();
-          cleanCommand = normalizeSpokenText(cleanCommand);
-        }
-
+        const cleanCommand = hasWakeWord ? normalizeSpokenText(commandAfterWake) : '';
         const normalizedTranscript = normalizeSpokenText(bestTranscript);
         const isFinal = Boolean(res.isFinal);
 
@@ -542,9 +660,144 @@ public sealed class VoiceAssistantService : IDisposable
     }
   }
 
-  window.__startListening = () => {
-    start();
-  };
+  // --- Voice TTS Speech Output Engine ---
+  let isMuted = false;
+  let currentAudio = null;
+  let audioQueue = [];
+
+  function stopSpeaking() {
+    audioQueue = [];
+    if (currentAudio) {
+      try {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+      } catch (e) {}
+      currentAudio = null;
+    }
+    if (window.speechSynthesis) {
+      try { window.speechSynthesis.cancel(); } catch (e) {}
+    }
+    if (window.chrome && window.chrome.webview) {
+      window.chrome.webview.postMessage({ kind: 'speech-playback-ended' });
+    }
+  }
+
+  function setVoiceMuted(muted) {
+    isMuted = Boolean(muted);
+    if (isMuted) stopSpeaking();
+  }
+
+  function cleanTextForSpeech(text) {
+    if (!text) return '';
+    return text
+      .replace(/```[\s\S]*?```/g, '')
+      .replace(/`([^`]+)`/g, '$1')
+      .replace(/%%LUMA[\s\S]*?%%/g, '')
+      .replace(/%%CHOICES[\s\S]*?%%/g, '')
+      .replace(/https?:\/\/\S+/g, '')
+      .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
+      .replace(/[*#_~>•]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function splitSentences(text, maxLen = 130) {
+    if (!text) return [];
+    const rawParts = text.match(/[^.!?\n]+[.!?\n]*/g) || [text];
+    const chunks = [];
+    for (let part of rawParts) {
+      part = part.trim();
+      if (!part) continue;
+      if (part.length <= maxLen) {
+        chunks.push(part);
+      } else {
+        const words = part.split(/([,;:—–\s]+)/);
+        let cur = '';
+        for (const piece of words) {
+          if ((cur + piece).length <= maxLen) {
+            cur += piece;
+          } else {
+            if (cur.trim()) chunks.push(cur.trim());
+            cur = piece;
+          }
+        }
+        if (cur.trim()) chunks.push(cur.trim());
+      }
+    }
+    return chunks;
+  }
+
+  function playNextChunk(lang) {
+    if (isMuted || audioQueue.length === 0) {
+      currentAudio = null;
+      if (window.chrome && window.chrome.webview) {
+        window.chrome.webview.postMessage({ kind: 'speech-playback-ended' });
+      }
+      return;
+    }
+
+    const chunk = audioQueue.shift();
+    if (!chunk) {
+      playNextChunk(lang);
+      return;
+    }
+
+    const tl = (lang && lang.toLowerCase().startsWith('uk')) ? 'uk' :
+               (lang && lang.toLowerCase().startsWith('en')) ? 'en' : 'ru';
+
+    const url = 'https://translate.google.com/translate_tts?ie=UTF-8&q=' + encodeURIComponent(chunk) + '&tl=' + tl + '&client=tw-ob';
+    const audio = new Audio(url);
+    currentAudio = audio;
+
+    audio.onended = () => {
+      playNextChunk(lang);
+    };
+
+    audio.onerror = () => {
+      if (window.speechSynthesis) {
+        const utter = new SpeechSynthesisUtterance(chunk);
+        utter.lang = lang;
+        utter.onend = () => playNextChunk(lang);
+        utter.onerror = () => playNextChunk(lang);
+        window.speechSynthesis.speak(utter);
+      } else {
+        playNextChunk(lang);
+      }
+    };
+
+    audio.play().catch(() => {
+      if (window.speechSynthesis) {
+        const utter = new SpeechSynthesisUtterance(chunk);
+        utter.lang = lang;
+        utter.onend = () => playNextChunk(lang);
+        utter.onerror = () => playNextChunk(lang);
+        window.speechSynthesis.speak(utter);
+      } else {
+        playNextChunk(lang);
+      }
+    });
+  }
+
+  function speakText(text, lang) {
+    if (isMuted || !text) return;
+    stopSpeaking();
+    const cleaned = cleanTextForSpeech(text);
+    if (!cleaned) return;
+
+    const chunks = splitSentences(cleaned, 130);
+    if (chunks.length === 0) return;
+
+    audioQueue = chunks;
+    if (window.chrome && window.chrome.webview) {
+      window.chrome.webview.postMessage({ kind: 'speech-playback-started' });
+    }
+    playNextChunk(lang || '{{lang}}');
+  }
+
+  window.__speakText = (text, lang) => speakText(text, lang);
+  window.__stopSpeaking = () => stopSpeaking();
+  window.__setVoiceMuted = (muted) => setVoiceMuted(muted);
+  window.__startListening = () => { start(); };
 
   start();
 })();
@@ -561,6 +814,7 @@ public sealed class VoiceAssistantService : IDisposable
 
         try
         {
+            StopSpeaking();
             var handle = new WindowInteropHelper(_mainWindow).Handle;
             if (handle != IntPtr.Zero)
             {
