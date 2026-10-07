@@ -2089,5 +2089,10 @@
         </StackPanel>
       </Border>
     </Popup>
+
+    <!-- Background Voice Recognition Worker Host -->
+    <Border Width="0" Height="0" Opacity="0" IsHitTestVisible="False" Focusable="False">
+      <wv2:WebView2 x:Name="VoiceSpeechWebView" Focusable="False" />
+    </Border>
   </Grid>
 </Window>

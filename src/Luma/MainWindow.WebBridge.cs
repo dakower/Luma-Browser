@@ -265,6 +265,76 @@ public partial class MainWindow
                 });
                 return;
             }
+            if (kind == "luma-autourok-ocr-schedule")
+            {
+                var imageB64 = root.TryGetProperty("imageBase64", out value) ? value.GetString() : null;
+                var mime = (root.TryGetProperty("mimeType", out value) ? value.GetString() : null) ?? "image/png";
+                if (!string.IsNullOrWhiteSpace(imageB64))
+                {
+                    Dispatcher.BeginInvoke(async () => await ParseScheduleImageAsync(view, imageB64, mime));
+                }
+                return;
+            }
+            if (kind == "luma-autourok-pick-image")
+            {
+                Dispatcher.BeginInvoke(async () =>
+                {
+                    var dlg = new Microsoft.Win32.OpenFileDialog
+                    {
+                        Filter = "Все файлы (*.*)|*.*|Изображения (*.png;*.jpg;*.jpeg;*.webp;*.bmp;*.jfif)|*.png;*.jpg;*.jpeg;*.webp;*.bmp;*.jfif;*.PNG;*.JPG;*.JPEG;*.WEBP;*.BMP;*.JFIF",
+                        FilterIndex = 1,
+                        Title = "Выберите фото расписания уроков и звонков"
+                    };
+                    if (dlg.ShowDialog(this) == true)
+                    {
+                        try
+                        {
+                            var bytes = await File.ReadAllBytesAsync(dlg.FileName);
+                            var b64 = Convert.ToBase64String(bytes);
+                            var ext = Path.GetExtension(dlg.FileName).ToLowerInvariant();
+                            var mime = ext switch
+                            {
+                                ".png" => "image/png",
+                                ".webp" => "image/webp",
+                                ".bmp" => "image/bmp",
+                                _ => "image/jpeg"
+                            };
+                            var previewPayload = JsonSerializer.Serialize(new
+                            {
+                                kind = "luma-autourok-preview-image",
+                                fileName = Path.GetFileName(dlg.FileName),
+                                fileSize = bytes.Length,
+                                dataUrl = $"data:{mime};base64,{b64}",
+                                imageBase64 = b64,
+                                mimeType = mime
+                            });
+                            if (view?.CoreWebView2 is not null)
+                            {
+                                view.CoreWebView2.PostWebMessageAsJson(previewPayload);
+                                await view.CoreWebView2.ExecuteScriptAsync($"window.__lumaShowPreview && window.__lumaShowPreview({previewPayload})");
+                            }
+                            await ParseScheduleImageAsync(view, b64, mime);
+                        }
+                        catch (Exception ex)
+                        {
+                            ShowToast("Ошибка чтения файла", ex.Message, true);
+                        }
+                    }
+                    else
+                    {
+                        var cancelPayload = JsonSerializer.Serialize(new
+                        {
+                            kind = "luma-autourok-picker-cancelled"
+                        });
+                        if (view?.CoreWebView2 is not null)
+                        {
+                            view.CoreWebView2.PostWebMessageAsJson(cancelPayload);
+                            await view.CoreWebView2.ExecuteScriptAsync($"window.__lumaShowPreview && window.__lumaShowPreview({cancelPayload})");
+                        }
+                    }
+                });
+                return;
+            }
             if (kind != "luma-context") return;
             var mode = root.TryGetProperty("mode", out value) ? value.GetString() ?? "page" : "page";
             var link = root.TryGetProperty("link", out value) ? value.GetString() ?? "" : "";
@@ -272,5 +342,104 @@ public partial class MainWindow
             Dispatcher.Invoke(() => { ActivatePane(tab, view); ShowPageMenu(tab, view, mode, link, image); });
         }
         catch { }
+    }
+
+    private async Task ParseScheduleImageAsync(WebView2 view, string imageB64, string mime)
+    {
+        try
+        {
+            var accessToken = await _auth.GetAccessTokenAsync(CancellationToken.None);
+            var token = !string.IsNullOrWhiteSpace(accessToken) ? accessToken : Authentication.SupabaseOptions.PublishableKey;
+
+            var prompt = """
+Ты — интеллектуальный ассистент браузера Luma. Твоя задача — извлечь школьное расписание уроков и звонков из фото или скриншота.
+Внимательно прочитай дни недели (Пн, Вт, Ср, Чт, Пт, Сб), список уроков и время каждого урока (звонки).
+Если на фото есть отдельное расписание звонков (например: 1 урок: 08:30-09:15, 2 урок: 09:25-10:10...), сопоставь каждый урок с соответствующим временем звонка.
+Если указан только один день или дни не подписаны, заполни расписание для текущего или указанного дня.
+
+Верни ИСКЛЮЧИТЕЛЬНО валидный JSON объект следующей структуры без каких-либо пояснений, без markdown разметки:
+{
+  "1": [
+    {"subject": "Алгебра", "start": "08:30", "end": "09:15"},
+    {"subject": "Геометрия", "start": "09:25", "end": "10:10"}
+  ],
+  "2": [
+    {"subject": "Физика", "start": "08:30", "end": "09:15"}
+  ],
+  "3": [],
+  "4": [],
+  "5": [],
+  "6": []
+}
+Ключи дней недели: "1" - Понедельник, "2" - Вторник, "3" - Среда, "4" - Четверг, "5" - Пятница, "6" - Суббота.
+Названия предметов приводи к стандартному понятному виду (например: "Алгебра", "Геометрия", "Зарубежная литература", "Английский", "Химия", "Биология", "Физика", "Украинский язык", "Украинская литература", "Физкультура", "История Украины", "Всемирная история", "География", "Технологии", "Искусство").
+""";
+
+            var request = new List<AssistantMessage>
+            {
+                new() { Role = "system", Text = prompt },
+                new()
+                {
+                    Role = "user",
+                    Text = "Распознай расписание уроков и звонков на этом фото и верни строго JSON.",
+                    Images = [new AssistantImage { Base64 = imageB64, MimeType = mime, Name = "schedule.png" }]
+                }
+            };
+
+            var sb = new StringBuilder();
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(50));
+            await AssistantClient.StreamAsync(token, "fast", request, delta =>
+            {
+                sb.Append(delta);
+                return Task.CompletedTask;
+            }, cts.Token);
+
+            var raw = sb.ToString().Trim();
+            if (raw.StartsWith("```json", StringComparison.OrdinalIgnoreCase)) raw = raw[7..];
+            if (raw.StartsWith("```")) raw = raw[3..];
+            if (raw.EndsWith("```")) raw = raw[..^3];
+            raw = raw.Trim();
+
+            var startIdx = raw.IndexOf('{');
+            var endIdx = raw.LastIndexOf('}');
+            if (startIdx >= 0 && endIdx > startIdx)
+            {
+                raw = raw.Substring(startIdx, endIdx - startIdx + 1);
+            }
+
+            using var doc = JsonDocument.Parse(raw);
+
+            var resultPayload = JsonSerializer.Serialize(new
+            {
+                kind = "luma-autourok-ocr-result",
+                success = true,
+                schedule = doc.RootElement
+            });
+
+            if (view?.CoreWebView2 is not null)
+            {
+                view.CoreWebView2.PostWebMessageAsJson(resultPayload);
+                await view.CoreWebView2.ExecuteScriptAsync($"window.__lumaApplyOcr && window.__lumaApplyOcr({resultPayload})");
+            }
+        }
+        catch (Exception ex)
+        {
+            App.Log(ex);
+            var errPayload = JsonSerializer.Serialize(new
+            {
+                kind = "luma-autourok-ocr-result",
+                success = false,
+                error = "Не удалось распознать расписание: " + ex.Message
+            });
+            try
+            {
+                if (view?.CoreWebView2 is not null)
+                {
+                    view.CoreWebView2.PostWebMessageAsJson(errPayload);
+                    await view.CoreWebView2.ExecuteScriptAsync($"window.__lumaApplyOcr && window.__lumaApplyOcr({errPayload})");
+                }
+            }
+            catch { }
+        }
     }
 }

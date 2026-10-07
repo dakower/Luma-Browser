@@ -11,6 +11,7 @@ using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -524,7 +525,7 @@ public partial class MainWindow
         catch (Exception ex) { App.Log(ex); return []; }
     }
 
-    private async Task RunAssistantActionsAsync(string answer)
+    private async Task RunAssistantActionsAsync(string answer, bool allowWebSearchTab = true)
     {
         var targets = AssistantActions.Parse(answer);
         if (targets.Count == 0) return;
@@ -534,12 +535,19 @@ public partial class MainWindow
         {
             try
             {
+                if (!allowWebSearchTab && (target.Kind is "web" or "search"))
+                    continue;
+
                 // "open" already carries a real address. Everything else is a title the model
                 // picked from its own list: Luma looks the title page up on the catalogue site
                 // itself instead of dumping the user on a search results page.
                 var url = target.Kind == "open"
                     ? target.Value
                     : await SiteResolver.ResolveAsync(target.Kind, target.Value);
+
+                if (!allowWebSearchTab && SiteResolver.IsSearchPage(url))
+                    continue;
+
                 var tab = await AddTabAsync(url);
                 // When even the web lookup could not name the title page, the tab lands on the
                 // site's own search. Do not leave the user there: drive that page from inside and
@@ -633,6 +641,22 @@ public partial class MainWindow
                 var conversation = string.Join("\n", _assistantHistory.TakeLast(6)
                     .Select(m => (m.Role == "user" ? "Пользователь: " : "LumaAI: ") + (m.Text.Length > 400 ? m.Text[..400] + "…" : m.Text)));
 
+                string? effectiveImage = attachmentBase64;
+                string? effectiveMime = attachmentMime;
+                string? effectiveName = attachmentName;
+
+                if (string.IsNullOrWhiteSpace(effectiveImage) && _state.AssistantScreenshot &&
+                    Regex.IsMatch(question, @"\b(как тут|на этой странице|как на экране|этот стиль|эта картинка|это изображение|как здесь)\b", RegexOptions.IgnoreCase))
+                {
+                    var pageShot = await CaptureTabAsync();
+                    if (!string.IsNullOrWhiteSpace(pageShot))
+                    {
+                        effectiveImage = pageShot;
+                        effectiveMime = "image/png";
+                        effectiveName = "current-tab.png";
+                    }
+                }
+
                 var agentAnswer = await BrowserAgent.BrowserAgentRunner.ExecuteAgentTaskAsync(
                     question,
                     this,
@@ -653,7 +677,10 @@ public partial class MainWindow
                         _stateStore.Save();
                         PostAssistant(new { kind = "quota", limit = quota.Limit, used = quota.Used, remaining = quota.Remaining, unlimited = quota.Unlimited });
                     }),
-                    preferredTier: _state.AssistantModel);
+                    preferredTier: _state.AssistantModel,
+                    attachmentBase64: effectiveImage,
+                    attachmentMime: effectiveMime,
+                    attachmentName: effectiveName);
                 _assistantHistory.Add(new AssistantMessage { Role = "user", Text = question });
                 if (!string.IsNullOrWhiteSpace(agentAnswer)) _assistantHistory.Add(new AssistantMessage { Role = "assistant", Text = agentAnswer });
                 while (_assistantHistory.Count > 30) _assistantHistory.RemoveAt(0);
@@ -778,29 +805,57 @@ public partial class MainWindow
         finally { if (ReferenceEquals(_assistantRun, run)) _assistantRun = null; }
     }
 
+    private readonly List<AssistantMessage> _voiceAssistantHistory = [];
+
     public async Task AskAssistantDirectAsync(string question, Action<string> onDelta, CancellationToken token)
     {
         var accessToken = await _auth.GetAccessTokenAsync(token);
-        if (string.IsNullOrWhiteSpace(accessToken))
+        var tokenAuth = !string.IsNullOrWhiteSpace(accessToken) ? accessToken : Authentication.SupabaseOptions.PublishableKey;
+
+        // Silent Web Grounding (like Gemini): perform quick background search for the question
+        // without opening any browser tabs or search engine pages.
+        string webSnippets = "";
+        try
         {
-            onDelta("Войдите в аккаунт Luma, чтобы пользоваться LumaAI.");
-            return;
+            using var searchCts = CancellationTokenSource.CreateLinkedTokenSource(token);
+            searchCts.CancelAfter(TimeSpan.FromMilliseconds(2200));
+            var searchRun = await RunLocalLumaSearchAsync(question, "all", searchCts.Token);
+            if (searchRun.Results.Count > 0)
+            {
+                webSnippets = string.Join("\n\n", searchRun.Results.Take(5)
+                    .Select(r => $"[{r.title}]: {r.snippet}".TrimEnd()));
+            }
         }
+        catch { /* best-effort silent web search */ }
 
         var context = new StringBuilder();
-        context.AppendLine("Ты — LumaAI, умный голосовой ассистент, встроенный в браузер Luma. Отвечай кратко, емко, естественно и по делу.");
+        context.AppendLine("Ты — LumaAI, умный голосовой ассистент браузера Luma (работаешь как Gemini).");
+        context.AppendLine("Отвечай кратко, емко, естественно, дружелюбно и по делу приятным разговорным языком без лишней 'воды'.");
+        context.AppendLine("ГЛАВНОЕ ПРАВИЛО: Ты сам находишь актуальную информацию в интернете. НИКОГДА не открывай поисковики, расширенный поиск или страницы поиска во вкладках браузера. Отвечай на вопросы пользователя прямо здесь своим голосом и текстом.");
+        context.AppendLine("Если пользователь просит именно открыть конкретный сайт или запустить плеер («открой ютуб», «включи песню...»), только тогда используй протокол действий:");
         context.AppendLine(AssistantActions.Protocol);
+
+        if (!string.IsNullOrWhiteSpace(webSnippets))
+        {
+            context.AppendLine("\n[Свежие факты из фонового поиска интернета]:");
+            context.AppendLine(webSnippets);
+            context.AppendLine("Используй эти актуальные факты для точного ответа. Отвечай уверенно, как своими собственными знаниями, без фраз 'я поискал в интернете'.");
+        }
+
+        // Maintain conversation context of up to 20 messages for Voice Luma
+        _voiceAssistantHistory.Add(new AssistantMessage { Role = "user", Text = question });
+        while (_voiceAssistantHistory.Count > 20) _voiceAssistantHistory.RemoveAt(0);
 
         var request = new List<AssistantMessage>
         {
-            new() { Role = "system", Text = context.ToString() },
-            new() { Role = "user", Text = question }
+            new() { Role = "system", Text = context.ToString() }
         };
+        request.AddRange(_voiceAssistantHistory);
 
         var answer = new StringBuilder();
         try
         {
-            await AssistantClient.StreamAsync(accessToken, _state.AssistantModel, request, async delta =>
+            await AssistantClient.StreamAsync(tokenAuth, _state.AssistantModel, request, async delta =>
             {
                 answer.Append(delta);
                 onDelta(delta);
@@ -808,7 +863,15 @@ public partial class MainWindow
             }, token);
 
             var full = answer.ToString();
-            await RunAssistantActionsAsync(full);
+            var spoken = AssistantActions.StripDirectives(full);
+            if (spoken.Length > 0)
+            {
+                _voiceAssistantHistory.Add(new AssistantMessage { Role = "assistant", Text = spoken });
+                while (_voiceAssistantHistory.Count > 20) _voiceAssistantHistory.RemoveAt(0);
+            }
+
+            // Only allow opening actual sites/media if the model requested it, NEVER opening search engine pages
+            await RunAssistantActionsAsync(full, allowWebSearchTab: false);
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)

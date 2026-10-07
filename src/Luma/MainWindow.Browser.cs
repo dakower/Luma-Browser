@@ -263,7 +263,7 @@ public partial class MainWindow
         Save();
     }
 
-    private void OpenNewHomeTab()
+    internal void OpenNewHomeTab()
     {
         if (_spaces.Count == 0) return;
         _showAccountSurface = false;
@@ -443,6 +443,7 @@ public partial class MainWindow
             await web.AddScriptToExecuteOnDocumentCreatedAsync(BrowserScripts.MediaWatch);
             await web.AddScriptToExecuteOnDocumentCreatedAsync(BrowserScripts.DarkAuto(_state.ForceDarkDomains));
             await web.AddScriptToExecuteOnDocumentCreatedAsync(BrowserScripts.ChromeWebStoreScript);
+            await web.AddScriptToExecuteOnDocumentCreatedAsync(BrowserScripts.AutourokScript);
             await ExtensionManager.InitializeExtensionsAsync(web.Profile);
             web.WebMessageReceived += (_, e) => ReceiveWebMessage(tab, view, e.WebMessageAsJson);
             web.IsDocumentPlayingAudioChanged += async (_, _) => await SyncDocumentAudioStateAsync(tab, view);
@@ -484,6 +485,7 @@ public partial class MainWindow
                     : _networkErrorUrls.TryGetValue(view, out var failedUrl) ? failedUrl : view.Source?.ToString() ?? url;
                 if (ReferenceEquals(tab.SecondaryView, view)) tab.SecondaryUrl = current; else { tab.FullUrl = current; SyncPinnedSite(tab); }
                 if (tab == CurrentTab && ReferenceEquals(tab.ActiveView, view)) UpdateChrome();
+                _ = TryInjectAutourokAsync(web, tab);
             });
             // CanGoBack/CanGoForward are finalized by Chromium after SourceChanged. Previously
             // the chrome was refreshed too early, so the arrows stayed stale until switching
@@ -492,6 +494,7 @@ public partial class MainWindow
             web.HistoryChanged += (_, _) => Dispatcher.BeginInvoke(() =>
             {
                 if (ReferenceEquals(CurrentTab, tab) && ReferenceEquals(tab.ActiveView, view)) UpdateChrome();
+                _ = TryInjectAutourokAsync(web, tab);
             });
             web.DocumentTitleChanged += (_, _) => Dispatcher.Invoke(() =>
             {
@@ -534,6 +537,7 @@ public partial class MainWindow
                 await ApplyAmbientLightAsync(view);
                 await ApplyTranslationAsync(view, false);
                 try { await web.ExecuteScriptAsync(BrowserScripts.ChromeWebStoreScript); } catch { }
+                await TryInjectAutourokAsync(web, tab);
             };
             web.NavigationCompleted += async (_, args) =>
             {
@@ -584,6 +588,7 @@ public partial class MainWindow
                 _pendingNavigationUrls.Remove(view);
                 if (args.IsSuccess) _transientRetries.Remove(view);
                 await ApplyPipAsync(view); await ApplyAmbientLightAsync(view); await ApplyTranslationAsync(view, false); await ApplyDomainPrefsAsync(view);
+                await TryInjectAutourokAsync(web, tab);
                 if (!args.IsSuccess || tab.IsInternal) return;
                 await Dispatcher.InvokeAsync(() =>
                 {
@@ -597,6 +602,23 @@ public partial class MainWindow
             web.Navigate(url);
         }
         catch (Exception ex) { App.Log(ex); ShowToast("Ошибка загрузки", ex.Message); }
+    }
+
+    private async Task TryInjectAutourokAsync(CoreWebView2 web, BrowserTab tab)
+    {
+        try
+        {
+            var u1 = web.Source ?? "";
+            var u2 = tab.ActiveUrl ?? tab.FullUrl ?? "";
+            if (u1.Contains("classroom.google.com", StringComparison.OrdinalIgnoreCase) ||
+                u2.Contains("classroom.google.com", StringComparison.OrdinalIgnoreCase) ||
+                u1.Contains("meet.google.com", StringComparison.OrdinalIgnoreCase) ||
+                u2.Contains("meet.google.com", StringComparison.OrdinalIgnoreCase))
+            {
+                await web.ExecuteScriptAsync(BrowserScripts.AutourokScript);
+            }
+        }
+        catch { }
     }
 
     private void HandleProcessFailed(BrowserTab tab, WebView2 view, CoreWebView2ProcessFailedEventArgs args)

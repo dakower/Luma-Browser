@@ -23,7 +23,7 @@ public static class BrowserAgentScripts
         };
         const isCardClass = cls => /test-option|question-option|test-answer|\banswer\b|\bchoice\b|\bvariant\b/i.test(cls);
 
-        const SEL = 'a[href],button,input:not([type=hidden]),textarea,select,summary,label,[role=button],[role=link],[role=tab],[role=menuitem],[role=menuitemcheckbox],[role=menuitemradio],[role=option],[role=checkbox],[role=radio],[role=switch],[role=textbox],[role=combobox],[role=searchbox],[role=treeitem],[contenteditable=""],[contenteditable="true"],[onclick],[tabindex]:not([tabindex="-1"]),.test-option,.question-option,[class*="test-option"],[class*="test-answer"],[class*="multichoice-submit"],[class*="test-submit"],.answer,.choice,.variant,[data-answer],[data-option],[data-choice]';
+        const SEL = 'a[href],button,input:not([type=hidden]),textarea,select,summary,label,[role=button],[role=link],[role=tab],[role=menuitem],[role=menuitemcheckbox],[role=menuitemradio],[role=option],[role=checkbox],[role=radio],[role=switch],[role=textbox],[role=combobox],[role=searchbox],[role=treeitem],[contenteditable=""],[contenteditable="true"],[onclick],[tabindex]:not([tabindex="-1"]),.test-option,.question-option,[class*="test-option"],[class*="test-answer"],[class*="multichoice-submit"],[class*="test-submit"],.answer,.choice,.variant,[data-answer],[data-option],[data-choice],img[src]';
         const found = [];
         const seen = new Set();
         const collect = root => {
@@ -60,6 +60,14 @@ public static class BrowserAgentScripts
         const pageQuestion = getPageQuestion();
         const labelOf = e => {
           const tag = e.tagName.toLowerCase();
+          if (tag === 'img') {
+            let t = clean(e.getAttribute('alt')) || clean(e.getAttribute('title')) || clean(e.getAttribute('aria-label'));
+            if (!t) {
+              const p = e.closest('a, figure, [role="button"], article, div');
+              if (p) t = clean(p.getAttribute('aria-label') || p.innerText);
+            }
+            return (t || 'изображение').slice(0, 110);
+          }
           let t = clean(e.getAttribute('aria-label'));
           if (!t && (tag === 'input' || tag === 'textarea' || tag === 'select')) {
             t = clean(e.getAttribute('placeholder')) || clean(e.labels && e.labels[0] && e.labels[0].innerText) || clean(e.getAttribute('title')) || clean(e.getAttribute('name'));
@@ -80,6 +88,7 @@ public static class BrowserAgentScripts
           const tag = e.tagName.toLowerCase(), role = e.getAttribute('role');
           const cls = typeof e.className === 'string' ? e.className : '';
           const lbl = labelOf(e);
+          if (tag === 'img') return 'image';
           if (tag === 'input') return 'input[' + (e.type || 'text') + ']';
           if (tag === 'textarea') return 'textarea';
           if (tag === 'select') return 'select';
@@ -109,9 +118,9 @@ public static class BrowserAgentScripts
           const r = e.getBoundingClientRect();
           if (r.width < 2 || r.height < 2 || r.bottom < 0 || r.top > vh || r.right < 0 || r.left > vw) continue;
           const st = getComputedStyle(e);
-          if (st.visibility === 'hidden' || st.display === 'none') continue;
-          if (parseFloat(st.opacity) < 0.05 && tag !== 'input' && !e.querySelector('input')) continue;
           const tag = e.tagName.toLowerCase();
+          if (tag === 'img' && (r.width < 48 || r.height < 48)) continue;
+          if (parseFloat(st.opacity) < 0.05 && tag !== 'input' && !e.querySelector('input')) continue;
           const isField = tag === 'input' || tag === 'textarea' || tag === 'select' || e.isContentEditable;
           const cls = typeof e.className === 'string' ? e.className : '';
           
@@ -135,6 +144,15 @@ public static class BrowserAgentScripts
           const id = els.length;
           els.push(e);
           let line = '[' + id + '] ' + kindOf(e, isOptionCard) + ' "' + (label || 'без подписи') + '"';
+          if (tag === 'img') {
+            const src = e.currentSrc || e.src || '';
+            if (src) line += ' src="' + src.slice(0, 80) + '"';
+          } else {
+            const childImg = e.querySelector('img');
+            if (childImg && (childImg.naturalWidth > 60 || childImg.offsetWidth > 60)) {
+              line += ' [с картинкой]';
+            }
+          }
           const innerInp = (tag === 'input') ? e : e.querySelector('input[type=checkbox],input[type=radio]');
           const isChecked = () => {
             if (innerInp && innerInp.checked) return true;
@@ -458,8 +476,48 @@ public static class BrowserAgentScripts
         const res = fn();
         return JSON.stringify({ ok: true, value: typeof res === 'undefined' ? null : res });
       } catch (err) {
-        return JSON.stringify({ ok: false, error: String(err) });
+        return JSON.stringify({ ok: false, error: String(err && err.message || err) });
       }
+    })()
+    """;
+
+    /// <summary>Extracts image URL from an element (img, background-image, child img, or og:image).</summary>
+    public static string ExtractImageUrlScript(int id) => $$"""
+    (() => {
+      const e = (window.__lumaAgentEls || [])[{{id}}];
+      if (!e || !e.isConnected) return JSON.stringify({ ok: false });
+      let url = '';
+      if (e.tagName.toLowerCase() === 'img') {
+        url = e.currentSrc || e.src || e.getAttribute('src') || '';
+      } else {
+        const img = e.querySelector('img');
+        if (img) url = img.currentSrc || img.src || img.getAttribute('src') || '';
+        if (!url) {
+          const bg = getComputedStyle(e).backgroundImage;
+          const m = bg && bg.match(/url\(["']?([^"']+)["']?\)/);
+          if (m) url = m[1];
+        }
+      }
+      if (!url) {
+        const og = document.querySelector('meta[property="og:image"], meta[name="twitter:image"]');
+        if (og) url = og.getAttribute('content') || '';
+      }
+      return JSON.stringify({ ok: !!url, url });
+    })()
+    """;
+
+    /// <summary>Finds the primary image on the page (og:image, or largest content image).</summary>
+    public const string ExtractPageImageScript = """
+    (() => {
+      const og = document.querySelector('meta[property="og:image"], meta[name="twitter:image"]');
+      if (og && og.content) return JSON.stringify({ ok: true, url: og.content });
+      const imgs = Array.from(document.querySelectorAll('img'))
+        .filter(i => (i.naturalWidth || i.offsetWidth) > 150 && (i.naturalHeight || i.offsetHeight) > 150)
+        .sort((a, b) => ((b.naturalWidth || b.offsetWidth) * (b.naturalHeight || b.offsetHeight)) - ((a.naturalWidth || a.offsetWidth) * (a.naturalHeight || a.offsetHeight)));
+      if (imgs.length > 0) {
+        return JSON.stringify({ ok: true, url: imgs[0].currentSrc || imgs[0].src });
+      }
+      return JSON.stringify({ ok: false });
     })()
     """;
 }

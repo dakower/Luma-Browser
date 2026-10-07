@@ -216,7 +216,7 @@ public partial class MainWindow
     // spot at the top-right corner of the page area instead of drifting with their text.
     private const double ToastWidth = 300, ToastMargin = 16;
     private void PositionToast() { ToastPopup.HorizontalOffset = Math.Max(ToastMargin, SiteShell.ActualWidth - ToastWidth - ToastMargin); ToastPopup.VerticalOffset = ToastMargin; }
-    private void ShowToast(string title, string subtitle = "", bool error = false)
+    internal void ShowToast(string title, string subtitle = "", bool error = false)
     {
         if (error) RecordTesterAction("Возникла ошибка Luma: " + title);
         ToastTitle.Text = title; ToastSubtitle.Text = subtitle;

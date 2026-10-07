@@ -18,6 +18,8 @@ public partial class MainWindow
         HistoryCountText.Text = query.Length == 0 ? $"Записей: {_state.History.Count}" : $"Найдено: {items.Count}";
     }
 
+    internal void OpenHistory() => History_Click(this, new RoutedEventArgs());
+
     private void History_Click(object sender, RoutedEventArgs e)
     {
         CloseTransientUi();

@@ -12,6 +12,8 @@
     <EmbeddedResource Include="Assets\import.html" LogicalName="Luma.Assets.import.html" />
     <EmbeddedResource Include="Assets\translate-cleanup.js" LogicalName="Luma.Assets.translate-cleanup.js" />
     <EmbeddedResource Include="Assets\context-menu.js" LogicalName="Luma.Assets.context-menu.js" />
+    <EmbeddedResource Include="Assets\autourok.js" LogicalName="Luma.Assets.autourok.js" />
+    <EmbeddedResource Include="Assets\autourok-icon.png" LogicalName="Luma.Assets.autourok-icon.png" />
     <EmbeddedResource Include="Assets\welcome.html" LogicalName="Luma.Assets.welcome.html" />
     <EmbeddedResource Include="Assets\assistant.html" LogicalName="Luma.Assets.assistant.html" />
     <EmbeddedResource Include="Assets\search.html" LogicalName="Luma.Assets.search.html" />

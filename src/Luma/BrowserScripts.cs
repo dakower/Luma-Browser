@@ -12,6 +12,49 @@ public static class BrowserScripts
     private static string? _translationCleanup;
     private static string? _contextMenu;
     public static string TranslationCleanup => _translationCleanup ??= ReadResource(TranslationCleanupResourceName);
+
+    private static string? _autourokScript;
+    public static string AutourokScript
+    {
+        get
+        {
+            try
+            {
+                var baseDir = AppContext.BaseDirectory;
+                var diskJs = Path.Combine(baseDir, "Assets", "autourok.js");
+                if (File.Exists(diskJs))
+                {
+                    var js = File.ReadAllText(diskJs);
+                    var iconPath = Path.Combine(baseDir, "Assets", "autourok-icon.png");
+                    string iconB64 = "";
+                    if (File.Exists(iconPath))
+                        iconB64 = Convert.ToBase64String(File.ReadAllBytes(iconPath));
+                    if (string.IsNullOrEmpty(iconB64))
+                    {
+                        using var s = typeof(BrowserScripts).Assembly.GetManifestResourceStream("Luma.Assets.autourok-icon.png");
+                        if (s is not null) { using var ms = new MemoryStream(); s.CopyTo(ms); iconB64 = Convert.ToBase64String(ms.ToArray()); }
+                    }
+                    return js.Replace("__AUTOUROK_ICON_BASE64__", iconB64, StringComparison.Ordinal);
+                }
+            }
+            catch { }
+            if (_autourokScript is not null) return _autourokScript;
+            var resJs = ReadResource("Luma.Assets.autourok.js");
+            string iconB64Res = "";
+            try
+            {
+                using var stream = typeof(BrowserScripts).Assembly.GetManifestResourceStream("Luma.Assets.autourok-icon.png");
+                if (stream is not null)
+                {
+                    using var ms = new MemoryStream();
+                    stream.CopyTo(ms);
+                    iconB64Res = Convert.ToBase64String(ms.ToArray());
+                }
+            }
+            catch { }
+            return _autourokScript = resJs.Replace("__AUTOUROK_ICON_BASE64__", iconB64Res, StringComparison.Ordinal);
+        }
+    }
     /// <summary>Presents the page with plain Chrome brands instead of the WebView2 ones.</summary>
     private const string ClientHintsTemplate = """
     (() => { try {

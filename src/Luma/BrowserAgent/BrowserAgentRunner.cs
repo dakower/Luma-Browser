@@ -1,3 +1,5 @@
+using System.IO;
+using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -24,11 +26,14 @@ public static class BrowserAgentRunner
         + @"|(?:добавь|положи|додай)\s+в\s+(?:корзину|кошик)"
         + @"|поставь\s+лайк"
         + @"|(?:найди|знайди|отыщи)\s+.{0,90}?(?:коммент|отзыв|відгук|пост|сообщени|повідомлен|ответ|твит|видео|відео|ролик|канал|на\s+сайте|на\s+странице|на\s+ютуб|в\s+ютуб|на\s+youtube|в\s+гугл)"
+        + @"|(?:найди|знайди|отыщи|скачай|збережи|сохрани|поставь|встанови|скинь)\s+.{0,90}?(?:аву|аватар|картинк|зображен|пикчу|фото|шпалери|обои|референс|пин|арт)"
+        + @"|(?:поставь|встанови)\s+.{0,60}?(?:в\s+тг|в\s+телеграм|на\s+аву|в\s+профиль)"
         + @"|(?:открой|відкрий)\s+.{1,90}?\s(?:и|і|затем|потом|а\s+потом|та)\s+(?:найди|знайди|открой|відкрий|нажми|натисни|напиши|включи|перейди|зайди|отправ|надішли|проверь|посмотри|вбей|введи)"
         + @"|(?:напиши|отправь|надішли)\s+.{0,60}?(?:письмо|лист|сообщение|повідомлення|коммент|в\s+чат|в\s+поддержку)"
         + @"|\b(?:go\s+to|click|fill\s+(?:in|out)|add\s+to\s+cart|log\s+in\s+to|sign\s+in\s+to|solve|take|pass)\b"
         + @"|\b(?:solve|take|pass|answer)\s+.{0,60}?(?:test|quiz|exam|questions|form)"
         + @"|\bfind\s+.{0,80}?(?:comment|review|post|video|on\s+youtube|on\s+the\s+site)"
+        + @"|\b(?:find|download|save|set)\s+.{0,80}?(?:avatar|pfp|image|picture|photo|wallpaper|art)\b"
         + @"|\bopen\s+.{1,80}?\sand\s+(?:find|open|click|write|type|send|check|go))",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
@@ -46,6 +51,9 @@ public static class BrowserAgentRunner
 1. Сначала точно пойми, ЧТО именно просит пользователь, и выполняй ровно эту просьбу — не больше и не меньше.
    Не превращай задачу в покупку, сравнение товаров или поиск по магазинам, если об этом не просили.
 2. Выбирай самый короткий надёжный путь. Если знаешь прямой адрес — сразу переходи туда. Примеры:
+   - Поиск в Pinterest: https://www.pinterest.com/search/pins/?q=ЗАПРОС
+   - Поиск картинок Google: https://www.google.com/search?tbm=isch&q=ЗАПРОС
+   - Поиск в Яндекс Картинках: https://yandex.ru/images/search?text=ЗАПРОС
    - Gmail, новое письмо: https://mail.google.com/mail/u/0/#inbox?compose=new
    - Поиск на YouTube: https://www.youtube.com/results?search_query=ЗАПРОС
    - Канал YouTube: https://www.youtube.com/@ИМЯ/videos
@@ -73,11 +81,30 @@ public static class BrowserAgentRunner
       {"thought":"Вопрос 1: весенние месяцы — Березень [5], Травень [6], Квітень [8], жму «Відповісти» [9]","action":"batch","actions":[{"action":"click","id":5},{"action":"click","id":6},{"action":"click","id":8},{"action":"click","id":9}]}
     - ВАЖНО: варианты с пометкой (отмечено) уже выбраны — НЕ нажимай на них повторно, чтобы не снять галочку!
     - В поле "thought" пиши КРАТКО (1 строка): суть вопроса и правильный ответ (например: «Вопрос 1: весенние месяцы — Березень, Травень, Квітень»). Не повторяй длинные формулировки!
+12. РАБОТА С ИЗОБРАЖЕНИЯМИ И РЕФЕРЕНСАМИ (ВИЗУАЛЬНЫЙ АНАЛИЗ):
+    - Если пользователь приложил изображение («как эта», «в таком стиле», «похожее на референс», «найди такую аву») — ты ВИДИШЬ его прямо во входном сообщении! КАТЕГОРИЧЕСКИ НЕ ГОВОРИ «я не вижу картинку»!
+    - Внимательно определи:
+      * Стиль: аниме / манга / скетч / цифровой рисунок / акварель / 3D / реализм / киберпанк / ретро / пиксель-арт / минимализм / гранж.
+      * Персонаж/объект: пол, цвет и форма прически, цвет и разрез глаз, выражение лица, поза (например, рука у лица), одежда, аксессуары.
+      * Цветовая гамма и вайб: теплые/холодные тона, сепия, монохром, неон, контраст, освещение, настроение (эстетика, dark, edgy, soft, cozy).
+      * Имя персонажа/художника/тайтла, если узнаваемо.
+    - Для поиска аватарок, пинов, обоев или товаров по референсу (в Pinterest, Google Картинках и др.) используй ТОЧНЫЕ, богатые ключевыми словами поисковые запросы на английском языке (на Pinterest английские теги находят идеальные арты):
+      Например: https://www.pinterest.com/search/pins/?q=anime+boy+messy+hair+sketch+warm+aesthetic+pfp
+    - В thought опиши, что ты распознал на референсе (стиль, персонаж, гамма), и сразу переходи к целевому поиску.
+13. СКАЧИВАНИЕ И УСТАНОВКА АВАТАРОК И КАРТИНОК (TELEGRAM, DISCORD И ДР.):
+    - Когда пользователь просит «скачай аву», «сохрани картинку», «поставь на аву в тг» или найти арт:
+      1. Найди подходящее изображение на Pinterest, в Google Картинках или на текущей странице.
+      2. Скачай его действием save_image (с id элемента картинки или ссылки на пин). Агент автоматически получит картинку в максимальном качестве, сохранит её в Загрузки пользователя и СКОПИРУЕТ В БУФЕР ОБМЕНА Windows!
+      3. Если пользователь просил поставить в Telegram:
+         - Если в браузере открыт Telegram Web (web.telegram.org) или пользователь авторизован, можешь перейти туда в настройки профиля.
+         - Если Telegram открыт на компьютере как отдельное приложение — картинка уже в буфере обмена Windows и в Загрузках! В ответе (done) четко объясни пользователю: «Аватарка сохранена в Загрузки и скопирована в буфер обмена Windows. В Telegram нажми Настройки → Изменить фото профиля и просто нажми Ctrl+V или выбери файл из Загрузок».
 
 ДЕЙСТВИЯ (ровно одно за шаг):
 {"action":"navigate","url":"https://..."}          — открыть адрес во вкладке агента
 {"action":"new_tab","url":"https://..."}           — открыть адрес в новой вкладке (если нужно держать несколько страниц)
 {"action":"web_search","query":"..."}              — поиск в интернете; вернёт ссылки с описаниями, страницу не меняет
+{"action":"save_image","id":N,"name":"avatar.png"} — скачать изображение элемента [N] (или всей страницы) в Загрузки в высоком качестве и скопировать в буфер обмена Windows (Ctrl+V)
+{"action":"copy_image","id":N}                     — скопировать изображение элемента [N] в буфер обмена Windows для быстрой вставки (Ctrl+V)
 {"action":"click","id":N}                          — нажать элемент [N] из списка
 {"action":"js_click","id":N}                       — прямой клик через JS по [N] (если обычный click перекрыт оверлеем или баннером)
 {"action":"hover","id":N}                          — навести курсор на элемент [N] (для выпадающих меню, подсказок, списков)
@@ -108,6 +135,7 @@ public static class BrowserAgentRunner
         public required MainWindow Window { get; init; }
         public required string Lang { get; init; }
         public bool IsTestSolving { get; set; }
+        public bool HasReferenceImage { get; set; }
         public BrowserTab? Tab { get; set; }
         public Observation? Last { get; set; }
     }
@@ -121,13 +149,23 @@ public static class BrowserAgentRunner
         CancellationToken token,
         string conversationContext = "",
         Action<AssistantQuota>? onQuota = null,
-        string? preferredTier = null)
+        string? preferredTier = null,
+        string? attachmentBase64 = null,
+        string? attachmentMime = null,
+        string? attachmentName = null)
     {
         var lang = (language ?? "ru").ToLowerInvariant();
         string L(string ru, string uk, string en) => lang switch { "uk" => uk, "en" => en, _ => ru };
 
+        var hasAttachment = !string.IsNullOrWhiteSpace(attachmentBase64) && attachmentBase64.Length <= 8_000_000;
         var isTestSolving = Regex.IsMatch(goal, @"\b(?:тест|опрос|квиз|quiz|exam|вопрос|экзамен)\b", RegexOptions.IgnoreCase);
-        var ctx = new AgentContext { Window = window, Lang = lang, IsTestSolving = isTestSolving };
+        var ctx = new AgentContext
+        {
+            Window = window,
+            Lang = lang,
+            IsTestSolving = isTestSolving,
+            HasReferenceImage = hasAttachment,
+        };
         var current = window.CurrentTab;
         if (current is { IsInternal: false } && current.ActiveView?.CoreWebView2 is not null) ctx.Tab = current;
 
@@ -137,6 +175,15 @@ public static class BrowserAgentRunner
         var recent = new List<string>();
         var lastResult = "";
         var tier = isTestSolving ? "fast" : (preferredTier ?? "fast");
+
+        AssistantImage? refImage = hasAttachment
+            ? new AssistantImage
+            {
+                Base64 = attachmentBase64!,
+                MimeType = attachmentMime is "image/png" or "image/webp" or "image/gif" ? attachmentMime : "image/jpeg",
+                Name = string.IsNullOrWhiteSpace(attachmentName) ? "reference.png" : attachmentName[..Math.Min(attachmentName.Length, 120)]
+            }
+            : null;
 
         await onDelta($"**Luma Agent** · {L("выполняю задачу", "виконую завдання", "working on it")}\n\n");
 
@@ -148,10 +195,16 @@ public static class BrowserAgentRunner
                 ctx.Last = ctx.Tab is null ? null : await ObserveAsync(ctx.Tab);
 
                 var prompt = BuildStepPrompt(goal, conversationContext, step, history, memory, lastResult, ctx);
+                var userMsg = new AssistantMessage { Role = "user", Text = prompt };
+                if (refImage is not null)
+                {
+                    userMsg.Images.Add(refImage);
+                }
+
                 var messages = new List<AssistantMessage>
                 {
                     new() { Role = "system", Text = SystemPrompt },
-                    new() { Role = "user", Text = prompt },
+                    userMsg,
                 };
 
                 JsonElement? decision = null;
@@ -350,6 +403,14 @@ public static class BrowserAgentRunner
                 sb.AppendLine("5. НЕ используй find_text, scroll или eval — все варианты уже перед тобой!");
             }
         }
+        if (ctx.HasReferenceImage)
+        {
+            sb.AppendLine();
+            sb.AppendLine("ИЗОБРАЖЕНИЕ-РЕФЕРЕНС ОТ ПОЛЬЗОВАТЕЛЯ:");
+            sb.AppendLine("Пользователь прикрепил картинку-образец к задаче (ты видишь её во входных данных).");
+            sb.AppendLine("Внимательно определи: стиль рисовки (скетч, аниме, 3D и т.д.), персонажа/объект, цветовую гамму, настроение и ключевые черты.");
+            sb.AppendLine("Используй эти визуальные теги для точного поиска в Pinterest, Google Картинках и других сервисах (на английском языке для максимальной релевантности пинов)!");
+        }
         sb.AppendLine();
         sb.AppendLine("Выбери следующее действие. Ответ — один JSON-объект.");
         return sb.ToString();
@@ -370,6 +431,8 @@ public static class BrowserAgentRunner
             "navigate" => L("Открываю ", "Відкриваю ", "Opening ") + PrettyUrl(Str(d, "url")),
             "new_tab" => L("Открываю в новой вкладке ", "Відкриваю в новій вкладці ", "Opening in a new tab ") + PrettyUrl(Str(d, "url")),
             "web_search" => L("Ищу в интернете: «", "Шукаю в інтернеті: «", "Searching the web: «") + Trim(Str(d, "query"), 80) + "»",
+            "save_image" => L("Сохраняю изображение", "Зберігаю зображення", "Saving image"),
+            "copy_image" => L("Копирую изображение в буфер", "Копіюю зображення в буфер", "Copying image to clipboard"),
             "click" => L("Нажимаю «", "Натискаю «", "Clicking «") + El() + "»",
             "js_click" => L("Нажимаю через JS «", "Натискаю через JS «", "JS-clicking «") + El() + "»",
             "hover" => L("Навожу курсор на «", "Наводжу курсор на «", "Hovering over «") + El() + "»",
@@ -669,6 +732,84 @@ public static class BrowserAgentRunner
                 return $"Текст страницы (символы {offset}–{next} из {total}):\n{text}" + (next < total ? $"\n… продолжение: read offset {next}" : "\n(конец текста)");
             }
 
+            case "save_image":
+            case "copy_image":
+            {
+                var id = Int(d, "id", -1);
+                var url = Str(d, "url");
+                if (string.IsNullOrWhiteSpace(url))
+                {
+                    if (id >= 0)
+                    {
+                        var imgRes = await JsonAsync(core, BrowserAgentScripts.ExtractImageUrlScript(id));
+                        if (imgRes is not null && Bool(imgRes.Value, "ok"))
+                            url = Str(imgRes.Value, "url");
+                    }
+                    if (string.IsNullOrWhiteSpace(url))
+                    {
+                        var pageImgRes = await JsonAsync(core, BrowserAgentScripts.ExtractPageImageScript);
+                        if (pageImgRes is not null && Bool(pageImgRes.Value, "ok"))
+                            url = Str(pageImgRes.Value, "url");
+                    }
+                }
+
+                if (string.IsNullOrWhiteSpace(url))
+                    return "Не удалось найти изображение на указанном элементе. Укажи правильный [id] картинки или открой страницу с изображением.";
+
+                var upgraded = UpgradeImageUrl(url);
+                var bytes = await DownloadImageBytesAsync(core, upgraded) ?? await DownloadImageBytesAsync(core, url);
+                if (bytes is null || bytes.Length == 0)
+                    return $"Не удалось скачать изображение по адресу {url}.";
+
+                var customName = Str(d, "name");
+                var ext = ".png";
+                if (url.Contains(".jpg", StringComparison.OrdinalIgnoreCase) || url.Contains(".jpeg", StringComparison.OrdinalIgnoreCase)) ext = ".jpg";
+                else if (url.Contains(".webp", StringComparison.OrdinalIgnoreCase)) ext = ".webp";
+
+                string fileName;
+                if (!string.IsNullOrWhiteSpace(customName))
+                {
+                    fileName = Path.GetFileName(customName);
+                    if (!Path.HasExtension(fileName)) fileName += ext;
+                }
+                else
+                {
+                    fileName = $"luma_avatar_{DateTime.Now:yyyyMMdd_HHmmss}{ext}";
+                }
+
+                var downloads = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+                if (!Directory.Exists(downloads)) Directory.CreateDirectory(downloads);
+                var filePath = Path.Combine(downloads, fileName);
+                await File.WriteAllBytesAsync(filePath, bytes, token);
+
+                window.Dispatcher.Invoke(() =>
+                {
+                    try
+                    {
+                        using var ms = new MemoryStream(bytes);
+                        var bi = new System.Windows.Media.Imaging.BitmapImage();
+                        bi.BeginInit();
+                        bi.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+                        bi.StreamSource = ms;
+                        bi.EndInit();
+                        bi.Freeze();
+
+                        var data = new System.Windows.DataObject();
+                        data.SetImage(bi);
+                        data.SetFileDropList(new System.Collections.Specialized.StringCollection { filePath });
+                        System.Windows.Clipboard.SetDataObject(data, true);
+                        window.ShowToast("Изображение сохранено", $"{fileName} (скопировано в буфер обмена)");
+                    }
+                    catch (Exception ex)
+                    {
+                        App.Log(ex);
+                    }
+                });
+
+                outcome = $"Изображение успешно получено в высоком качестве и сохранено в «{filePath}». Также оно скопировано в буфер обмена Windows (готово для быстрой вставки через Ctrl+V в Telegram, Discord или любую программу).";
+                break;
+            }
+
             case "back":
             {
                 if (core.CanGoBack) core.GoBack();
@@ -689,7 +830,7 @@ public static class BrowserAgentRunner
         var isOptionInteraction = (action is "click" or "js_click" or "check") &&
             (ctx.Last?.Elements.Any(e => e.StartsWith($"[{clickedId}]") && (e.Contains("option") || e.Contains("отмечено") || e.Contains("контекст вопроса"))) == true);
 
-        var isQuick = action is "check" or "hover" or "select" or "type" or "press" or "batch" or "eval";
+        var isQuick = action is "check" or "hover" or "select" or "type" or "press" or "batch" or "eval" or "save_image" or "copy_image";
 
         if (isTestContext || isOptionInteraction)
         {
@@ -783,6 +924,85 @@ public static class BrowserAgentRunner
             var js = $"(()=>{{const e=document.activeElement||document.body;['keydown','keyup'].forEach(t=>e.dispatchEvent(new KeyboardEvent(t,{{key:{JsonSerializer.Serialize(k.Key)},code:{JsonSerializer.Serialize(k.Code)},keyCode:{k.Vk},which:{k.Vk},bubbles:true}})));if({JsonSerializer.Serialize(k.Key)}==='Enter'&&e.form)e.form.requestSubmit?e.form.requestSubmit():e.form.submit();}})()";
             await core.ExecuteScriptAsync(js);
             return true;
+        }
+    }
+
+    private static string UpgradeImageUrl(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return url;
+        // Pinterest: upgrade small thumbnail to high-res (736x or originals)
+        if (url.Contains("pinimg.com", StringComparison.OrdinalIgnoreCase))
+        {
+            url = Regex.Replace(url, @"/(?:236x|474x|564x)/", "/736x/");
+        }
+        // Twitter / X: upgrade to large
+        if (url.Contains("pbs.twimg.com", StringComparison.OrdinalIgnoreCase))
+        {
+            url = Regex.Replace(url, @"name=(?:small|medium|thumb)", "name=large");
+        }
+        return url;
+    }
+
+    private static async Task<byte[]?> DownloadImageBytesAsync(CoreWebView2? core, string url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return null;
+        if (url.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase))
+        {
+            var comma = url.IndexOf(',');
+            if (comma > 0)
+            {
+                try { return Convert.FromBase64String(url[(comma + 1)..]); } catch { }
+            }
+        }
+
+        // Try page context fetch first (preserves auth cookies, CORS bypass for same-origin)
+        if (core is not null && !url.StartsWith("blob:", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                var js = $$"""
+                (async () => {
+                  try {
+                    const r = await fetch({{JsonSerializer.Serialize(url)}}, { credentials: 'include' });
+                    if (!r.ok) return null;
+                    const blob = await r.blob();
+                    return await new Promise((res, rej) => {
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        const s = reader.result;
+                        res(typeof s === 'string' ? s.split(',')[1] : null);
+                      };
+                      reader.onerror = rej;
+                      reader.readAsDataURL(blob);
+                    });
+                  } catch (_) { return null; }
+                })()
+                """;
+                var raw = await core.ExecuteScriptAsync(js);
+                if (!string.IsNullOrWhiteSpace(raw) && raw != "null")
+                {
+                    var b64 = JsonSerializer.Deserialize<string>(raw);
+                    if (!string.IsNullOrWhiteSpace(b64))
+                    {
+                        return Convert.FromBase64String(b64);
+                    }
+                }
+            }
+            catch { }
+        }
+
+        // Fallback: HttpClient
+        try
+        {
+            using var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = true });
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36");
+            client.Timeout = TimeSpan.FromSeconds(15);
+            return await client.GetByteArrayAsync(url);
+        }
+        catch (Exception ex)
+        {
+            App.Log(ex);
+            return null;
         }
     }
 

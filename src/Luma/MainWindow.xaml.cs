@@ -70,6 +70,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private readonly ILumaStateStore _stateStore;
     private readonly IClock _clock;
     private readonly LumaState _state;
+    internal LumaState State => _state;
     private readonly List<RuntimeSpace> _spaces = new();
     private readonly ObservableCollection<SearchSuggestion> _searchResults = new();
     private readonly Dictionary<string, FolderVisual> _folderVisuals = new();
@@ -329,7 +330,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         StartAccountUsageTracking();
         try
         {
-            _voiceService = new Voice.VoiceAssistantService(this);
+            _voiceService = new Voice.VoiceAssistantService(this, VoiceSpeechWebView);
             _voiceService.Initialize();
         }
         catch (Exception ex)
