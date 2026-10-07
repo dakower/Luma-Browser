@@ -51,18 +51,6 @@ public sealed class VoiceAssistantService : IDisposable
         try
         {
             _hud = new VoiceHudWindow();
-            _hud.SetMuted(_mainWindow.State.VoiceAssistantMuted);
-            _hud.OnMuteToggled = muted =>
-            {
-                _mainWindow.State.VoiceAssistantMuted = muted;
-                _mainWindow.SaveState();
-                SetVoiceMuted(muted);
-            };
-            _hud.OnHudHiding = () =>
-            {
-                StopSpeaking();
-            };
-
             InitGlobalHotkey();
             await InitSpeechEngineAsync();
         }
@@ -270,20 +258,6 @@ public sealed class VoiceAssistantService : IDisposable
                     });
                 }
             }
-            else if (kind == "speech-playback-started")
-            {
-                _mainWindow.Dispatcher.Invoke(() =>
-                {
-                    _hud?.SetSpeakingState(true);
-                });
-            }
-            else if (kind == "speech-playback-ended")
-            {
-                _mainWindow.Dispatcher.Invoke(() =>
-                {
-                    _hud?.SetSpeakingState(false);
-                });
-            }
             else if (kind == "speech-error")
             {
                 var error = root.TryGetProperty("error", out var ev) ? ev.GetString() ?? "" : "";
@@ -303,38 +277,6 @@ public sealed class VoiceAssistantService : IDisposable
         }
     }
 
-    public void SpeakText(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text) || _hud?.IsMuted == true || _speechView?.CoreWebView2 == null) return;
-        try
-        {
-            var jsonText = JsonSerializer.Serialize(text);
-            _speechView.CoreWebView2.ExecuteScriptAsync($"window.__speakText && window.__speakText({jsonText});");
-        }
-        catch (Exception ex)
-        {
-            App.Log(ex);
-        }
-    }
-
-    public void StopSpeaking()
-    {
-        try
-        {
-            _speechView?.CoreWebView2?.ExecuteScriptAsync("window.__stopSpeaking && window.__stopSpeaking();");
-        }
-        catch { }
-    }
-
-    public void SetVoiceMuted(bool muted)
-    {
-        try
-        {
-            _speechView?.CoreWebView2?.ExecuteScriptAsync($"window.__setVoiceMuted && window.__setVoiceMuted({(muted ? "true" : "false")});");
-        }
-        catch { }
-    }
-
     private async Task<bool> TryExecuteFastActionAsync(string rawCommand)
     {
         var cmd = rawCommand.Trim().ToLowerInvariant().TrimEnd('.', '!', '?', ',');
@@ -344,7 +286,6 @@ public sealed class VoiceAssistantService : IDisposable
         {
             await _mainWindow.AddTabAsync("https://www.youtube.com");
             _hud?.CompleteResponse("Открываю YouTube.");
-            SpeakText("Открываю YouTube.");
             _mainWindow.Activate();
             return true;
         }
@@ -352,7 +293,6 @@ public sealed class VoiceAssistantService : IDisposable
         {
             await _mainWindow.AddTabAsync("https://www.google.com");
             _hud?.CompleteResponse("Открываю Google.");
-            SpeakText("Открываю Google.");
             _mainWindow.Activate();
             return true;
         }
@@ -360,7 +300,6 @@ public sealed class VoiceAssistantService : IDisposable
         {
             await _mainWindow.AddTabAsync("https://ya.ru");
             _hud?.CompleteResponse("Открываю Яндекс.");
-            SpeakText("Открываю Яндекс.");
             _mainWindow.Activate();
             return true;
         }
@@ -368,7 +307,6 @@ public sealed class VoiceAssistantService : IDisposable
         {
             await _mainWindow.AddTabAsync("https://vk.com");
             _hud?.CompleteResponse("Открываю ВКонтакте.");
-            SpeakText("Открываю ВКонтакте.");
             _mainWindow.Activate();
             return true;
         }
@@ -376,7 +314,6 @@ public sealed class VoiceAssistantService : IDisposable
         {
             await _mainWindow.AddTabAsync("https://web.telegram.org");
             _hud?.CompleteResponse("Открываю Telegram.");
-            SpeakText("Открываю Telegram.");
             _mainWindow.Activate();
             return true;
         }
@@ -384,7 +321,6 @@ public sealed class VoiceAssistantService : IDisposable
         {
             await _mainWindow.AddTabAsync("https://www.kinopoisk.ru");
             _hud?.CompleteResponse("Открываю Кинопоиск.");
-            SpeakText("Открываю Кинопоиск.");
             _mainWindow.Activate();
             return true;
         }
@@ -392,7 +328,6 @@ public sealed class VoiceAssistantService : IDisposable
         {
             await _mainWindow.AddTabAsync("https://ru.wikipedia.org");
             _hud?.CompleteResponse("Открываю Википедию.");
-            SpeakText("Открываю Википедию.");
             _mainWindow.Activate();
             return true;
         }
@@ -402,7 +337,6 @@ public sealed class VoiceAssistantService : IDisposable
         {
             _mainWindow.OpenNewHomeTab();
             _hud?.CompleteResponse("Новая вкладка открыта.");
-            SpeakText("Новая вкладка открыта.");
             _mainWindow.Activate();
             return true;
         }
@@ -410,21 +344,18 @@ public sealed class VoiceAssistantService : IDisposable
         {
             if (_mainWindow.CurrentTab != null) _mainWindow.CloseTab(_mainWindow.CurrentTab);
             _hud?.CompleteResponse("Вкладка закрыта.");
-            SpeakText("Вкладка закрыта.");
             return true;
         }
         if (Regex.IsMatch(cmd, @"^(?:обнови страницу|обнови|перезагрузи|перезагрузи страницу)\b"))
         {
             _mainWindow.CurrentTab?.ActiveView?.Reload();
             _hud?.CompleteResponse("Страница обновлена.");
-            SpeakText("Страница обновлена.");
             return true;
         }
         if (Regex.IsMatch(cmd, @"^(?:история|открой историю|покажи историю)\b"))
         {
             _mainWindow.OpenHistory();
             _hud?.CompleteResponse("История открыта.");
-            SpeakText("История открыта.");
             _mainWindow.Activate();
             return true;
         }
@@ -432,7 +363,6 @@ public sealed class VoiceAssistantService : IDisposable
         {
             await _mainWindow.AddTabAsync("luma://settings");
             _hud?.CompleteResponse("Настройки открыты.");
-            SpeakText("Настройки открыты.");
             _mainWindow.Activate();
             return true;
         }
@@ -445,7 +375,6 @@ public sealed class VoiceAssistantService : IDisposable
         if (_hud == null || string.IsNullOrWhiteSpace(command)) return;
 
         // Capture user's screen at the exact moment of the question!
-        // Run immediately in background so it doesn't stutter the UI thread
         var screenTask = Task.Run(() => DesktopCapture.CaptureScreenBase64());
 
         _hud.ShowListening();
@@ -486,7 +415,6 @@ public sealed class VoiceAssistantService : IDisposable
                 {
                     _mainWindow.Activate();
                 });
-                SpeakText("Выполняю запрос в браузере Luma.");
                 return;
             }
 
@@ -503,9 +431,6 @@ public sealed class VoiceAssistantService : IDisposable
             {
                 _mainWindow.Activate();
             });
-
-            // Speak answer aloud with female voice in real-time
-            SpeakText(fullAnswer);
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
@@ -660,143 +585,6 @@ public sealed class VoiceAssistantService : IDisposable
     }
   }
 
-  // --- Voice TTS Speech Output Engine ---
-  let isMuted = false;
-  let currentAudio = null;
-  let audioQueue = [];
-
-  function stopSpeaking() {
-    audioQueue = [];
-    if (currentAudio) {
-      try {
-        currentAudio.pause();
-        currentAudio.currentTime = 0;
-      } catch (e) {}
-      currentAudio = null;
-    }
-    if (window.speechSynthesis) {
-      try { window.speechSynthesis.cancel(); } catch (e) {}
-    }
-    if (window.chrome && window.chrome.webview) {
-      window.chrome.webview.postMessage({ kind: 'speech-playback-ended' });
-    }
-  }
-
-  function setVoiceMuted(muted) {
-    isMuted = Boolean(muted);
-    if (isMuted) stopSpeaking();
-  }
-
-  function cleanTextForSpeech(text) {
-    if (!text) return '';
-    return text
-      .replace(/```[\s\S]*?```/g, '')
-      .replace(/`([^`]+)`/g, '$1')
-      .replace(/%%LUMA[\s\S]*?%%/g, '')
-      .replace(/%%CHOICES[\s\S]*?%%/g, '')
-      .replace(/https?:\/\/\S+/g, '')
-      .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
-      .replace(/[*#_~>•]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
-
-  function splitSentences(text, maxLen = 130) {
-    if (!text) return [];
-    const rawParts = text.match(/[^.!?\n]+[.!?\n]*/g) || [text];
-    const chunks = [];
-    for (let part of rawParts) {
-      part = part.trim();
-      if (!part) continue;
-      if (part.length <= maxLen) {
-        chunks.push(part);
-      } else {
-        const words = part.split(/([,;:—–\s]+)/);
-        let cur = '';
-        for (const piece of words) {
-          if ((cur + piece).length <= maxLen) {
-            cur += piece;
-          } else {
-            if (cur.trim()) chunks.push(cur.trim());
-            cur = piece;
-          }
-        }
-        if (cur.trim()) chunks.push(cur.trim());
-      }
-    }
-    return chunks;
-  }
-
-  function playNextChunk(lang) {
-    if (isMuted || audioQueue.length === 0) {
-      currentAudio = null;
-      if (window.chrome && window.chrome.webview) {
-        window.chrome.webview.postMessage({ kind: 'speech-playback-ended' });
-      }
-      return;
-    }
-
-    const chunk = audioQueue.shift();
-    if (!chunk) {
-      playNextChunk(lang);
-      return;
-    }
-
-    const tl = (lang && lang.toLowerCase().startsWith('uk')) ? 'uk' :
-               (lang && lang.toLowerCase().startsWith('en')) ? 'en' : 'ru';
-
-    const url = 'https://translate.google.com/translate_tts?ie=UTF-8&q=' + encodeURIComponent(chunk) + '&tl=' + tl + '&client=tw-ob';
-    const audio = new Audio(url);
-    currentAudio = audio;
-
-    audio.onended = () => {
-      playNextChunk(lang);
-    };
-
-    audio.onerror = () => {
-      if (window.speechSynthesis) {
-        const utter = new SpeechSynthesisUtterance(chunk);
-        utter.lang = lang;
-        utter.onend = () => playNextChunk(lang);
-        utter.onerror = () => playNextChunk(lang);
-        window.speechSynthesis.speak(utter);
-      } else {
-        playNextChunk(lang);
-      }
-    };
-
-    audio.play().catch(() => {
-      if (window.speechSynthesis) {
-        const utter = new SpeechSynthesisUtterance(chunk);
-        utter.lang = lang;
-        utter.onend = () => playNextChunk(lang);
-        utter.onerror = () => playNextChunk(lang);
-        window.speechSynthesis.speak(utter);
-      } else {
-        playNextChunk(lang);
-      }
-    });
-  }
-
-  function speakText(text, lang) {
-    if (isMuted || !text) return;
-    stopSpeaking();
-    const cleaned = cleanTextForSpeech(text);
-    if (!cleaned) return;
-
-    const chunks = splitSentences(cleaned, 130);
-    if (chunks.length === 0) return;
-
-    audioQueue = chunks;
-    if (window.chrome && window.chrome.webview) {
-      window.chrome.webview.postMessage({ kind: 'speech-playback-started' });
-    }
-    playNextChunk(lang || '{{lang}}');
-  }
-
-  window.__speakText = (text, lang) => speakText(text, lang);
-  window.__stopSpeaking = () => stopSpeaking();
-  window.__setVoiceMuted = (muted) => setVoiceMuted(muted);
   window.__startListening = () => { start(); };
 
   start();
@@ -814,7 +602,6 @@ public sealed class VoiceAssistantService : IDisposable
 
         try
         {
-            StopSpeaking();
             var handle = new WindowInteropHelper(_mainWindow).Handle;
             if (handle != IntPtr.Zero)
             {
