@@ -2938,13 +2938,29 @@ class MainActivity : AppCompatActivity() {
                         .post(body.toString().toRequestBody("application/json".toMediaType()))
                         .build()
                     val resp = OkHttpClient().newCall(req).execute()
+                    val respBody = resp.body?.string() ?: ""
                     withContext(Dispatchers.Main) {
                         btnRegister.isEnabled = true
                         btnRegister.text = "Регистрация"
                         if (resp.isSuccessful) {
-                            Toast.makeText(this@MainActivity, "Аккаунт создан! Проверьте почту или войдите", Toast.LENGTH_LONG).show()
+                            Toast.makeText(this@MainActivity, "Аккаунт создан! Теперь можете войти", Toast.LENGTH_LONG).show()
                         } else {
-                            authStatus.text = "Не удалось зарегистрировать: ошибка сервера"
+                            val errMsg = try {
+                                val errJson = JSONObject(respBody)
+                                val msg = errJson.optString("msg", errJson.optString("error_description", ""))
+                                val errCode = errJson.optString("error_code", "")
+                                when {
+                                    errCode == "user_already_exists" || msg.contains("already registered", true) ->
+                                        "Этот email уже зарегистрирован! Нажмите «Войти» выше."
+                                    errCode == "over_request_rate_limit" || msg.contains("60 seconds", true) ->
+                                        "Слишком много попыток. Подождите 60 секунд."
+                                    msg.isNotBlank() -> msg
+                                    else -> "Ошибка сервера (${resp.code})"
+                                }
+                            } catch (_: Exception) {
+                                "Ошибка сервера (${resp.code})"
+                            }
+                            authStatus.text = errMsg
                             authStatus.visibility = View.VISIBLE
                         }
                     }

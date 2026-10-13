@@ -265,6 +265,20 @@ public partial class MainWindow
                 });
                 return;
             }
+            if (kind == "luma-autourok-open-meet")
+            {
+                var meetUrl = root.TryGetProperty("url", out value) ? value.GetString() : null;
+                if (!string.IsNullOrWhiteSpace(meetUrl))
+                {
+                    Dispatcher.BeginInvoke(async () =>
+                    {
+                        var isClassroomActive = CurrentTab?.FullUrl?.Contains("classroom.google.com") == true;
+                        await AddTabAsync(meetUrl, activate: isClassroomActive);
+                        ShowToast("Автоурок", isClassroomActive ? "Урок открыт. Вход выполняется..." : "Урок открыт в фоне. Вход выполняется...");
+                    });
+                }
+                return;
+            }
             if (kind == "luma-autourok-ocr-schedule")
             {
                 var imageB64 = root.TryGetProperty("imageBase64", out value) ? value.GetString() : null;

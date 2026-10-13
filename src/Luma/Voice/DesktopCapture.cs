@@ -66,10 +66,14 @@ public static class DesktopCapture
     {
         try
         {
-            var fgHandle = GetForegroundWindow();
-            Screen targetScreen = fgHandle != IntPtr.Zero
-                ? Screen.FromHandle(fgHandle)
-                : Screen.PrimaryScreen ?? Screen.AllScreens[0];
+            // Pick the monitor where the user's cursor is actively located, with fallback to foreground window or primary screen
+            var cursorPos = Cursor.Position;
+            Screen targetScreen = Screen.FromPoint(cursorPos);
+            if (targetScreen == null || targetScreen.Bounds.Width <= 0)
+            {
+                var fgHandle = GetForegroundWindow();
+                targetScreen = fgHandle != IntPtr.Zero ? Screen.FromHandle(fgHandle) : (Screen.PrimaryScreen ?? Screen.AllScreens[0]);
+            }
 
             var bounds = targetScreen.Bounds;
             if (bounds.Width <= 0 || bounds.Height <= 0) return null;
@@ -81,15 +85,20 @@ public static class DesktopCapture
 
             BitBlt(hdcDest, 0, 0, bounds.Width, bounds.Height, hdcSrc, bounds.X, bounds.Y, SRCCOPY | CAPTUREBLT);
 
-            // Draw cursor on the captured screen if visible so Luma can see where user is pointing
+            int curX = -1;
+            int curY = -1;
+            bool hasCursor = false;
+
+            // Draw cursor on the captured screen if visible
             try
             {
                 var ci = new CURSORINFO { cbSize = Marshal.SizeOf<CURSORINFO>() };
                 if (GetCursorInfo(out ci) && ci.flags == CURSOR_SHOWING && ci.hCursor != IntPtr.Zero)
                 {
-                    int curX = ci.ptScreenPos.x - bounds.X;
-                    int curY = ci.ptScreenPos.y - bounds.Y;
+                    curX = ci.ptScreenPos.x - bounds.X;
+                    curY = ci.ptScreenPos.y - bounds.Y;
                     DrawIcon(hdcDest, curX, curY, ci.hCursor);
+                    hasCursor = true;
                 }
             }
             catch { }
@@ -120,13 +129,22 @@ public static class DesktopCapture
                 g.SmoothingMode = SmoothingMode.HighQuality;
                 g.PixelOffsetMode = PixelOffsetMode.HighQuality;
                 g.DrawImage(rawBmp, 0, 0, targetWidth, targetHeight);
+
+                // Draw a clear target indicator ring at cursor position so the AI vision model pinpoint accurately
+                if (hasCursor && curX >= 0 && curY >= 0)
+                {
+                    using var pen = new Pen(Color.FromArgb(235, 239, 68, 68), 2.5f);
+                    int scaledCurX = (int)(curX * ((double)targetWidth / bounds.Width));
+                    int scaledCurY = (int)(curY * ((double)targetHeight / bounds.Height));
+                    g.DrawEllipse(pen, scaledCurX - 10, scaledCurY - 10, 20, 20);
+                }
             }
 
-            // Encode to JPEG 82% quality
+            // Encode to JPEG 85% quality for crisp text clarity
             using var ms = new MemoryStream();
             var encoder = GetEncoder(ImageFormat.Jpeg);
             var encParams = new EncoderParameters(1);
-            encParams.Param[0] = new EncoderParameter(Encoder.Quality, 82L);
+            encParams.Param[0] = new EncoderParameter(Encoder.Quality, 85L);
 
             if (encoder != null)
                 scaledBmp.Save(ms, encoder, encParams);

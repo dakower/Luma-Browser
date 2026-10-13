@@ -36,6 +36,8 @@ public sealed class LumaState
     public string AssistantModel { get; set; } = "fast";
     public bool AssistantScreenshot { get; set; }
     public bool VoiceAssistantMuted { get; set; }
+    public string VoiceMicrophoneId { get; set; } = "";
+    public string VoiceMicrophoneName { get; set; } = "";
     public List<AssistantConversationState> AssistantConversations { get; set; } = [];
     public List<string> AssistantCustomCommands { get; set; } = [];
     public AssistantQuotaState AssistantQuota { get; set; } = new();
@@ -238,5 +240,8 @@ public sealed class AssistantQuotaState
     public int AgentLimit { get; set; } = 3;
     public int AgentUsed { get; set; }
     public string AgentQuotaDate { get; set; } = "";
+    public int ImageLimit { get; set; } = 2;
+    public int ImageUsed { get; set; }
+    public string ImageQuotaDate { get; set; } = "";
     public DateTime UpdatedAt { get; set; }
 }

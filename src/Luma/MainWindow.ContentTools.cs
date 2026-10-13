@@ -130,8 +130,9 @@ public partial class MainWindow
             tab.MediaVolume = volume;
         }
         RefreshNowPlaying();
-        RefreshFloatingMusic();
-        if (ReferenceEquals(tab, _floatingVideoTab)) _floatingVideo?.Update(tab);
+        if (_state.FloatingMusicEnabled) RefreshFloatingMusic();
+        else HideFloatingMusic();
+        if (_state.FloatingVideoEnabled && ReferenceEquals(tab, _floatingVideoTab)) _floatingVideo?.Update(tab);
     }
 
     /// <summary>Picks which tab's playback the compact titlebar widget follows. A tab that is
@@ -143,7 +144,13 @@ public partial class MainWindow
     {
         var playingNow = _spaces.SelectMany(s => s.Tabs).FirstOrDefault(t => t.MediaPlaying);
         if (playingNow is not null) _nowPlaying = playingNow;
-        if (_nowPlaying is null) { NowPlayingWidget.Visibility = Visibility.Collapsed; if (HomeMediaCard is not null) HomeMediaCard.Visibility = Visibility.Collapsed; SetNowPlayingTray(false, false); return; }
+        if (_nowPlaying is null || !_state.FloatingMusicEnabled)
+        {
+            NowPlayingWidget.Visibility = Visibility.Collapsed;
+            if (HomeMediaCard is not null) HomeMediaCard.Visibility = Visibility.Collapsed;
+            SetNowPlayingTray(false, false);
+            return;
+        }
         NowPlayingWidget.Visibility = Visibility.Visible;
         if (HomeMediaCard is not null) HomeMediaCard.Visibility = _state.HomeShowMedia ? Visibility.Visible : Visibility.Collapsed;
         SyncNowPlayingUi();
@@ -230,7 +237,8 @@ public partial class MainWindow
                 HomeMediaFallbackIcon.Visibility = Visibility.Visible;
             }
         }
-        _floatingMusic?.Update(tab);
+        if (_state.FloatingMusicEnabled) _floatingMusic?.Update(tab);
+        else HideFloatingMusic();
     }
 
     private bool _equalizerRunning;
@@ -512,7 +520,7 @@ public partial class MainWindow
         e.NewWindow = popup.View.CoreWebView2;
     }
 
-    private async Task ApplyPipAsync(WebView2 view) { var domain = BrowserTab.DomainOf(view.Source?.ToString() ?? ""); if (!_state.AutoPictureInPicture.TryGetValue(domain, out var on) || !on) return; await Script(view, "document.querySelectorAll('video').forEach(v=>v.addEventListener('play',()=>v.requestPictureInPicture?.().catch(()=>{}),{once:true}))"); }
+    private async Task ApplyPipAsync(WebView2 view) { if (!_state.FloatingVideoEnabled) return; var domain = BrowserTab.DomainOf(view.Source?.ToString() ?? ""); if (!_state.AutoPictureInPicture.TryGetValue(domain, out var on) || !on) return; await Script(view, "document.querySelectorAll('video').forEach(v=>v.addEventListener('play',()=>v.requestPictureInPicture?.().catch(()=>{}),{once:true}))"); }
     private async Task ApplyAmbientLightAsync(WebView2 view, bool? forceState = null)
     {
         var domain = BrowserTab.DomainOf(view.Source?.ToString() ?? "");

@@ -137,7 +137,7 @@ public partial class MainWindow
         var app = (App)Application.Current;
         var options = new CoreWebView2EnvironmentOptions
         {
-            AdditionalBrowserArguments = "--disable-features=CalculateNativeWinOcclusion --enable-smooth-scrolling --autoplay-policy=no-user-gesture-required --enable-usermedia-screen-capturing --disk-cache-size=104857600",
+            AdditionalBrowserArguments = "--disable-features=CalculateNativeWinOcclusion --enable-smooth-scrolling --autoplay-policy=no-user-gesture-required --enable-usermedia-screen-capturing --disk-cache-size=104857600 --disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows",
             Language = ResolveBrowserLanguage(),
             AreBrowserExtensionsEnabled = true,
         };
@@ -358,6 +358,17 @@ public partial class MainWindow
         return false;
     }
 
+    /// <summary>Sites that must never be suspended, throttled or put to sleep in the background.</summary>
+    internal static bool IsNeverSleepUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return false;
+        var lower = url.ToLowerInvariant();
+        return lower.Contains("classroom.google.com") ||
+               lower.Contains("meet.google.com") ||
+               lower.Contains("sferum.ru") ||
+               lower.Contains("vk.com/call");
+    }
+
     private static bool IsCompatibilitySensitiveHost(string host)
     {
         host = (host ?? "").Trim('.').ToLowerInvariant();
@@ -448,7 +459,7 @@ public partial class MainWindow
             web.WebMessageReceived += (_, e) => ReceiveWebMessage(tab, view, e.WebMessageAsJson);
             web.IsDocumentPlayingAudioChanged += async (_, _) => await SyncDocumentAudioStateAsync(tab, view);
             web.ProcessFailed += (_, e) => HandleProcessFailed(tab, view, e);
-            if (tab != CurrentTab) web.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Low;
+            if (tab != CurrentTab && !IsNeverSleepUrl(url)) web.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Low;
             web.NavigationStarting += (_, args) => Dispatcher.Invoke(() =>
             {
                 tab.IsNavigating = true;

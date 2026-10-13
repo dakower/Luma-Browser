@@ -1288,26 +1288,257 @@
     window.__lumaScanPageCourses = scanPageCourses;
     window.__lumaTriggerJoinLesson = triggerJoinLesson;
 
-    function extractMeetFromCurrentPage() {
-      // Look for Google Meet links in the course stream header or banners
-      const meetLinks = Array.from(document.querySelectorAll('a[href*="meet.google.com"], [data-meet-url]'));
-      for (const a of meetLinks) {
-        const u = a.href || a.getAttribute('data-meet-url');
-        if (u && u.includes('meet.google.com/')) return u;
+    const PENDING_JOIN_KEY = 'luma_autourok_pending_meet';
+    const KNOWN_COURSES_KEY = 'luma_autourok_known_courses';
+
+    function setPendingJoin(pending) {
+      try {
+        const str = JSON.stringify(pending);
+        sessionStorage.setItem(PENDING_JOIN_KEY, str);
+        localStorage.setItem(PENDING_JOIN_KEY, str);
+      } catch (_) {}
+    }
+
+    function getPendingJoin() {
+      try {
+        const raw = sessionStorage.getItem(PENDING_JOIN_KEY) || localStorage.getItem(PENDING_JOIN_KEY);
+        if (!raw) return null;
+        const p = JSON.parse(raw);
+        if (p && p.timestamp && (Date.now() - p.timestamp < 90000)) {
+          return p;
+        }
+      } catch (_) {}
+      return null;
+    }
+
+    function clearPendingJoin() {
+      try {
+        sessionStorage.removeItem(PENDING_JOIN_KEY);
+        localStorage.removeItem(PENDING_JOIN_KEY);
+      } catch (_) {}
+    }
+
+    function getKnownCourses() {
+      try {
+        const raw = localStorage.getItem(KNOWN_COURSES_KEY);
+        if (raw) return JSON.parse(raw);
+      } catch (_) {}
+      return [];
+    }
+
+    function saveKnownCourses(courses) {
+      if (!courses || courses.length === 0) return;
+      try {
+        const existing = getKnownCourses();
+        const map = new Map();
+        existing.forEach(c => { if (c && c.url) map.set(c.url, c); });
+        courses.forEach(c => {
+          if (c && c.url) {
+            const prev = map.get(c.url) || {};
+            map.set(c.url, {
+              url: c.url,
+              title: c.title || prev.title || '',
+              subtitle: c.subtitle || prev.subtitle || '',
+              allText: c.allText || prev.allText || '',
+              directMeet: c.directMeet || prev.directMeet || ''
+            });
+          }
+        });
+        localStorage.setItem(KNOWN_COURSES_KEY, JSON.stringify(Array.from(map.values())));
+      } catch (_) {}
+    }
+
+    function recordCurrentPageCourse() {
+      if (!isClassroom || !(location.pathname || '').includes('/c/')) return;
+      try {
+        const url = location.origin + location.pathname;
+        let title = '';
+        let subtitle = '';
+        const headings = document.querySelectorAll('h1, [role="heading"], .YVvGBb, .asO5Hb');
+        if (headings.length > 0) title = (headings[0].innerText || '').trim();
+        if (headings.length > 1) subtitle = (headings[1].innerText || '').trim();
+        if (!title && document.title) title = document.title.replace(/- Google.*$/i, '').trim();
+        const meet = extractMeetFromCurrentPage();
+        const directMeet = (meet && meet !== 'CLICKED') ? meet : '';
+        if (title || subtitle) {
+          saveKnownCourses([{
+            url: url,
+            title: title,
+            subtitle: subtitle,
+            allText: `${title} ${subtitle}`,
+            directMeet: directMeet
+          }]);
+        }
+      } catch (_) {}
+    }
+
+    function isCurrentPageMatchingSubject(subjectName) {
+      if (!isClassroom || !subjectName) return false;
+      const curPath = location.pathname || '';
+      if (!curPath.includes('/c/')) return false;
+
+      const titles = [];
+      if (document.title) {
+        const dt = document.title.replace(/- Google.*$/i, '').trim();
+        if (dt) titles.push(dt);
       }
 
-      // Look for buttons that trigger Meet
-      const buttons = Array.from(document.querySelectorAll('button, [role="button"]'));
-      for (const b of buttons) {
-        const txt = (b.innerText || b.getAttribute('aria-label') || '').toLowerCase();
-        if (txt.includes('присоединиться') || txt.includes('приєднатися') || txt.includes('join now') || txt.includes('відеозустріч') || txt.includes('видеовстреча')) {
-          const parentA = b.closest('a[href*="meet.google.com"]');
-          if (parentA) return parentA.href;
-          b.click();
+      const headings = Array.from(document.querySelectorAll('h1, h2, [role="heading"], .YVvGBb, .asO5Hb, [data-stream-title]'));
+      headings.forEach(h => {
+        const t = (h.innerText || '').trim();
+        if (t && t.length >= 2 && !titles.includes(t)) titles.push(t);
+      });
+
+      const bodyText = (document.body ? document.body.innerText : '').slice(0, 2000);
+
+      const candidate = {
+        title: titles[0] || '',
+        subtitle: titles[1] || titles[0] || '',
+        allText: titles.join(' ') + ' ' + bodyText,
+        url: location.href
+      };
+
+      const match = matchCourse(subjectName, [candidate]);
+      return !!(match.best && match.highestScore >= 60);
+    }
+
+    function extractMeetFromCurrentPage() {
+      // 1. Direct Meet links in the DOM (banner, stream announcements, sidebar, cards)
+      const meetAnchors = Array.from(document.querySelectorAll('a[href*="meet.google.com"], [data-meet-url], a[href*="/lookup/"], [data-call-url]'));
+      for (const a of meetAnchors) {
+        let u = a.href || a.getAttribute('data-meet-url') || a.getAttribute('data-call-url') || '';
+        if (u) {
+          if (u.startsWith('/lookup/')) u = 'https://meet.google.com' + u;
+          if (u.includes('meet.google.com/')) return u;
+        }
+      }
+
+      // 2. Buttons or clickable elements dedicated to Meet
+      const candidates = Array.from(document.querySelectorAll('a, button, [role="button"], div[data-url]'));
+      for (const el of candidates) {
+        const dataUrl = el.getAttribute('data-url') || '';
+        if (dataUrl && dataUrl.includes('meet.google.com')) return dataUrl;
+
+        const txt = (el.innerText || '').toLowerCase();
+        const aria = (el.getAttribute('aria-label') || '').toLowerCase();
+        const title = (el.getAttribute('title') || '').toLowerCase();
+        const combined = `${txt} ${aria} ${title}`;
+
+        const isMeetKeyword =
+          combined.includes('присоединиться') ||
+          combined.includes('приєднатися') ||
+          combined.includes('join now') ||
+          combined.includes('відеозустріч') ||
+          combined.includes('видеовстреча') ||
+          (combined.includes('meet') && (combined.includes('join') || combined.includes('вход') || combined.includes('відео') || combined.includes('видео')));
+
+        if (isMeetKeyword) {
+          const parentA = el.closest('a[href*="meet.google.com"], a[href*="/lookup/"]') ||
+                          el.querySelector('a[href*="meet.google.com"], a[href*="/lookup/"]');
+          if (parentA) {
+            let u = parentA.href || '';
+            if (u.startsWith('/lookup/')) u = 'https://meet.google.com' + u;
+            if (u.includes('meet.google.com/')) return u;
+          }
+
+          if (el.tagName === 'A' && el.href) {
+            let u = el.href;
+            if (u.startsWith('/lookup/')) u = 'https://meet.google.com' + u;
+            if (u.includes('meet.google.com/')) return u;
+          }
+
+          try { el.click(); } catch (_) {}
           return 'CLICKED';
         }
       }
+
       return null;
+    }
+
+    function openMeetMeeting(url) {
+      if (!url) return;
+      console.log('[Luma AutoLesson] Открытие Google Meet:', url);
+      if (window.chrome && window.chrome.webview) {
+        window.chrome.webview.postMessage({
+          kind: 'luma-autourok-open-meet',
+          url: url
+        });
+      } else {
+        window.open(url, '_blank');
+      }
+    }
+
+    function checkPendingMeetJoin() {
+      if (!isClassroom) return;
+      recordCurrentPageCourse();
+      saveKnownCourses(scanPageCourses());
+
+      const pending = getPendingJoin();
+      if (!pending) return;
+
+      console.log(`[Luma AutoLesson] Обнаружен активный запрос авто-входа для урока: «${pending.subject}»`);
+
+      // 1. If pending action was to find the course on Classroom Home
+      if (pending.action === 'find_on_home') {
+        const courses = scanPageCourses();
+        if (courses.length > 0) {
+          saveKnownCourses(courses);
+          const match = matchCourse(pending.subject, courses);
+          if (match.best && match.best.url) {
+            console.log(`[Luma AutoLesson] Найдена карточка на главной странице: «${match.best.title}» -> ${match.best.url}`);
+            setPendingJoin({
+              subject: pending.subject,
+              courseTitle: match.best.subtitle || match.best.title,
+              courseUrl: match.best.url,
+              timestamp: Date.now()
+            });
+            if (match.best.element && typeof match.best.element.click === 'function') {
+              match.best.element.click();
+            } else {
+              location.href = match.best.url;
+            }
+            return;
+          }
+        }
+      }
+
+      // 2. Poll for Meet link if on course page
+      if (window.__lumaPendingPollTimer) return;
+
+      let polls = 0;
+      window.__lumaPendingPollTimer = setInterval(() => {
+        polls++;
+        recordCurrentPageCourse();
+
+        const isMatch = isCurrentPageMatchingSubject(pending.subject) ||
+                        (pending.courseUrl && location.href.includes(pending.courseUrl));
+
+        if (isMatch) {
+          const found = extractMeetFromCurrentPage();
+          if (found) {
+            clearInterval(window.__lumaPendingPollTimer);
+            window.__lumaPendingPollTimer = null;
+            clearPendingJoin();
+
+            if (found !== 'CLICKED') {
+              console.log(`[Luma AutoLesson] Google Meet ссылка найдена: ${found}`);
+              showToast(`Урок «${pending.subject}»: Google Meet найден! Открываю...`);
+              openMeetMeeting(found);
+            } else {
+              console.log(`[Luma AutoLesson] Кнопка Google Meet нажата!`);
+              showToast(`Урок «${pending.subject}»: Вход в Google Meet выполняется...`);
+            }
+          } else if (polls >= 50) {
+            clearInterval(window.__lumaPendingPollTimer);
+            window.__lumaPendingPollTimer = null;
+            clearPendingJoin();
+            console.log(`[Luma AutoLesson] Ссылка Google Meet не обнаружена в шапке курса за 20с.`);
+          }
+        } else if (polls >= 40) {
+          clearInterval(window.__lumaPendingPollTimer);
+          window.__lumaPendingPollTimer = null;
+        }
+      }, 400);
     }
 
     function triggerJoinLesson(subjectName, logFn = null) {
@@ -1318,66 +1549,88 @@
 
       if (!subjectName) return;
       log(`Запуск поиска урока: «${subjectName}»...`);
-      showToast(`Ищу курс «${subjectName}»...`);
 
-      const courses = scanPageCourses();
-      log(`Найдено активных курсов на странице: ${courses.length}`);
-
-      if (courses.length === 0) {
-        log('Курсы в DOM не найдены. Возможно, страница ещё загружается.');
-        // If already inside course, check for Meet link
+      // 1. Check if current page is ALREADY the correct course for subjectName!
+      const isAlreadyOnTarget = isCurrentPageMatchingSubject(subjectName);
+      if (isAlreadyOnTarget) {
+        log(`Текущая вкладка уже открыта на курсе «${subjectName}»! Ищем ссылку Meet...`);
         const direct = extractMeetFromCurrentPage();
         if (direct && direct !== 'CLICKED') {
-          log(`Найдена прямая ссылка Meet на текущей странице: ${direct}`);
-          location.href = direct;
+          log(`Найдена прямая ссылка Meet на странице урока: ${direct}`);
+          clearPendingJoin();
+          openMeetMeeting(direct);
+          return;
+        } else if (direct === 'CLICKED') {
+          log(`Кнопка Meet нажата на странице урока.`);
+          clearPendingJoin();
+          return;
         }
+        setPendingJoin({
+          subject: subjectName,
+          courseUrl: location.href,
+          timestamp: Date.now()
+        });
+        checkPendingMeetJoin();
         return;
       }
 
-      const match = matchCourse(subjectName, courses);
-      if (!match.best) {
-        log(`Не удалось с уверенностью сопоставить «${subjectName}». Лучший балл: ${match.highestScore}%`);
-        return;
-      }
+      // 2. We are NOT on the target course page (e.g. user is on Mathematics while lesson is Physics)
+      log(`Текущая вкладка НЕ соответствует уроку «${subjectName}». Ищем нужный курс...`);
 
-      const best = match.best;
-      log(`Точное совпадение (${best.score}%): «${best.title}» | «${best.subtitle}»`);
-
-      if (best.directMeet) {
-        log(`Переход по прямой ссылке Meet карточки: ${best.directMeet}`);
-        location.href = best.directMeet;
-        return;
-      }
-
-      // Navigate to course
-      log(`Переход на страницу курса: ${best.url}`);
-      showToast(`Курс найден: ${best.subtitle || best.title}. Вхожу в Google Meet...`);
-
-      if (best.element && typeof best.element.click === 'function') {
-        best.element.click();
-      } else {
-        location.href = best.url;
-      }
-
-      // Poll for Meet link after course page opens
-      let polls = 0;
-      const t = setInterval(() => {
-        polls++;
-        log(`Ожидание ссылки Google Meet в шапке курса (попытка ${polls}/15)...`);
-        const found = extractMeetFromCurrentPage();
-        if (found) {
-          clearInterval(t);
-          if (found !== 'CLICKED') {
-            log(`Google Meet найден: ${found}. Перехожу!`);
-            location.href = found;
-          } else {
-            log(`Кнопка Google Meet успешно нажата!`);
-          }
-        } else if (polls >= 15) {
-          clearInterval(t);
-          log('Ссылка на Google Meet не обнаружена в шапке курса.');
+      const domCourses = scanPageCourses();
+      saveKnownCourses(domCourses);
+      const allKnown = getKnownCourses();
+      const combined = [...domCourses];
+      const seenUrls = new Set(domCourses.map(c => c.url));
+      for (const k of allKnown) {
+        if (!seenUrls.has(k.url)) {
+          combined.push(k);
+          seenUrls.add(k.url);
         }
-      }, 400);
+      }
+
+      log(`Доступно для сопоставления курсов: ${combined.length}`);
+      const match = matchCourse(subjectName, combined);
+
+      if (match.best && match.best.url) {
+        const best = match.best;
+        log(`Курс найден (${match.highestScore}%): «${best.title}» | «${best.subtitle}» -> ${best.url}`);
+        showToast(`Переходим в Google Класс «${best.subtitle || best.title}»...`);
+
+        if (best.directMeet) {
+          log(`Открытие прямой ссылки Meet карточки: ${best.directMeet}`);
+          clearPendingJoin();
+          openMeetMeeting(best.directMeet);
+          return;
+        }
+
+        setPendingJoin({
+          subject: subjectName,
+          courseTitle: best.subtitle || best.title,
+          courseUrl: best.url,
+          timestamp: Date.now()
+        });
+
+        const matchingDom = domCourses.find(c => c.url === best.url);
+        if (matchingDom && matchingDom.element && typeof matchingDom.element.click === 'function') {
+          matchingDom.element.click();
+        } else {
+          location.href = best.url;
+        }
+
+        setTimeout(checkPendingMeetJoin, 400);
+        return;
+      }
+
+      // 3. Not found in current DOM or cache -> Go to Classroom Home to find it
+      log(`Курс «${subjectName}» пока не известен. Переход на главную Google Класс для поиска...`);
+      showToast(`Открываем Google Класс для поиска «${subjectName}»...`);
+      setPendingJoin({
+        subject: subjectName,
+        action: 'find_on_home',
+        timestamp: Date.now()
+      });
+      location.href = 'https://classroom.google.com/u/0/h';
     }
 
     // ────────────────────── BACKGROUND MONITORING ──────────────────────
@@ -1405,135 +1658,39 @@
     }
 
     // ────────────────────── GOOGLE MEET AUTO-MUTE & JOIN ──────────────────────
+    let meetTimer = null;
+    let meetObserver = null;
+
     function handleGoogleMeet() {
       if (!isMeet) return;
       if (!config.enabled) return;
       if (!config.autoJoin && !config.muteMicAndCam) return;
 
-      console.log('[Luma AutoLesson] Google Meet: Запуск контроля микрофона и камеры (цель: ОБА КРАСНЫЕ)...');
+      // Unique key for the current lesson/meeting (by path, e.g. /abc-defg-hij)
+      const meetKey = (location.pathname || '').replace(/\/+$/, '') || 'meet-call';
+      window.__lumaMeetSessions = window.__lumaMeetSessions || {};
 
-      function isElementRed(el) {
-        if (!el) return false;
-
-        // 1. Check data-is-muted attribute on element, ancestors, or descendants
-        const mutedEl = (el.getAttribute && el.hasAttribute('data-is-muted')) ? el :
-          (el.closest && el.closest('[data-is-muted]')) ||
-          (el.querySelector && el.querySelector('[data-is-muted]'));
-        if (mutedEl) {
-          const mVal = mutedEl.getAttribute('data-is-muted');
-          if (mVal === 'true') return true;
-          if (mVal === 'false') return false;
-        }
-
-        // 2. Check aria-label / title / tooltip text
-        const label = (
-          el.getAttribute('aria-label') ||
-          el.getAttribute('title') ||
-          el.getAttribute('data-tooltip') ||
-          el.innerText ||
-          (el.querySelector && el.querySelector('[aria-label]') ? el.querySelector('[aria-label]').getAttribute('aria-label') : '') ||
-          (el.closest && el.closest('[aria-label]') ? el.closest('[aria-label]').getAttribute('aria-label') : '') ||
-          ''
-        ).toLowerCase();
-
-        // If label contains turn-on verbs -> ALREADY OFF (RED)
-        if (
-          label.includes('turn on') ||
-          label.includes('включить') ||
-          label.includes('включи') ||
-          label.includes('увімкнути') ||
-          label.includes('увімк') ||
-          label.includes('ввімкнути') ||
-          label.includes('ввімк')
-        ) {
-          return true;
-        }
-
-        // If label contains turn-off verbs -> ACTIVE (WHITE), NEEDS TO BE CLICKED
-        if (
-          label.includes('turn off') ||
-          label.includes('выключить') ||
-          label.includes('отключить') ||
-          label.includes('вимкнути') ||
-          label.includes('вимк')
-        ) {
-          return false;
-        }
-
-        // 3. Visual computed style check (Red vs White/Transparent)
-        const nodes = [el, el.firstElementChild, el.parentElement, el.querySelector ? el.querySelector('div, span, button') : null].filter(Boolean);
-        for (const n of nodes) {
-          try {
-            const bg = window.getComputedStyle(n).backgroundColor || '';
-            const m = bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-            if (m) {
-              const r = parseInt(m[1], 10);
-              const g = parseInt(m[2], 10);
-              const b = parseInt(m[3], 10);
-              // Red: r > 160, g < 110, b < 110
-              if (r > 160 && g < 110 && b < 110) return true;
-              // White / Light: r > 180, g > 180, b > 180
-              if (r > 180 && g > 180 && b > 180) return false;
-            }
-          } catch (_) {}
-        }
-
-        // 4. Check for icon names indicating OFF state (Material Symbols: mic_off, videocam_off)
-        const inner = (el.innerHTML || '').toLowerCase();
-        if (inner.includes('mic_off') || inner.includes('videocam_off')) {
-          return true;
-        }
-
-        return false;
+      if (!window.__lumaMeetSessions[meetKey]) {
+        window.__lumaMeetSessions[meetKey] = {
+          micMutedOnce: false,
+          camMutedOnce: false,
+          joinedDone: false,
+          startTime: Date.now()
+        };
       }
 
-      function getMeetButtons() {
-        let mic = null;
-        let cam = null;
+      const session = window.__lumaMeetSessions[meetKey];
+      if (session.joinedDone) return;
 
-        // Method 1: By Ctrl + D / Ctrl + E and language keywords in aria-label, title, or tooltip
-        const candidates = Array.from(document.querySelectorAll('button, div[role="button"], span[role="button"], [data-is-muted]'));
-        for (const el of candidates) {
-          const txt = (
-            el.getAttribute('aria-label') ||
-            el.getAttribute('data-tooltip') ||
-            el.getAttribute('title') ||
-            el.innerText ||
-            el.innerHTML ||
-            ''
-          ).toLowerCase();
+      // Clear any prior active watchers
+      if (meetTimer) { clearInterval(meetTimer); meetTimer = null; }
+      if (meetObserver) { try { meetObserver.disconnect(); } catch (_) {} meetObserver = null; }
 
-          const isMicCandidate = txt.includes('ctrl + d') || txt.includes('ctrl+d') || txt.includes('мікрофон') || txt.includes('микрофон') || txt.includes('microphone') || txt.includes('mic_off') || (txt.includes('mic') && !txt.includes('cam'));
-          const isCamCandidate = txt.includes('ctrl + e') || txt.includes('ctrl+e') || txt.includes('камер') || txt.includes('camera') || txt.includes('videocam') || txt.includes('videocam_off');
+      console.log(`[Luma AutoLesson] Google Meet: Запуск контроля микрофона и камеры для урока [${meetKey}]...`);
 
-          if (!mic && isMicCandidate && !isCamCandidate) {
-            mic = el.closest('button, [role="button"]') || el;
-          }
-          if (!cam && isCamCandidate && !isMicCandidate) {
-            cam = el.closest('button, [role="button"]') || el;
-          }
-        }
-
-        // Method 2: By data-is-muted if not yet assigned
-        if (!mic || !cam) {
-          const mutedElements = Array.from(document.querySelectorAll('[data-is-muted]'));
-          if (!mic && mutedElements[0]) mic = mutedElements[0].closest('button, [role="button"]') || mutedElements[0];
-          if (!cam && mutedElements[1]) cam = mutedElements[1].closest('button, [role="button"]') || mutedElements[1];
-        }
-
-        // Method 3: By circular buttons in preview area
-        if (!mic || !cam) {
-          const previewButtons = Array.from(document.querySelectorAll('button, div[role="button"]')).filter(b => {
-            const rect = b.getBoundingClientRect();
-            return rect.width >= 36 && rect.width <= 76 && Math.abs(rect.width - rect.height) <= 12;
-          });
-          if (previewButtons.length >= 2) {
-            if (!mic) mic = previewButtons[0];
-            if (!cam) cam = previewButtons[1];
-          }
-        }
-
-        return { mic, cam };
+      function cleanup() {
+        if (meetTimer) { clearInterval(meetTimer); meetTimer = null; }
+        if (meetObserver) { try { meetObserver.disconnect(); } catch (_) {} meetObserver = null; }
       }
 
       function safeClick(el) {
@@ -1574,83 +1731,204 @@
         } catch (_) {}
       }
 
-      function makeItRed(btn, hotkeyLetter, hotkeyCode) {
-        if (btn) {
-          safeClick(btn);
-          const children = btn.querySelectorAll('svg, span, i, div');
-          for (const ch of children) {
-            try {
-              ch.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
-            } catch (_) {}
+      function isDeviceMuted(el, type) {
+        if (!el) return false;
+
+        // 1. Check data-is-muted attribute
+        const mutedEl = el.hasAttribute?.('data-is-muted') ? el :
+          (el.closest?.('[data-is-muted]') || el.querySelector?.('[data-is-muted]'));
+        if (mutedEl) {
+          const mVal = mutedEl.getAttribute('data-is-muted');
+          if (mVal === 'true') return true;
+          if (mVal === 'false') return false;
+        }
+
+        // 2. Check aria-label / title / tooltip text
+        const label = (
+          el.getAttribute('aria-label') ||
+          el.getAttribute('title') ||
+          el.getAttribute('data-tooltip') ||
+          el.querySelector?.('[aria-label]')?.getAttribute('aria-label') ||
+          el.innerText ||
+          ''
+        ).toLowerCase();
+
+        // If label contains turn-on verbs -> ALREADY OFF/MUTED
+        if (
+          label.includes('turn on') ||
+          label.includes('включить') ||
+          label.includes('включи') ||
+          label.includes('увімкнути') ||
+          label.includes('увімк') ||
+          label.includes('ввімкнути') ||
+          label.includes('ввімк')
+        ) {
+          return true;
+        }
+
+        // If label contains turn-off verbs -> ACTIVE (UNMUTED), NEEDS TO BE CLICKED
+        if (
+          label.includes('turn off') ||
+          label.includes('выключить') ||
+          label.includes('отключить') ||
+          label.includes('вимкнути') ||
+          label.includes('вимк')
+        ) {
+          return false;
+        }
+
+        // 3. Icon / innerHTML check
+        const inner = (el.innerHTML || '').toLowerCase();
+        if (type === 'mic' && (inner.includes('mic_off') || inner.includes('micoff'))) return true;
+        if (type === 'cam' && (inner.includes('videocam_off') || inner.includes('videocamoff') || inner.includes('camera_off'))) return true;
+
+        // 4. Red background color
+        const nodes = [el, el.firstElementChild, el.parentElement, el.querySelector ? el.querySelector('div, span, button, svg') : null].filter(Boolean);
+        for (const n of nodes) {
+          try {
+            const bg = window.getComputedStyle(n).backgroundColor || '';
+            const m = bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+            if (m) {
+              const r = parseInt(m[1], 10);
+              const g = parseInt(m[2], 10);
+              const b = parseInt(m[3], 10);
+              if (r > 160 && g < 110 && b < 110) return true;
+            }
+          } catch (_) {}
+        }
+
+        return false;
+      }
+
+      function getMeetButtons() {
+        let mic = null;
+        let cam = null;
+
+        const allButtons = Array.from(document.querySelectorAll('button, div[role="button"], span[role="button"], [data-is-muted]'));
+        for (const el of allButtons) {
+          const txt = (
+            el.getAttribute('aria-label') ||
+            el.getAttribute('data-tooltip') ||
+            el.getAttribute('title') ||
+            el.innerText ||
+            el.innerHTML ||
+            ''
+          ).toLowerCase();
+
+          const isMic = txt.includes('ctrl + d') || txt.includes('ctrl+d') || txt.includes('мікрофон') || txt.includes('микрофон') || txt.includes('microphone') || txt.includes('mic_off') || (txt.includes('mic') && !txt.includes('cam'));
+          const isCam = txt.includes('ctrl + e') || txt.includes('ctrl+e') || txt.includes('камер') || txt.includes('camera') || txt.includes('videocam') || txt.includes('videocam_off');
+
+          if (!mic && isMic && !isCam) mic = el.closest('button, [role="button"]') || el;
+          if (!cam && isCam && !isMic) cam = el.closest('button, [role="button"]') || el;
+        }
+
+        if (!mic || !cam) {
+          const mutedElements = Array.from(document.querySelectorAll('[data-is-muted]'));
+          if (!mic && mutedElements[0]) mic = mutedElements[0].closest('button, [role="button"]') || mutedElements[0];
+          if (!cam && mutedElements[1]) cam = mutedElements[1].closest('button, [role="button"]') || mutedElements[1];
+        }
+
+        if (!mic || !cam) {
+          const previewButtons = Array.from(document.querySelectorAll('button, div[role="button"]')).filter(b => {
+            const rect = b.getBoundingClientRect();
+            return rect.width >= 36 && rect.width <= 76 && Math.abs(rect.width - rect.height) <= 12;
+          });
+          if (previewButtons.length >= 2) {
+            if (!mic) mic = previewButtons[0];
+            if (!cam) cam = previewButtons[1];
           }
         }
-        sendMeetHotkey(hotkeyLetter, hotkeyCode);
+
+        return { mic, cam };
       }
 
       function findMeetJoinButton() {
-        const allBtns = Array.from(document.querySelectorAll('button, div[role="button"], span[role="button"]'));
+        const allBtns = Array.from(document.querySelectorAll('button, div[role="button"], span[role="button"], a[role="button"]'));
         for (const b of allBtns) {
-          const txt = (b.innerText || b.getAttribute('aria-label') || '').toLowerCase().trim();
-          if (
-            txt.includes('приєднатися') ||
-            txt.includes('присоединиться') ||
-            txt.includes('join now') ||
-            txt.includes('ask to join') ||
-            txt === 'войти' ||
-            txt === 'увійти' ||
-            txt === 'join' ||
-            txt.includes('перейти')
-          ) {
-            const aria = (b.getAttribute('aria-label') || '').toLowerCase();
-            if (!aria.includes('мікрофон') && !aria.includes('микрофон') && !aria.includes('камер') && !aria.includes('microphone')) {
-              return b.closest('button, [role="button"]') || b;
-            }
+          const txt = (b.innerText || '').toLowerCase().trim();
+          const aria = (b.getAttribute('aria-label') || '').toLowerCase().trim();
+          const combined = `${txt} ${aria}`;
+
+          if (combined.includes('мікрофон') || combined.includes('микрофон') || combined.includes('камер') || combined.includes('microphone') || combined.includes('ctrl + d') || combined.includes('ctrl + e')) {
+            continue;
+          }
+
+          const isJoin =
+            combined.includes('приєднатися') ||
+            combined.includes('присоединиться') ||
+            combined.includes('подключиться') ||
+            combined.includes('підключитися') ||
+            combined.includes('join now') ||
+            combined.includes('ask to join') ||
+            combined.includes('войти') ||
+            combined.includes('увійти') ||
+            combined === 'join' ||
+            combined.includes('перейти');
+
+          if (isJoin) {
+            const candidate = b.closest('button, [role="button"]') || b;
+            const isDisabled = candidate.hasAttribute('disabled') ||
+                               candidate.getAttribute('aria-disabled') === 'true' ||
+                               candidate.classList.contains('VfPpkd-LgbsSe-OWXEXe-OWJJAb') ||
+                               candidate.classList.contains('disabled');
+            return { element: candidate, isEnabled: !isDisabled };
           }
         }
         return null;
       }
 
-      let attempts = 0;
-      let joinedDone = false;
       let lastMicAction = 0;
       let lastCamAction = 0;
+      let lastJoinAction = 0;
 
       function tick() {
-        attempts++;
         const now = Date.now();
+        const elapsed = now - session.startTime;
+
+        if (session.joinedDone) {
+          cleanup();
+          return;
+        }
+
+        const inCallBtn = document.querySelector('button[aria-label*="дзвінок" i], button[aria-label*="звонок" i], button[aria-label*="call" i], [data-call-ended], button[aria-label*="leave" i]');
+        if (inCallBtn) {
+          console.log('[Luma AutoLesson] Уже внутри звонка Google Meet. Контроль входа завершён.');
+          session.joinedDone = true;
+          cleanup();
+          return;
+        }
+
         const { mic, cam } = getMeetButtons();
 
-        // 1. Microphone: Check if RED. If NOT red, click it!
-        let micIsRed = false;
+        // 1. Microphone: отключить РОВНО 1 РАЗ при входе!
         if (mic) {
-          micIsRed = isElementRed(mic);
-          if (!micIsRed && (now - lastMicAction > 400)) {
-            console.log('[Luma AutoLesson] Микрофон БЕЛЫЙ -> нажимаем, чтобы стал КРАСНЫМ!');
-            makeItRed(mic, 'd', 'KeyD');
+          const isMuted = isDeviceMuted(mic, 'mic');
+          if (isMuted) {
+            session.micMutedOnce = true;
+          } else if (!session.micMutedOnce && (now - lastMicAction > 600)) {
+            console.log('[Luma AutoLesson] Выключаем микрофон при входе в урок...');
+            safeClick(mic);
             lastMicAction = now;
-          }
-        } else {
-          if (attempts > 30) {
-            micIsRed = true; // Fallback if no microphone device
-          } else if (attempts <= 20 && attempts % 3 === 0) {
-            sendMeetHotkey('d', 'KeyD');
+            setTimeout(() => {
+              if (!isDeviceMuted(mic, 'mic')) sendMeetHotkey('d', 'KeyD');
+              if (isDeviceMuted(mic, 'mic')) session.micMutedOnce = true;
+            }, 350);
           }
         }
 
-        // 2. Camera: Check if RED. If NOT red, click it!
-        let camIsRed = false;
+        // 2. Camera: отключить РОВНО 1 РАЗ при входе!
         if (cam) {
-          camIsRed = isElementRed(cam);
-          if (!camIsRed && (now - lastCamAction > 400)) {
-            console.log('[Luma AutoLesson] Камера БЕЛАЯ -> нажимаем, чтобы стала КРАСНОЙ!');
-            makeItRed(cam, 'e', 'KeyE');
+          const isMuted = isDeviceMuted(cam, 'cam');
+          if (isMuted) {
+            session.camMutedOnce = true;
+          } else if (!session.camMutedOnce && (now - lastCamAction > 600)) {
+            console.log('[Luma AutoLesson] Выключаем камеру при входе в урок...');
+            safeClick(cam);
             lastCamAction = now;
-          }
-        } else {
-          if (attempts > 30) {
-            camIsRed = true; // Fallback if no camera device
-          } else if (attempts <= 20 && attempts % 3 === 0) {
-            sendMeetHotkey('e', 'KeyE');
+            setTimeout(() => {
+              if (!isDeviceMuted(cam, 'cam')) sendMeetHotkey('e', 'KeyE');
+              if (isDeviceMuted(cam, 'cam')) session.camMutedOnce = true;
+            }, 350);
           }
         }
 
@@ -1663,36 +1941,61 @@
           }
         }
 
-        // 4. Auto-Join: ONLY when BOTH are verified RED!
-        if (config.autoJoin) {
-          const readyToJoin = config.muteMicAndCam ? (micIsRed && camIsRed) : true;
-          if (readyToJoin && !joinedDone) {
-            const joinBtn = findMeetJoinButton();
-            if (joinBtn) {
-              console.log('[Luma AutoLesson] Обе кнопки КРАСНЫЕ! Нажимаем Вход...');
-              showToast('Автоурок: Микрофон и камера выключены (красные). Входим в урок!');
-              safeClick(joinBtn);
-              joinedDone = true;
+        // 4. Hook manual join click
+        const joinInfo = findMeetJoinButton();
+        if (joinInfo && joinInfo.element && !joinInfo.element.__lumaJoinHooked) {
+          joinInfo.element.__lumaJoinHooked = true;
+          joinInfo.element.addEventListener('click', () => {
+            console.log('[Luma AutoLesson] Пользователь нажал Вход вручную. Останавливаем контроль.');
+            session.joinedDone = true;
+            setTimeout(cleanup, 2000);
+          }, { once: true });
+        }
+
+        // 5. Auto-Join: ONLY when devices are confirmed MUTED!
+        if (config.autoJoin && joinInfo && joinInfo.isEnabled) {
+          const micReady = !config.muteMicAndCam || session.micMutedOnce || (elapsed > 7000);
+          const camReady = !config.muteMicAndCam || session.camMutedOnce || (elapsed > 7000);
+
+          if (micReady && camReady) {
+            if (now - lastJoinAction > 1500) {
+              console.log('[Luma AutoLesson] Микрофон и камера отключены (или готовы). Нажимаем Вход в урок Google Meet...');
+              showToast('Автоурок: Входим в урок Google Meet!');
+              safeClick(joinInfo.element);
+              lastJoinAction = now;
+
+              setTimeout(() => {
+                const postDialogs = Array.from(document.querySelectorAll('[role="dialog"] button, .mGcWTe button, [data-mdc-dialog-action]'));
+                for (const db of postDialogs) {
+                  const dtxt = (db.innerText || db.getAttribute('aria-label') || '').toLowerCase();
+                  if (dtxt.includes('без микрофон') || dtxt.includes('без мікрофон') || dtxt.includes('продолжить') || dtxt.includes('продовжити') || dtxt.includes('присоединиться') || dtxt.includes('приєднатися')) {
+                    safeClick(db);
+                  }
+                }
+                const afterJoin = findMeetJoinButton();
+                if (!afterJoin || !afterJoin.isEnabled) {
+                  session.joinedDone = true;
+                  cleanup();
+                }
+              }, 1500);
             }
+            return;
           }
         }
 
-        // Stop polling after 120 attempts (30s) or 50 attempts after join
-        if (attempts >= 120 || (joinedDone && attempts >= 60)) {
-          clearInterval(timer);
-          try { obs.disconnect(); } catch (_) {}
+        if (elapsed > 45000) {
+          cleanup();
         }
       }
 
-      const timer = setInterval(tick, 250);
+      meetTimer = setInterval(tick, 300);
       tick();
 
-      let obs = null;
       try {
-        obs = new MutationObserver(() => tick());
+        meetObserver = new MutationObserver(() => tick());
         const root = document.documentElement || document.body;
         if (root) {
-          obs.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-label', 'data-is-muted', 'style', 'class'] });
+          meetObserver.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-label', 'data-is-muted', 'style', 'class'] });
         }
       } catch (_) {}
     }
@@ -2502,13 +2805,32 @@
     });
 
     // ────────────────────── INITIALIZATION ──────────────────────
-    setInterval(runBackgroundCheck, 12000);
+    if (isClassroom) {
+      checkPendingMeetJoin();
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', checkPendingMeetJoin);
+      }
+      window.addEventListener('load', checkPendingMeetJoin);
+      setInterval(runBackgroundCheck, 12000);
+      setInterval(checkPendingMeetJoin, 2000);
+    }
     if (isMeet) {
       handleGoogleMeet();
       if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', handleGoogleMeet);
       }
       window.addEventListener('load', handleGoogleMeet);
+
+      // Watch for URL changes (e.g. user leaves current call and opens a new lesson/meeting)
+      let lastMeetPath = (location.pathname || '').replace(/\/+$/, '');
+      setInterval(() => {
+        const curPath = (location.pathname || '').replace(/\/+$/, '');
+        if (curPath && curPath !== lastMeetPath) {
+          lastMeetPath = curPath;
+          console.log(`[Luma AutoLesson] Обнаружен переход на новый урок [${curPath}]. Выключаем микрофон и камеру для нового урока...`);
+          handleGoogleMeet();
+        }
+      }, 1000);
     }
   } catch (err) {
     console.error('Luma AutoLesson error:', err);

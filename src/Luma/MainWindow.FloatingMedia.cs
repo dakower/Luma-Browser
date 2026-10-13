@@ -46,7 +46,15 @@ public partial class MainWindow
             }
             return;
         }
-        RefreshFloatingMusic();
+        else if (!_state.FloatingVideoEnabled)
+        {
+            _ = StopFloatingVideoAsync(true);
+        }
+
+        if (_state.FloatingMusicEnabled)
+            RefreshFloatingMusic();
+        else
+            HideFloatingMusic();
     }
 
     /// <summary>
@@ -58,6 +66,7 @@ public partial class MainWindow
     /// </summary>
     private async Task OpenFloatingVideoAsync(BrowserTab tab)
     {
+        if (!_state.FloatingVideoEnabled) { _floatingVideoRequested = false; return; }
         CoreWebView2? core = null;
         try { core = tab.ActiveView?.CoreWebView2; } catch { }
         if (core is null) { _floatingVideoRequested = false; return; }
@@ -204,8 +213,13 @@ public partial class MainWindow
 
     private void RefreshFloatingMusic()
     {
+        if (!_state.FloatingMusicEnabled)
+        {
+            HideFloatingMusic();
+            return;
+        }
         var backgrounded = WindowState == WindowState.Minimized || !IsActive;
-        if (_floatingMusicDismissed || !_state.FloatingMusicEnabled || !backgrounded || _fullscreen || !IsSupportedMusicService(_nowPlaying))
+        if (_floatingMusicDismissed || !backgrounded || _fullscreen || !IsSupportedMusicService(_nowPlaying))
         {
             HideFloatingMusic();
             return;

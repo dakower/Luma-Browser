@@ -72,6 +72,28 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private readonly LumaState _state;
     internal LumaState State => _state;
     internal void SaveState() => _stateStore.Save();
+
+    internal void BringToFrontAndActivate()
+    {
+        Dispatcher.Invoke(() =>
+        {
+            if (WindowState == WindowState.Minimized)
+            {
+                WindowState = WindowState.Normal;
+            }
+            Show();
+            Activate();
+            var handle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+            if (handle != IntPtr.Zero)
+            {
+                SetForegroundWindow(handle);
+                SetFocus(handle);
+            }
+            Topmost = true;
+            Topmost = false;
+            Focus();
+        });
+    }
     private readonly List<RuntimeSpace> _spaces = new();
     private readonly ObservableCollection<SearchSuggestion> _searchResults = new();
     private readonly Dictionary<string, FolderVisual> _folderVisuals = new();
@@ -128,6 +150,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _floatingMusicDismissed;
     private bool _floatingVideoRequested;
     private Voice.VoiceAssistantService? _voiceService;
+    internal Voice.VoiceAssistantService? VoiceService => _voiceService;
     private string _loadedArtworkSource = "";
     private bool _fullscreen, _fsSidebarWasVisible = true, _fsWasMaximized;
     private FolderState? _folderBeingNamed;
@@ -248,11 +271,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 if (ReferenceEquals(previous, _previewThemeTab)) CancelThemePreview();
                 try
                 {
-                    if (previous.View?.CoreWebView2 is { } prevCore && !prevCore.IsDocumentPlayingAudio)
+                    if (previous.View?.CoreWebView2 is { } prevCore && !prevCore.IsDocumentPlayingAudio && !IsNeverSleepUrl(previous.FullUrl))
                     {
                         prevCore.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Low;
                     }
-                    if (previous.SecondaryView?.CoreWebView2 is { } prevSec && !prevSec.IsDocumentPlayingAudio)
+                    if (previous.SecondaryView?.CoreWebView2 is { } prevSec && !prevSec.IsDocumentPlayingAudio && !IsNeverSleepUrl(previous.SecondaryUrl))
                     {
                         prevSec.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Low;
                     }

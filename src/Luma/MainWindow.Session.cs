@@ -75,7 +75,7 @@ public partial class MainWindow
         foreach (var space in _spaces)
             foreach (var tab in space.Tabs.ToList())
             {
-                if (tab == CurrentTab || tab.IsAsleep || tab.IsInternal || tab.IsSplit || tab.IsNavigating) continue;
+                if (tab == CurrentTab || tab.IsAsleep || tab.IsInternal || tab.IsSplit || tab.IsNavigating || IsNeverSleepUrl(tab.FullUrl) || IsNeverSleepUrl(tab.SecondaryUrl)) continue;
                 if (_clock.UtcNow - tab.LastActiveAt < limit) continue;
                 var core = tab.View.CoreWebView2;
                 if (core is null) continue;

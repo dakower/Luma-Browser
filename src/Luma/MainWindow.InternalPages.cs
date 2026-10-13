@@ -947,6 +947,51 @@ public partial class MainWindow
             else if (_state.PerformanceProfile == "speed") _state.SleepAfterMinutes = 0;
             else _state.SleepAfterMinutes = 5;
         }
+        if (root.TryGetProperty("voiceMicrophoneId", out var vmid)) _state.VoiceMicrophoneId = vmid.GetString() ?? "";
+        if (root.TryGetProperty("voiceMicrophoneName", out var vmnm)) _state.VoiceMicrophoneName = vmnm.GetString() ?? "";
+        if (root.TryGetProperty("voiceAssistantMuted", out var vam) && vam.ValueKind is JsonValueKind.True or JsonValueKind.False) _state.VoiceAssistantMuted = vam.GetBoolean();
+        _voiceService?.SwitchMicrophone(_state.VoiceMicrophoneId, _state.VoiceMicrophoneName);
+
+        // Enforce music widget state immediately
+        if (!_state.FloatingMusicEnabled)
+        {
+            HideFloatingMusic();
+            try { _floatingMusic?.Close(); } catch { }
+            _floatingMusic = null;
+            if (NowPlayingWidget is not null) NowPlayingWidget.Visibility = Visibility.Collapsed;
+            if (HomeMediaCard is not null) HomeMediaCard.Visibility = Visibility.Collapsed;
+            SetNowPlayingTray(false, false);
+        }
+        else
+        {
+            if (_floatingMusic is not null) _floatingMusic.Topmost = _state.FloatingMediaAlwaysOnTop;
+            RefreshNowPlaying();
+            RefreshFloatingMusic();
+        }
+
+        // Enforce floating video state immediately
+        if (!_state.FloatingVideoEnabled)
+        {
+            _ = StopFloatingVideoAsync(true);
+            try { _floatingVideo?.Close(); } catch { }
+            _floatingVideo = null;
+            _floatingVideoRequested = false;
+            foreach (var s in _spaces)
+            {
+                foreach (var t in s.Tabs)
+                {
+                    if (t.ActiveView?.CoreWebView2 is { } c)
+                    {
+                        _ = c.ExecuteScriptAsync("if(document.pictureInPictureElement) document.exitPictureInPicture().catch(()=>{});");
+                    }
+                }
+            }
+        }
+        else
+        {
+            if (_floatingVideo is not null) _floatingVideo.Topmost = _state.FloatingMediaAlwaysOnTop;
+        }
+
         using (var key = Registry.CurrentUser.CreateSubKey(@"Software\Luma")) key.SetValue("Theme", S("theme", "dark")); CommitThemePreview(); Save(); ApplyTheme(); ApplyInterfaceLanguage(); ApplyPageScaleToOpenTabs(); ApplyPrivacySettings(); SetSidebar(_state.SidebarVisible, true); TrimProcessMemory(); ShowToast(L("Настройки сохранены", "Settings saved", "Налаштування збережено"));
     }
 

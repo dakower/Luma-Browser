@@ -8,6 +8,14 @@ using System.Text.RegularExpressions;
 
 namespace Luma;
 
+public sealed class AssistantAttachment
+{
+    public string Base64 { get; set; } = "";
+    public string Mime { get; set; } = "image/jpeg";
+    public string Name { get; set; } = "image";
+    public bool IsVideo { get; set; }
+}
+
 public sealed class AssistantImage
 {
     public string Base64 { get; set; } = "";

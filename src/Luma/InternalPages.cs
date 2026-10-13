@@ -111,6 +111,9 @@ public static class InternalPages
                 state.PerformanceProfile,
                 state.PageScale,
                 state.DownloadPath,
+                state.VoiceMicrophoneId,
+                state.VoiceMicrophoneName,
+                state.VoiceAssistantMuted,
                 theme,
                 Extensions = ExtensionManager.Extensions,
                 History = state.History

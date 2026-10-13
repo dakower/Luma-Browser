@@ -11,7 +11,10 @@ namespace Luma.Voice;
 public partial class VoiceHudWindow : Window
 {
     private readonly DispatcherTimer _autoCloseTimer = new();
+    private Storyboard? _entranceAnimation;
     private Storyboard? _pulseAnimation;
+    private Storyboard? _thinkingAnimation;
+    private Storyboard? _queryEnterAnimation;
     private Action? _onOpenBrowser;
 
     public VoiceHudWindow()
@@ -26,7 +29,10 @@ public partial class VoiceHudWindow : Window
     private void VoiceHudWindow_Loaded(object sender, RoutedEventArgs e)
     {
         PositionWindow();
+        _entranceAnimation = (Storyboard)Resources["EntranceAnimation"];
         _pulseAnimation = (Storyboard)Resources["PulseOrb"];
+        _thinkingAnimation = (Storyboard)Resources["ThinkingPulse"];
+        _queryEnterAnimation = (Storyboard)Resources["QueryEnterAnimation"];
         _pulseAnimation?.Begin();
     }
 
@@ -38,6 +44,8 @@ public partial class VoiceHudWindow : Window
             e.Handled = true;
         }
     }
+
+    public bool IsAwaitingQuery { get; private set; }
 
     public void PositionWindow()
     {
@@ -51,12 +59,14 @@ public partial class VoiceHudWindow : Window
     {
         Dispatcher.Invoke(() =>
         {
+            IsAwaitingQuery = true;
             _autoCloseTimer.Stop();
             _autoCloseTimer.Interval = TimeSpan.FromSeconds(15);
             _autoCloseTimer.Start();
 
             PositionWindow();
             StatusDot.Fill = new SolidColorBrush(MediaColor.FromRgb(116, 104, 199)); // #7468C7
+            StatusDot.Opacity = 1.0;
             StatusBadge.Text = statusText;
             StatusBadge.Foreground = new SolidColorBrush(MediaColor.FromRgb(209, 210, 214)); // #D1D2D6
 
@@ -64,9 +74,14 @@ public partial class VoiceHudWindow : Window
             ResponseText.Text = "";
             ActionBar.Visibility = Visibility.Collapsed;
 
+            _thinkingAnimation?.Stop();
             _pulseAnimation?.Begin();
 
-            if (!IsVisible) Show();
+            if (!IsVisible)
+            {
+                Show();
+                _entranceAnimation?.Begin();
+            }
             Activate();
         });
     }
@@ -82,19 +97,57 @@ public partial class VoiceHudWindow : Window
         });
     }
 
-    public void SetQuery(string query)
+    public event Action? OnDismissed;
+
+    public void SetInterimQuery(string query)
     {
         Dispatcher.Invoke(() =>
         {
+            IsAwaitingQuery = true;
             _autoCloseTimer.Stop();
             _autoCloseTimer.Interval = TimeSpan.FromSeconds(15);
             _autoCloseTimer.Start();
 
             QueryText.Text = query;
-            QueryBorder.Visibility = Visibility.Visible;
+            if (QueryBorder.Visibility != Visibility.Visible)
+            {
+                QueryBorder.Visibility = Visibility.Visible;
+                _queryEnterAnimation?.Begin();
+            }
+
+            StatusDot.Fill = new SolidColorBrush(MediaColor.FromRgb(116, 104, 199)); // #7468C7
+            StatusBadge.Text = "Слушаю вас...";
+            StatusBadge.Foreground = new SolidColorBrush(MediaColor.FromRgb(209, 210, 214));
+
+            _thinkingAnimation?.Stop();
+            _pulseAnimation?.Begin();
+        });
+    }
+
+    public void SetQuery(string query) => SetFinalQueryAndThinking(query);
+
+    public void SetFinalQueryAndThinking(string query)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            IsAwaitingQuery = false;
+            _autoCloseTimer.Stop();
+            _autoCloseTimer.Interval = TimeSpan.FromSeconds(15);
+            _autoCloseTimer.Start();
+
+            QueryText.Text = query;
+            if (QueryBorder.Visibility != Visibility.Visible)
+            {
+                QueryBorder.Visibility = Visibility.Visible;
+                _queryEnterAnimation?.Begin();
+            }
+
             StatusDot.Fill = new SolidColorBrush(MediaColor.FromRgb(169, 162, 216)); // #A9A2D8
             StatusBadge.Text = "Думаю...";
             StatusBadge.Foreground = new SolidColorBrush(MediaColor.FromRgb(209, 210, 214));
+
+            _pulseAnimation?.Stop();
+            _thinkingAnimation?.Begin();
         });
     }
 
@@ -115,8 +168,11 @@ public partial class VoiceHudWindow : Window
     {
         Dispatcher.Invoke(() =>
         {
+            IsAwaitingQuery = false;
+            _thinkingAnimation?.Stop();
             _pulseAnimation?.Stop();
             StatusDot.Fill = new SolidColorBrush(MediaColor.FromRgb(121, 224, 165)); // #79E0A5 (Soft emerald)
+            StatusDot.Opacity = 1.0;
             StatusBadge.Text = "Готово";
             StatusBadge.Foreground = new SolidColorBrush(MediaColor.FromRgb(188, 233, 205));
 
@@ -136,8 +192,11 @@ public partial class VoiceHudWindow : Window
     {
         Dispatcher.Invoke(() =>
         {
+            IsAwaitingQuery = false;
+            _thinkingAnimation?.Stop();
             _pulseAnimation?.Stop();
             StatusDot.Fill = new SolidColorBrush(MediaColor.FromRgb(239, 68, 68)); // #EF4444
+            StatusDot.Opacity = 1.0;
             StatusBadge.Text = "Ошибка";
             StatusBadge.Foreground = new SolidColorBrush(MediaColor.FromRgb(252, 165, 165));
             ResponseText.Text = error;
@@ -152,9 +211,13 @@ public partial class VoiceHudWindow : Window
     {
         Dispatcher.Invoke(() =>
         {
+            IsAwaitingQuery = false;
             _autoCloseTimer.Stop();
+            _thinkingAnimation?.Stop();
             _pulseAnimation?.Stop();
+            _entranceAnimation?.Stop();
             Hide();
+            OnDismissed?.Invoke();
         });
     }
 
