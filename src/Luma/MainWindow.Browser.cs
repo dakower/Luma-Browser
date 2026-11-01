@@ -1,4 +1,4 @@
-using Luma.Core;
+﻿using Luma.Core;
 using Luma.Services;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
@@ -86,12 +86,29 @@ public partial class MainWindow
         catch { return false; }
     }
 
-    internal async Task<BrowserTab> AddTabAsync(string input, bool activate = true, string? folderId = null, bool pinned = false)
+    internal async Task<BrowserTab> AddTabAsync(string input, bool activate = true, string? folderId = null, bool pinned = false, string? containerId = null, bool essential = false)
     {
         var url = Normalize(input);
+        if (url.Equals("luma://whiteboard", StringComparison.OrdinalIgnoreCase) ||
+            url.Contains("whiteboard.vseosvita.ua", StringComparison.OrdinalIgnoreCase))
+        {
+            OpenWhiteboardTab(activate);
+            return _spaces[_activeSpace].Tabs.FirstOrDefault(t => t.IsInternal && t.InternalPageKind == "luma://whiteboard")!;
+        }
         if (TryParseLumaSearchUrl(url, out var searchQuery, out var searchMode))
             return await OpenLumaSearchTabAsync(searchQuery, searchMode, activate);
-        var tab = new BrowserTab { FullUrl = url, Title = Domain(url), FolderId = folderId, IsPinned = pinned };
+        var effectiveContainer = string.IsNullOrWhiteSpace(containerId)
+            ? (_spaces.Count > _activeSpace ? _spaces[_activeSpace].State.ContainerId : "default")
+            : containerId;
+        var tab = new BrowserTab
+        {
+            FullUrl = url,
+            Title = Domain(url),
+            FolderId = folderId,
+            IsPinned = pinned,
+            IsEssential = essential,
+            ContainerId = effectiveContainer
+        };
         _spaces[_activeSpace].Tabs.Add(tab);
         RecordTesterAction("Открыта новая вкладка");
         if (activate) CurrentTab = tab;
@@ -137,7 +154,7 @@ public partial class MainWindow
         var app = (App)Application.Current;
         var options = new CoreWebView2EnvironmentOptions
         {
-            AdditionalBrowserArguments = "--disable-features=CalculateNativeWinOcclusion --enable-smooth-scrolling --autoplay-policy=no-user-gesture-required --enable-usermedia-screen-capturing --disk-cache-size=104857600 --disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows",
+            AdditionalBrowserArguments = "--remote-debugging-port=9222 --enable-smooth-scrolling --autoplay-policy=no-user-gesture-required --enable-usermedia-screen-capturing --disk-cache-size=104857600 --renderer-process-limit=4 --enable-features=TurnOffStreamingMediaCachingOnBattery,ResourceScheduler,ProcessPriorityPolicy,IntensiveWakeUpThrottling,SubframeShutdown,LowPriorityScriptLoading --js-flags=\"--max-old-space-size=256 --optimize-for-size\" --disable-speech-api --disable-sync --disable-breakpad --disable-component-update --disable-domain-reliability",
             Language = ResolveBrowserLanguage(),
             AreBrowserExtensionsEnabled = true,
         };
@@ -173,10 +190,12 @@ public partial class MainWindow
     private BrowserTab AddTabShellToSpace(RuntimeSpace space, TabSessionState saved)
     {
         var id = string.IsNullOrWhiteSpace(saved.Id) ? Guid.NewGuid().ToString("N") : saved.Id;
+        var container = string.IsNullOrWhiteSpace(saved.ContainerId) ? space.State.ContainerId : saved.ContainerId;
         var tab = new BrowserTab
         {
             Id = id, FullUrl = saved.Url, Title = string.IsNullOrWhiteSpace(saved.Title) ? Domain(saved.Url) : saved.Title,
-            FolderId = saved.FolderId, IsPinned = saved.IsPinned, IsInternal = saved.IsInternal,
+            FolderId = saved.FolderId, IsPinned = saved.IsPinned, IsEssential = saved.IsEssential,
+            ContainerId = container, IsInternal = saved.IsInternal,
             InternalPageKind = saved.InternalPageKind, SplitRatio = saved.SplitRatio
         };
         space.Tabs.Add(tab);
@@ -244,10 +263,12 @@ public partial class MainWindow
         HomeSurfaceContent.Visibility = account ? Visibility.Collapsed : Visibility.Visible;
         AccountSurfaceScroll.Visibility = account ? Visibility.Visible : Visibility.Collapsed;
         AccountSurfaceCloseButton.Visibility = account ? Visibility.Visible : Visibility.Collapsed;
+        UpdateHomeDockVisibility();
         if (account) RefreshAccountSurface();
         else
         {
             UpdateHomeRecentSites();
+            RefreshHomeDynamicWidgets();
             Dispatcher.BeginInvoke(() => HomeSearchBox.Focus());
         }
     }
@@ -324,6 +345,7 @@ public partial class MainWindow
             catch { icons[i].Source = null; icons[i].Visibility = Visibility.Collapsed; }
         }
         HomeRecentSitesGrid.Visibility = (_state.HomeShowRecent && recent.Count > 0) ? Visibility.Visible : Visibility.Collapsed;
+        RefreshHomeDynamicWidgets();
     }
 
     private async void HomeRecentSite_Click(object sender, RoutedEventArgs e)
@@ -389,8 +411,44 @@ public partial class MainWindow
         view.DefaultBackgroundColor = System.Drawing.Color.FromArgb(255, 16, 16, 21);
         try
         {
-            await view.EnsureCoreWebView2Async(await BrowserEnvironmentAsync());
+            var env = await BrowserEnvironmentAsync();
+            var profileName = ZenContainers.NormalizeProfileName(tab.ContainerId);
+            if (!string.IsNullOrEmpty(profileName) && env is not null && !((App)Application.Current).IsPrivateSession)
+            {
+                var controllerOptions = env.CreateCoreWebView2ControllerOptions();
+                controllerOptions.ProfileName = profileName;
+                await view.EnsureCoreWebView2Async(env, controllerOptions);
+            }
+            else
+            {
+                await view.EnsureCoreWebView2Async(env);
+            }
             var web = view.CoreWebView2;
+            if (tab.IsMuted)
+            {
+                try { web.IsMuted = true; } catch { }
+            }
+            web.IsMutedChanged += (_, _) => Dispatcher.Invoke(() =>
+            {
+                try { tab.IsMuted = web.IsMuted; } catch { }
+            });
+            view.PreviewKeyDown += (_, e) =>
+            {
+                var ctrl = (Keyboard.Modifiers & ModifierKeys.Control) != 0;
+                var shift = (Keyboard.Modifiers & ModifierKeys.Shift) != 0;
+                var alt = (Keyboard.Modifiers & ModifierKeys.Alt) != 0;
+                if (ctrl && (e.Key == Key.J || (shift && e.Key == Key.A) || (alt && e.Key == Key.A)))
+                {
+                    Dispatcher.BeginInvoke(async () => await ToggleAssistantAsync());
+                    e.Handled = true;
+                }
+                else if (e.Key == Key.Escape && (_homeStudioOpen || HomeCustomizeDrawerOverlay?.Visibility == Visibility.Visible))
+                {
+                    Dispatcher.BeginInvoke(CloseHomeStudio);
+                    e.Handled = true;
+                }
+            };
+            await web.AddScriptToExecuteOnDocumentCreatedAsync(@"window.addEventListener('keydown',function(e){if((e.ctrlKey&&(e.key==='j'||e.key==='J'))||(e.ctrlKey&&e.shiftKey&&(e.key==='A'||e.key==='a'))){window.chrome&&window.chrome.webview&&window.chrome.webview.postMessage({kind:'toggle-assistant'});}else if(e.key==='Escape'){window.chrome&&window.chrome.webview&&window.chrome.webview.postMessage({kind:'escape-pressed'});}},true);");
             web.Settings.IsStatusBarEnabled = false; web.Settings.AreDefaultContextMenusEnabled = false;
             web.Settings.IsBuiltInErrorPageEnabled = false;
             web.Settings.UserAgent = ChromeUserAgent;
@@ -399,6 +457,18 @@ public partial class MainWindow
             {
                 try
                 {
+                    var reqUri = requestArgs.Request.Uri;
+                    if (!string.IsNullOrEmpty(reqUri))
+                    {
+                        var pageUrl = tab.ActiveUrl ?? web.Source ?? "";
+                        if (LumaShield.ShouldBlock(reqUri, pageUrl))
+                        {
+                            tab.ShieldBlockedCount++;
+                            Dispatcher.BeginInvoke(() => UpdateShieldState(tab));
+                            requestArgs.Response = web.Environment.CreateWebResourceResponse(new MemoryStream(), 403, "Blocked", "");
+                            return;
+                        }
+                    }
                     if (_state.DoNotTrack) requestArgs.Request.Headers.SetHeader("DNT", "1"); else requestArgs.Request.Headers.SetHeader("DNT", "0");
                     var major = ChromiumVersion.Split('.')[0];
                     requestArgs.Request.Headers.SetHeader("sec-ch-ua", $"\"Not?A_Brand\";v=\"8\", \"Chromium\";v=\"{major}\", \"Google Chrome\";v=\"{major}\"");
@@ -455,6 +525,11 @@ public partial class MainWindow
             await web.AddScriptToExecuteOnDocumentCreatedAsync(BrowserScripts.DarkAuto(_state.ForceDarkDomains));
             await web.AddScriptToExecuteOnDocumentCreatedAsync(BrowserScripts.ChromeWebStoreScript);
             await web.AddScriptToExecuteOnDocumentCreatedAsync(BrowserScripts.AutourokScript);
+            await web.AddScriptToExecuteOnDocumentCreatedAsync(BrowserScripts.LumaSkipScript);
+            await web.AddScriptToExecuteOnDocumentCreatedAsync(BrowserScripts.LumaShieldScript);
+            await web.AddScriptToExecuteOnDocumentCreatedAsync(BrowserScripts.MediaSnifferScript);
+            await web.AddScriptToExecuteOnDocumentCreatedAsync(BrowserScripts.FormRecoveryScript);
+            // Inline translate script disabled per user preference
             await ExtensionManager.InitializeExtensionsAsync(web.Profile);
             web.WebMessageReceived += (_, e) => ReceiveWebMessage(tab, view, e.WebMessageAsJson);
             web.IsDocumentPlayingAudioChanged += async (_, _) => await SyncDocumentAudioStateAsync(tab, view);
@@ -462,7 +537,7 @@ public partial class MainWindow
             if (tab != CurrentTab && !IsNeverSleepUrl(url)) web.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Low;
             web.NavigationStarting += (_, args) => Dispatcher.Invoke(() =>
             {
-                tab.IsNavigating = true;
+                tab.IsNavigating = true; tab.ShieldBlockedCount = 0; Dispatcher.BeginInvoke(() => UpdateShieldState(tab));
                 _latestNavigationIds[view] = args.NavigationId;
                 ResetPageTranslation(view);
                 try
@@ -497,6 +572,7 @@ public partial class MainWindow
                 if (ReferenceEquals(tab.SecondaryView, view)) tab.SecondaryUrl = current; else { tab.FullUrl = current; SyncPinnedSite(tab); }
                 if (tab == CurrentTab && ReferenceEquals(tab.ActiveView, view)) UpdateChrome();
                 _ = TryInjectAutourokAsync(web, tab);
+                _ = TryInjectLumaSkipAsync(web, tab);
             });
             // CanGoBack/CanGoForward are finalized by Chromium after SourceChanged. Previously
             // the chrome was refreshed too early, so the arrows stayed stale until switching
@@ -506,6 +582,7 @@ public partial class MainWindow
             {
                 if (ReferenceEquals(CurrentTab, tab) && ReferenceEquals(tab.ActiveView, view)) UpdateChrome();
                 _ = TryInjectAutourokAsync(web, tab);
+                _ = TryInjectLumaSkipAsync(web, tab);
             });
             web.DocumentTitleChanged += (_, _) => Dispatcher.Invoke(() =>
             {
@@ -549,6 +626,7 @@ public partial class MainWindow
                 await ApplyTranslationAsync(view, false);
                 try { await web.ExecuteScriptAsync(BrowserScripts.ChromeWebStoreScript); } catch { }
                 await TryInjectAutourokAsync(web, tab);
+                await TryInjectLumaSkipAsync(web, tab);
             };
             web.NavigationCompleted += async (_, args) =>
             {
@@ -600,6 +678,7 @@ public partial class MainWindow
                 if (args.IsSuccess) _transientRetries.Remove(view);
                 await ApplyPipAsync(view); await ApplyAmbientLightAsync(view); await ApplyTranslationAsync(view, false); await ApplyDomainPrefsAsync(view);
                 await TryInjectAutourokAsync(web, tab);
+                await TryInjectLumaSkipAsync(web, tab);
                 if (!args.IsSuccess || tab.IsInternal) return;
                 await Dispatcher.InvokeAsync(() =>
                 {
@@ -627,6 +706,22 @@ public partial class MainWindow
                 u2.Contains("meet.google.com", StringComparison.OrdinalIgnoreCase))
             {
                 await web.ExecuteScriptAsync(BrowserScripts.AutourokScript);
+            }
+        }
+        catch { }
+    }
+
+    internal static async Task TryInjectLumaSkipAsync(CoreWebView2 web, BrowserTab tab)
+    {
+        try
+        {
+            var u1 = web.Source ?? "";
+            var u2 = tab.ActiveUrl ?? tab.FullUrl ?? "";
+            if (u1.Contains("youtube.com", StringComparison.OrdinalIgnoreCase) ||
+                u2.Contains("youtube.com", StringComparison.OrdinalIgnoreCase))
+            {
+                await web.ExecuteScriptAsync(BrowserScripts.LumaSkipScript);
+                await web.ExecuteScriptAsync("window.__lumaCheckState && window.__lumaCheckState();");
             }
         }
         catch { }

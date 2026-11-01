@@ -78,6 +78,12 @@ public partial class MainWindow
     {
         var host = new Grid { ClipToBounds = true, Visibility = Visibility.Collapsed };
         host.SetResourceReference(Panel.BackgroundProperty, "SurfaceInsetBrush");
+        if (tab.IsInternal && tab.InternalPageKind == "luma://whiteboard")
+        {
+            var wb = new WhiteboardControl();
+            host.Children.Add(wb);
+            return host;
+        }
         if (!split || tab.SecondaryView is null) { Detach(tab.View); Stretch(tab.View); host.Children.Add(tab.View); return host; }
         var grid = new Grid { ClipToBounds = true };
         grid.SetResourceReference(Panel.BackgroundProperty, "SurfaceInsetBrush");
@@ -102,7 +108,11 @@ public partial class MainWindow
         var domain = new TextBlock { Text = BrowserTab.DomainOf(side == "secondary" ? tab.SecondaryUrl : tab.FullUrl), FontSize = 10, Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = WpfVerticalAlignment.Center };
         domain.SetResourceReference(TextBlock.ForegroundProperty, "ChromeMuted"); header.Children.Add(domain);
         var actions = new StackPanel { Orientation = Orientation.Horizontal };
-        actions.Children.Add(PaneButton("IconExternalLink", tab, side, PaneDetach_Click)); actions.Children.Add(PaneButton("IconX", tab, side, PaneClose_Click)); Grid.SetColumn(actions, 1); header.Children.Add(actions);
+        actions.Children.Add(PaneButton("IconSync", tab, side, PaneToggleSyncScroll_Click));
+        actions.Children.Add(PaneButton("IconExternalLink", tab, side, PaneDetach_Click));
+        actions.Children.Add(PaneButton("IconX", tab, side, PaneClose_Click));
+        Grid.SetColumn(actions, 1);
+        header.Children.Add(actions);
         var marker = new Border { Height = 1, VerticalAlignment = WpfVerticalAlignment.Bottom }; header.Children.Add(marker); if (side == "secondary") _rightIndicator = marker; else _leftIndicator = marker;
         header.MouseLeftButtonDown += (_, _) => { tab.ActivePane = side; UpdateChrome(); UpdateIndicators(); };
         grid.Children.Add(header); Grid.SetRow(view, 1); grid.Children.Add(view); return grid;
@@ -130,6 +140,7 @@ public partial class MainWindow
         if (focusSecond) { tab.ActivePane = "secondary"; tab.SecondaryView.Focus(); }
         RenderPanes(); UpdateChrome(); Save();
     }
+    private void PaneToggleSyncScroll_Click(object sender, RoutedEventArgs e) => ToggleSyncScroll();
     private void ClosePane(BrowserTab tab, string side) { if (!tab.IsSplit) return; if (side == "primary") tab.PromoteSecondary(); else tab.CloseSecondary(); RenderPanes(); UpdateChrome(); Save(); }
     private async void PaneDetach_Click(object sender, RoutedEventArgs e)
     {

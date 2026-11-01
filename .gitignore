@@ -2,7 +2,9 @@
 bin/
 obj/
 publish/
-dist/
+dist/*
+!dist/updates/
+dist/updates/*
 !dist/updates/manifest.json
 !dist/SHA256SUMS.txt
 update-publish/
@@ -14,6 +16,26 @@ src/Luma.Setup/Payload.sha256
 src/Luma.Setup/Fonts/
 src/Luma.Setup/Assets/MicrosoftEdgeWebview2Setup.exe
 src/Luma/Fonts/
+
+# Media components (downloaded on demand)
+yt-dlp.exe
+src/Luma/yt-dlp.exe
+
+# Temporary scripts & artifacts
+scratch/
+__pycache__/
+*.tmp
+*_wpftmp.*
+TestSpeech.cs
+broken_t.txt
+check_steps.py
+package_update.py
+patch_auto_propysy.py
+replace_top_bar.py
+test_ids.txt
+update_curtain.py
+vseosvita_whiteboard.html
+xaml_chars.txt
 
 # IDE
 .vs/

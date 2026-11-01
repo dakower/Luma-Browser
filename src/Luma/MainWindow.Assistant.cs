@@ -88,6 +88,7 @@ public partial class MainWindow
         }
         await EnsureAssistantAsync();
         UpdateAssistantContext();
+        ApplyTheme();
         PostAssistant(new { kind = "focus" });
     }
 
@@ -99,27 +100,71 @@ public partial class MainWindow
         return AssistantWidth;
     }
 
-    private void UpdateResponsiveLayout()
+    public void UpdateResponsiveLayout()
     {
-        if (AccountSurfaceContent is null || AccountHeroColumn is null || AccountCardColumn is null) return;
-        var narrow = SiteShell.ActualWidth > 0 && SiteShell.ActualWidth < 860;
-        if (narrow)
+        if (!IsLoaded) return;
+        double winW = ActualWidth > 0 ? ActualWidth : Width;
+        double shellW = SiteShell?.ActualWidth > 0 ? SiteShell.ActualWidth : winW;
+
+        bool isNarrow = winW < 860 || shellW < 680;
+
+        // 1. Single Toolbar Mode (NO top bar in Zen / Arc design)
+        if (RootShell != null && RootShell.RowDefinitions.Count > 0)
+            RootShell.RowDefinitions[0].Height = new GridLength(0);
+        if (TitleBar != null)
         {
-            AccountHeroColumn.Width = new GridLength(1, GridUnitType.Star); AccountCardColumn.Width = new GridLength(0);
-            Grid.SetColumn(AccountHeroPane, 0); Grid.SetRow(AccountHeroPane, 0);
-            Grid.SetColumn(AccountCard, 0); Grid.SetRow(AccountCard, 1);
-            AccountHeroPane.Margin = new Thickness(4, 0, 4, 20);
-            AccountCard.Width = double.NaN; AccountCard.MaxWidth = 510; AccountCard.HorizontalAlignment = WpfHorizontalAlignment.Stretch;
-            AccountSurfaceContent.Margin = new Thickness(20, 72, 20, 32); AccountSurfaceContent.VerticalAlignment = WpfVerticalAlignment.Top;
+            TitleBar.Visibility = Visibility.Collapsed;
+            TitleBar.Height = 0;
         }
-        else
+
+        bool isWhiteboardTab = (CurrentTab?.IsInternal == true && CurrentTab?.InternalPageKind == "luma://whiteboard")
+            || string.Equals(CurrentTab?.FullUrl, "luma://whiteboard", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(CurrentTab?.ActiveUrl, "luma://whiteboard", StringComparison.OrdinalIgnoreCase)
+            || (_isToolsDrawerOpen && _activeDrawerTag == "Whiteboard");
+
+        if (FloatingWindowControlsPanel != null)
+            FloatingWindowControlsPanel.Visibility = (_fullscreen || isWhiteboardTab) ? Visibility.Collapsed : Visibility.Visible;
+        if (SiteShell != null)
+            SiteShell.Margin = _fullscreen ? new Thickness(0) : new Thickness(0, 5, 5, 5);
+
+        // 2. Sidebar auto-collapse only on ultra-narrow window (< 500px)
+        if (winW < 500 && _isSidebarExpanded && !_suppressHoverExpandUntilLeave)
         {
-            AccountHeroColumn.Width = new GridLength(.88, GridUnitType.Star); AccountCardColumn.Width = new GridLength(1.12, GridUnitType.Star);
-            Grid.SetColumn(AccountHeroPane, 0); Grid.SetRow(AccountHeroPane, 0);
-            Grid.SetColumn(AccountCard, 1); Grid.SetRow(AccountCard, 0);
-            AccountHeroPane.Margin = new Thickness(6, 0, 70, 0);
-            AccountCard.Width = 510; AccountCard.MaxWidth = double.PositiveInfinity; AccountCard.HorizontalAlignment = WpfHorizontalAlignment.Center;
-            AccountSurfaceContent.Margin = new Thickness(46, 36, 46, 46); AccountSurfaceContent.VerticalAlignment = WpfVerticalAlignment.Center;
+            _isSidebarExpanded = false;
+            _state.SidebarCollapsedIconsOnly = true;
+            UpdateSidebarExpandedUi();
+            RefreshZenSidebar();
+            if (SidebarColumn != null) SidebarColumn.Width = new GridLength(48.0);
+            if (Sidebar != null) Sidebar.Width = 48.0;
+        }
+
+        // 3. Home page responsiveness
+        if (_homeWrap != null && !_homeEditMode && (CurrentTab is null || CurrentTab.IsHome))
+        {
+            RebuildHomeBuilder();
+        }
+
+        // 4. Account surface responsive layout
+        if (AccountSurfaceContent is not null && AccountHeroColumn is not null && AccountCardColumn is not null)
+        {
+            if (isNarrow)
+            {
+                AccountHeroColumn.Width = new GridLength(1, GridUnitType.Star); AccountCardColumn.Width = new GridLength(0);
+                Grid.SetColumn(AccountHeroPane, 0); Grid.SetRow(AccountHeroPane, 0);
+                Grid.SetColumn(AccountCard, 0); Grid.SetRow(AccountCard, 1);
+                AccountHeroPane.Margin = new Thickness(4, 0, 4, 20);
+                AccountCard.Width = double.NaN; AccountCard.MaxWidth = 510; AccountCard.HorizontalAlignment = WpfHorizontalAlignment.Stretch;
+                AccountSurfaceContent.Margin = new Thickness(20, 72, 20, 32); AccountSurfaceContent.VerticalAlignment = WpfVerticalAlignment.Top;
+            }
+            else
+            {
+                AccountHeroColumn.Width = new GridLength(.88, GridUnitType.Star); AccountCardColumn.Width = new GridLength(1.12, GridUnitType.Star);
+                Grid.SetColumn(AccountHeroPane, 0); Grid.SetRow(AccountHeroPane, 0);
+                Grid.SetColumn(AccountCard, 1); Grid.SetRow(AccountCard, 0);
+                AccountHeroPane.Margin = new Thickness(6, 0, 70, 0);
+                AccountCard.Width = 510; AccountCard.MaxWidth = double.PositiveInfinity; AccountCard.HorizontalAlignment = WpfHorizontalAlignment.Center;
+                AccountSurfaceContent.Margin = new Thickness(46, 36, 46, 46); AccountSurfaceContent.VerticalAlignment = WpfVerticalAlignment.Center;
+            }
         }
     }
 
@@ -128,7 +173,7 @@ public partial class MainWindow
         if (_assistantView is not null) return;
         try
         {
-            var view = new WebView2 { DefaultBackgroundColor = System.Drawing.Color.FromArgb(255, 23, 19, 32) };
+            var view = new WebView2 { DefaultBackgroundColor = System.Drawing.Color.FromArgb(255, 0x38, 0x38, 0x3D) };
             _assistantView = view;
             AssistantHost.Children.Add(view);
             await view.EnsureCoreWebView2Async(await BrowserEnvironmentAsync());
@@ -537,7 +582,9 @@ public partial class MainWindow
     private async Task<(string Title, string Url, string Selection, string Text)> ReadPageContextAsync()
     {
         var tab = CurrentTab;
-        if (tab?.ActiveView.CoreWebView2 is null) return ("", "", "", "");
+        if (tab is null) return ("", "", "", "");
+        try { if (tab.ActiveView?.CoreWebView2 is null) return ("", "", "", ""); }
+        catch { return ("", "", "", ""); }
         // NOTE: verbatim string on purpose. Escape sequences must reach JavaScript
         // untouched, otherwise the regex literals below break the script.
         const string script = @"(()=>{try{
@@ -597,7 +644,9 @@ public partial class MainWindow
     private async Task<string?> CaptureTabAsync()
     {
         var tab = CurrentTab;
-        if (tab?.ActiveView.CoreWebView2 is null) return null;
+        if (tab is null) return null;
+        try { if (tab.ActiveView?.CoreWebView2 is null) return null; }
+        catch { return null; }
         try
         {
             using var buffer = new MemoryStream();

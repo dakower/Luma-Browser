@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>WinExe</OutputType><TargetFramework>net8.0-windows10.0.19041.0</TargetFramework><UseWPF>true</UseWPF><UseWindowsForms>true</UseWindowsForms><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><ApplicationIcon>Assets\luma.ico</ApplicationIcon><ApplicationManifest>app.manifest</ApplicationManifest><ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode><AssemblyName>Luma</AssemblyName><RootNamespace>Luma</RootNamespace><Version>2.1.5</Version><RuntimeIdentifier>win-x64</RuntimeIdentifier><SelfContained>true</SelfContained></PropertyGroup><ItemGroup><ProjectReference Include="..\Luma.Core\Luma.Core.csproj" /></ItemGroup><ItemGroup><PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2792.45" />
+<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>WinExe</OutputType><TargetFramework>net8.0-windows10.0.19041.0</TargetFramework><UseWPF>true</UseWPF><UseWindowsForms>true</UseWindowsForms><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><CodePage>65001</CodePage><ApplicationIcon>Assets\luma.ico</ApplicationIcon><ApplicationManifest>app.manifest</ApplicationManifest><ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode><AssemblyName>Luma</AssemblyName><RootNamespace>Luma</RootNamespace><Version>2.1.6</Version><RuntimeIdentifier>win-x64</RuntimeIdentifier><SelfContained>true</SelfContained></PropertyGroup><ItemGroup><ProjectReference Include="..\Luma.Core\Luma.Core.csproj" /></ItemGroup><ItemGroup><PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2792.45" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.10" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
     <PackageReference Include="System.Speech" Version="10.0.12" />  
@@ -21,5 +21,13 @@
     <EmbeddedResource Include="Assets\Locales\en.json" LogicalName="Luma.Assets.Locales.en.json" />
     <EmbeddedResource Include="Assets\Locales\uk.json" LogicalName="Luma.Assets.Locales.uk.json" />
     <Resource Include="Fonts\Inter.ttf" Condition="Exists('Fonts\Inter.ttf')" />
+    <Resource Include="Fonts\Propysy-Regular.otf" Condition="Exists('Fonts\Propysy-Regular.otf')" />
+    <Resource Include="Fonts\Propysy-Bold.otf" Condition="Exists('Fonts\Propysy-Bold.otf')" />
+    <None Update="Fonts\Propysy-Regular.otf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Fonts\Propysy-Bold.otf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup></Project>
 

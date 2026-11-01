@@ -66,14 +66,23 @@ public partial class MainWindow
             if (tab is null) { site.TabId = null; continue; }
             site.TabId = tab.Id; tab.IsPinned = true; tab.FolderId = null; owned.Add(tab.Id);
         }
-        foreach (var t in space.Tabs) if (t.IsPinned && !owned.Contains(t.Id)) t.IsPinned = false;
+        if (_state.Essentials is not null)
+        {
+            foreach (var ess in _state.Essentials)
+            {
+                var tab = (!string.IsNullOrEmpty(ess.TabId) ? space.Tabs.FirstOrDefault(t => t.Id == ess.TabId) : null)
+                    ?? space.Tabs.FirstOrDefault(t => !owned.Contains(t.Id) && t.IsEssential && SameSite(t.FullUrl, ess.Url));
+                if (tab is not null) { ess.TabId = tab.Id; tab.IsEssential = true; tab.IsPinned = true; owned.Add(tab.Id); }
+            }
+        }
+        foreach (var t in space.Tabs) if (t.IsPinned && !t.IsEssential && !owned.Contains(t.Id)) t.IsPinned = false;
     }
 
     private void FilterTabs()
     {
         RelinkPinnedTabs();
         var view = CollectionViewSource.GetDefaultView(Tabs);
-        view.Filter = o => o is BrowserTab t && string.IsNullOrEmpty(t.FolderId) && !t.IsPinned;
+        view.Filter = o => o is BrowserTab t && !t.IsHome && string.IsNullOrEmpty(t.FolderId) && !t.IsPinned && !t.IsEssential;
         view.Refresh();
         if (TabsList is null || TabsListContainer is null) return;
         TabsList.ItemsSource = Tabs;
@@ -82,6 +91,7 @@ public partial class MainWindow
         TabsListContainer.BeginAnimation(MaxHeightProperty, null);
         TabsListContainer.ClearValue(MaxHeightProperty);
         TabsListContainer.InvalidateMeasure();
+        RefreshZenSidebar();
     }
     private void RefreshFolders()
     {
@@ -307,10 +317,7 @@ public partial class MainWindow
     }
     private void AvatarAdd_Click(object sender, MouseButtonEventArgs e)
     {
-        CloseMenusExcept(NewSpacePopup);
-        PaneHost.IsEnabled = false;
-        NewSpaceNameBox.Text = "Пространство " + (_spaces.Count + 1);
-        NewSpacePopup.IsOpen = true;
+        OpenWorkspaceModal(null);
         e.Handled = true;
     }
     private async void NewSpacePopup_Opened(object sender, EventArgs e)
@@ -338,12 +345,7 @@ public partial class MainWindow
     private void CancelSpace_Click(object sender, RoutedEventArgs e) => NewSpacePopup.IsOpen = false;
     private void CreateSpace_Click(object sender, RoutedEventArgs e)
     {
-        var name = string.IsNullOrWhiteSpace(NewSpaceNameBox.Text) ? "Пространство " + (_spaces.Count + 1) : NewSpaceNameBox.Text.Trim();
-        var state = new SpaceState { Name = name, Folders = new List<FolderState>() };
-        _state.Spaces.Add(state);
-        _spaces.Add(new RuntimeSpace(state) { Loaded = true });
-        NewSpacePopup.IsOpen = false;
-        SwitchSpace(_spaces.Count - 1);
+        SaveWorkspaceFromModal();
     }
     private void ShowFolderMenu(FolderState folder)
     {
@@ -443,6 +445,7 @@ public partial class MainWindow
             OutlineBrush = i == _activeSpace ? accent : (Brush)Resources["BorderBrush"],
         }).ToList();
         ProfileAvatars.ItemsSource = list;
+        RefreshZenSidebar();
     }
     private void ShowSpaceMenu(SpaceDotView dot)
     {
@@ -486,25 +489,26 @@ public partial class MainWindow
     {
         if (index < 0 || index >= _spaces.Count || index == _activeSpace) return;
         var request = ++_spaceSwitchSerial;
+        ++_tabActivationSerial; // Cancel any in-flight tab activation that would pull _activeSpace back
         var previousIndex = _activeSpace;
         var direction = index > previousIndex ? 1d : -1d;
         Save();
-        _spaces[previousIndex].Current = CurrentTab;
+        if (previousIndex >= 0 && previousIndex < _spaces.Count)
+        {
+            _spaces[previousIndex].Current = CurrentTab;
+        }
 
         // Switch active space index immediately so the UI responds without any perceived lag
         _activeSpace = index;
         _state.ActiveSpace = index;
         RecordTesterAction($"Переключено пространство: {index + 1}");
 
-        // Ensure space has at least one tab if it's currently empty
-        if (_spaces[index].Tabs.Count == 0) _spaces[index].Current = EnsureHomeTab(_spaces[index]);
+        // Refresh UI header and workspace indicators immediately
         OnChanged(nameof(Tabs));
-        CurrentTab = _spaces[index].Current ?? Tabs.FirstOrDefault() ?? EnsureHomeTab(_spaces[index]);
-
-        // Refresh UI immediately so the user sees the active space dot and new tabs list
         RefreshSpaces();
         RefreshFolders();
         FilterTabs();
+        RefreshZenSidebar();
 
         try
         {
@@ -517,11 +521,36 @@ public partial class MainWindow
 
         if (request != _spaceSwitchSerial) return;
 
-        if (_spaces[index].Tabs.Count == 0) _spaces[index].Current = EnsureHomeTab(_spaces[index]);
-        CurrentTab = _spaces[index].Current ?? Tabs.FirstOrDefault() ?? EnsureHomeTab(_spaces[index]);
+        var targetSpace = _spaces[index];
+        if (targetSpace.Tabs.Count == 0)
+        {
+            targetSpace.Current = EnsureHomeTab(targetSpace);
+        }
+        var targetTab = (targetSpace.Current is not null && targetSpace.Tabs.Contains(targetSpace.Current))
+            ? targetSpace.Current
+            : (targetSpace.Tabs.FirstOrDefault(t => !t.IsHome && !t.IsEssential)
+                ?? targetSpace.Tabs.FirstOrDefault()
+                ?? EnsureHomeTab(targetSpace));
+
+        targetSpace.Current = targetTab;
+        CurrentTab = targetTab;
+        if (targetTab is not null)
+        {
+            await EnsureTabReadyAsync(targetTab);
+            if (request != _spaceSwitchSerial) return;
+            WakeTab(targetTab);
+        }
+        OnChanged(nameof(Tabs));
+        UpdateChrome();
+        RenderPanes();
         RefreshSpaces();
         RefreshFolders();
         FilterTabs();
+        RefreshZenSidebar();
+        if (_isToolsDrawerOpen && _activeDrawerTag == "Spaces")
+        {
+            PopulateDrawerSpaces();
+        }
 
         SpaceContentTranslate.X = 10 * direction;
         SpaceContentRoot.Opacity = .92;

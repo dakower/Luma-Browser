@@ -1,4 +1,4 @@
-using Luma.Core;
+﻿using Luma.Core;
 using Luma.Services;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
@@ -53,11 +53,11 @@ namespace Luma;
 
 public partial class MainWindow
 {
-    private static BrowserTab? TabFromInputSource(DependencyObject? source)
+    private BrowserTab? TabFromInputSource(DependencyObject? source)
     {
         for (var node = source; node is not null; node = VisualTreeHelper.GetParent(node))
         {
-            if (node is Button) return null; // close/action buttons keep their own behavior
+            if (node is Button && IsSidebarVisualExpanded) return null; // close/action buttons keep their own behavior ONLY when expanded
             if (node is FrameworkElement { DataContext: BrowserTab tab }) return tab;
         }
         return null;
@@ -65,7 +65,8 @@ public partial class MainWindow
 
     private void ReliableTabPreviewTouchDown(object? sender, TouchEventArgs e)
     {
-        var tab = TabFromInputSource(e.OriginalSource as DependencyObject);
+        var tab = TabFromInputSource(e.OriginalSource as DependencyObject)
+            ?? (e.OriginalSource as FrameworkElement)?.DataContext as BrowserTab;
         if (tab is null) return;
         ActivateTabFromUser(tab);
         e.Handled = true;
@@ -74,8 +75,30 @@ public partial class MainWindow
     private void Tab_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ChangedButton != MouseButton.Left) return;
+
+        // When the sidebar is collapsed (48px icons-only), any click on the tab row is strictly an activation.
+        // It must NEVER close or execute secondary buttons.
+        if (!IsSidebarVisualExpanded)
+        {
+            var collapsedTab = (sender as FrameworkElement)?.DataContext as BrowserTab
+                ?? (e.OriginalSource as FrameworkElement)?.DataContext as BrowserTab;
+            if (collapsedTab is not null)
+            {
+                _dragStart = e.GetPosition(this);
+                ActivateTabFromUser(collapsedTab);
+                e.Handled = true;
+                return;
+            }
+        }
+
         var tab = TabFromInputSource(e.OriginalSource as DependencyObject);
         if (tab is null) return; // leave close/action buttons to their own Click handlers
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Alt))
+        {
+            _ = OpenZenGlanceAsync(tab);
+            e.Handled = true;
+            return;
+        }
         _dragStart = e.GetPosition(this);
         ActivateTabFromUser(tab);
         e.Handled = true;
@@ -98,6 +121,12 @@ public partial class MainWindow
     {
         var ownerIndex = _spaces.FindIndex(space => space.Tabs.Contains(tab));
         if (ownerIndex < 0) return;
+        if (tab.IsEssential && ownerIndex != _activeSpace && _activeSpace >= 0 && _activeSpace < _spaces.Count)
+        {
+            _spaces[ownerIndex].Tabs.Remove(tab);
+            _spaces[_activeSpace].Tabs.Add(tab);
+            ownerIndex = _activeSpace;
+        }
         ReleaseTabInputCapture();
         if (request == 0) request = ++_tabActivationSerial;
         // Make a same-space click visible synchronously. The asynchronous passes below only
@@ -122,6 +151,12 @@ public partial class MainWindow
     {
         var ownerIndex = _spaces.FindIndex(space => space.Tabs.Contains(tab));
         if (ownerIndex < 0 || request != _tabActivationSerial) return;
+        if (tab.IsEssential && ownerIndex != _activeSpace && _activeSpace >= 0 && _activeSpace < _spaces.Count)
+        {
+            _spaces[ownerIndex].Tabs.Remove(tab);
+            _spaces[_activeSpace].Tabs.Add(tab);
+            ownerIndex = _activeSpace;
+        }
         if (!IsActive) Activate();
         ReleaseTabInputCapture();
         CloseTransientUi();
@@ -136,7 +171,7 @@ public partial class MainWindow
             _state.ActiveSpace = ownerIndex;
             await LoadSpaceAsync(ownerIndex);
             if (request != _tabActivationSerial) return;
-            OnChanged(nameof(Tabs)); RefreshSpaces(); RefreshFolders(); FilterTabs();
+            OnChanged(nameof(Tabs)); RefreshSpaces(); RefreshFolders(); FilterTabs(); RefreshZenSidebar();
         }
         for (var pass = 0; pass < 3; pass++)
         {
@@ -151,8 +186,41 @@ public partial class MainWindow
         Save();
         if (!tab.IsHome) _ = Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() => { if (request == _tabActivationSerial && ReferenceEquals(CurrentTab, tab)) { tab.ActiveView.Focus(); Keyboard.Focus(tab.ActiveView); } }));
     }
-    private void CloseTab_Click(object sender, RoutedEventArgs e) { if (sender is Button { Tag: BrowserTab tab }) { CloseTab(tab); FilterTabs(); e.Handled = true; } }
-    private void Tab_MouseRightButtonUp(object sender, MouseButtonEventArgs e) { if (sender is FrameworkElement { DataContext: BrowserTab tab }) { ShowTabMenu(tab); e.Handled = true; } }
+    private void CloseTab_Click(object sender, RoutedEventArgs e)
+    {
+        // When sidebar is collapsed (48px), close button must NEVER fire.
+        // If anything triggers it, activate the tab instead of closing!
+        if (!IsSidebarVisualExpanded)
+        {
+            if (sender is FrameworkElement fe && fe.DataContext is BrowserTab fallbackTab)
+            {
+                ActivateTabFromUser(fallbackTab);
+                e.Handled = true;
+            }
+            return;
+        }
+
+        if (sender is Button { Tag: BrowserTab tab })
+        {
+            CloseTab(tab);
+            FilterTabs();
+            e.Handled = true;
+        }
+    }
+    private void Tab_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        // Prevent WPF ListBoxItem from auto-selecting/switching tab on right click
+        e.Handled = true;
+    }
+    private void Tab_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        var tab = (sender as FrameworkElement)?.DataContext as BrowserTab ?? TabFromInputSource(e.OriginalSource as DependencyObject);
+        if (tab is not null)
+        {
+            ShowTabMenu(tab);
+            e.Handled = true;
+        }
+    }
     private void NewTab_Click(object sender, RoutedEventArgs e) { CloseTransientUi(); OpenNewHomeTab(); }
     private void TabSearch_Click(object sender, RoutedEventArgs e) { CloseTransientUi(); OpenSearch(SearchPurpose.TabSearch); }
     private void ClearTabs_Click(object sender, RoutedEventArgs e) { CloseTransientUi(); ClearTabs(); }
@@ -200,11 +268,12 @@ public partial class MainWindow
     private void MainMenu_Click(object sender, RoutedEventArgs e)
     {
         CloseMenusExcept(MainMenuPopup);
+        UpdateMainMenuLanguage();
         MenuVersionText.Text = L("Версия ", "Version ", "Версія ") + AppVersion;
         UpdateAccountMenu();
         MainMenuPopup.IsOpen = !MainMenuPopup.IsOpen;
     }
-    private void NewSpaceMenu_Click(object sender, RoutedEventArgs e) { CloseMenusExcept(NewSpacePopup); PaneHost.IsEnabled = false; NewSpaceNameBox.Text = "Пространство " + (_spaces.Count + 1); NewSpacePopup.IsOpen = true; }
+    private void NewSpaceMenu_Click(object sender, RoutedEventArgs e) => OpenWorkspaceModal(null);
     private void NewFolder_Click(object sender, RoutedEventArgs e)
     {
         if (AddFolderIcon is not null)
@@ -259,7 +328,7 @@ public partial class MainWindow
 
     private void RestorePageInputAfterModal()
     {
-        if (SearchPopup.IsOpen || NewFolderPopup.IsOpen || NewSpacePopup.IsOpen) return;
+        if (SearchPopup.IsOpen || NewFolderPopup.IsOpen || NewSpacePopup.IsOpen || ZenGlancePopup.IsOpen) return;
         PaneHost.IsEnabled = true;
         if (CurrentTab?.ActiveView is { } view) view.Focus();
     }
@@ -427,7 +496,7 @@ public partial class MainWindow
     // because the page area cannot deliver these events at all.
     private void EdgeReveal_MouseEnter(object sender, MouseEventArgs e) => EdgeWatchTick();
     private void Sidebar_MouseLeave(object sender, MouseEventArgs e) => EdgeWatchTick();
-    private void Sidebar_MouseEnterOverlay(object sender, MouseEventArgs e) => _hoverHideTimer.Stop();
+    private void Sidebar_MouseEnterOverlay(object sender, MouseEventArgs e) { _hoverHideTimer.Stop(); OnSidebarMouseEnter(); }
     private void MinimizeWindow_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
     private void ToggleMaximize()
     {
@@ -483,31 +552,56 @@ public partial class MainWindow
         var ctrl = Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
         var shift = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift);
         var alt = Keyboard.Modifiers.HasFlag(ModifierKeys.Alt);
-        if (e.Key == Key.Escape && HistoryOverlay.Visibility == Visibility.Visible) { CloseHistory(); e.Handled = true; return; }
+        if (e.Key == Key.Escape)
+        {
+            if (_homeStudioOpen || (HomeCustomizeDrawerOverlay != null && HomeCustomizeDrawerOverlay.Visibility == Visibility.Visible))
+            {
+                CloseHomeStudio();
+                e.Handled = true;
+                return;
+            }
+            if (HistoryOverlay.Visibility == Visibility.Visible) { CloseHistory(); e.Handled = true; return; }
+            if (_fullscreen) { ExitPageFullscreen(); SetFullscreen(false); e.Handled = true; return; }
+            CloseTransientUi();
+            e.Handled = true;
+            return;
+        }
         if (e.Key == Key.F11) { SetFullscreen(!_fullscreen); e.Handled = true; }
-        else if (e.Key == Key.Escape && _fullscreen) { ExitPageFullscreen(); SetFullscreen(false); e.Handled = true; }
-        else if (e.Key == Key.Escape) CloseTransientUi();
         else if (e.Key == Key.F5) { if (CurrentTab is { IsHome: false } tab5) tab5.ActiveView.Reload(); e.Handled = true; }
+        else if (e.Key == Key.F9) { if (CurrentTab?.ActiveView is { } viewF9) _ = ToggleReaderAsync(viewF9); e.Handled = true; }
+        else if (ctrl && shift && e.Key == Key.S) { _ = CaptureFullPageScreenshotAsync(); e.Handled = true; }
         else if (ctrl && e.Key == Key.W) { if (CurrentTab is { } tabW) { CloseTab(tabW); FilterTabs(); } e.Handled = true; }
         else if (ctrl && e.Key == Key.F4) { if (CurrentTab is { } tabF4) { CloseTab(tabF4); FilterTabs(); } e.Handled = true; }
         else if (ctrl && e.Key == Key.Tab) { CycleTab(+1); e.Handled = true; }
         else if (ctrl && shift && e.Key == Key.Tab) { CycleTab(-1); e.Handled = true; }
-        else if (ctrl && e.Key == Key.D1) { SelectTabByIndex(0); e.Handled = true; }
-        else if (ctrl && e.Key == Key.D2) { SelectTabByIndex(1); e.Handled = true; }
-        else if (ctrl && e.Key == Key.D3) { SelectTabByIndex(2); e.Handled = true; }
-        else if (ctrl && e.Key == Key.D4) { SelectTabByIndex(3); e.Handled = true; }
-        else if (ctrl && e.Key == Key.D5) { SelectTabByIndex(4); e.Handled = true; }
-        else if (ctrl && e.Key == Key.D6) { SelectTabByIndex(5); e.Handled = true; }
-        else if (ctrl && e.Key == Key.D7) { SelectTabByIndex(6); e.Handled = true; }
-        else if (ctrl && e.Key == Key.D8) { SelectTabByIndex(7); e.Handled = true; }
-        else if (ctrl && e.Key == Key.D9) { SelectTabByIndex(Tabs.Count - 1); e.Handled = true; }
+        else if (ctrl && !alt && !shift && e.Key == Key.D1) { if (_spaces.Count > 1) SelectSpaceByIndex(0); else SelectTabByIndex(0); e.Handled = true; }
+        else if (ctrl && !alt && !shift && e.Key == Key.D2) { if (_spaces.Count > 1) SelectSpaceByIndex(1); else SelectTabByIndex(1); e.Handled = true; }
+        else if (ctrl && !alt && !shift && e.Key == Key.D3) { if (_spaces.Count > 1) SelectSpaceByIndex(2); else SelectTabByIndex(2); e.Handled = true; }
+        else if (ctrl && !alt && !shift && e.Key == Key.D4) { if (_spaces.Count > 1) SelectSpaceByIndex(3); else SelectTabByIndex(3); e.Handled = true; }
+        else if (ctrl && !alt && !shift && e.Key == Key.D5) { if (_spaces.Count > 1) SelectSpaceByIndex(4); else SelectTabByIndex(4); e.Handled = true; }
+        else if (ctrl && !alt && !shift && e.Key == Key.D6) { if (_spaces.Count > 1) SelectSpaceByIndex(5); else SelectTabByIndex(5); e.Handled = true; }
+        else if (ctrl && !alt && !shift && e.Key == Key.D7) { if (_spaces.Count > 1) SelectSpaceByIndex(6); else SelectTabByIndex(6); e.Handled = true; }
+        else if (ctrl && !alt && !shift && e.Key == Key.D8) { if (_spaces.Count > 1) SelectSpaceByIndex(7); else SelectTabByIndex(7); e.Handled = true; }
+        else if (ctrl && !alt && !shift && e.Key == Key.D9) { SelectTabByIndex(Tabs.Count - 1); e.Handled = true; }
         else if ((ctrl && e.Key == Key.L) || (alt && e.Key == Key.D) || e.Key == Key.F6) { FocusAddressBar(); e.Handled = true; }
         else if (ctrl && e.Key == Key.H) { History_Click(this, new RoutedEventArgs()); e.Handled = true; }
         else if (e.Key == Key.F12) { if (CurrentTab is { IsHome: false } tab12) tab12.ActiveView.CoreWebView2?.OpenDevToolsWindow(); e.Handled = true; }
+        else if (alt && e.Key == Key.S) { _ = SummarizeCurrentPageAsync(false); e.Handled = true; }
         else if (alt && e.Key == Key.Home) { OpenNewHomeTab(); e.Handled = true; }
         else if (alt && e.Key == Key.Left) { if (CurrentTab is { IsHome: false } tabBack && tabBack.ActiveView.CanGoBack) { tabBack.ActiveView.GoBack(); e.Handled = true; } }
         else if (alt && e.Key == Key.Right) { if (CurrentTab is { IsHome: false } tabFwd && tabFwd.ActiveView.CanGoForward) { tabFwd.ActiveView.GoForward(); e.Handled = true; } }
         else if (ctrl && e.Key == Key.F) { OpenSearch(SearchPurpose.TabSearch); e.Handled = true; }
+        else if (ctrl && shift && e.Key == Key.E) { OpenWorkspaceModal(null); e.Handled = true; }
+        else if (ctrl && alt && e.Key == Key.C) { ToggleSidebarExpand_Click(this, new RoutedEventArgs()); e.Handled = true; }
+        else if (ctrl && alt && e.Key == Key.S) { ToggleCompactMode_Click(this, new RoutedEventArgs()); e.Handled = true; }
+        else if (ctrl && !alt && !shift && e.Key == Key.S) { ToggleCompactMode_Click(this, new RoutedEventArgs()); e.Handled = true; }
+        else if (ctrl && alt && e.Key == Key.V) { SplitView_Click(this, new RoutedEventArgs()); e.Handled = true; }
+        else if (ctrl && shift && e.Key == Key.C) { if (!string.IsNullOrEmpty(CurrentTab?.ActiveUrl)) Copy(CurrentTab.ActiveUrl, "URL скопирован"); e.Handled = true; }
+        else if (ctrl && shift && e.Key == Key.B) { SwitchDrawerView("Media"); e.Handled = true; }
+        else if (ctrl && shift && e.Key == Key.D) { SwitchDrawerView("Boosts"); e.Handled = true; }
+        else if (ctrl && shift && e.Key == Key.Q) { ScrapbookClipSelection_Click(this, new RoutedEventArgs()); e.Handled = true; }
+        else if (ctrl && alt && e.Key == Key.T) { TimeMachineSnapshotNow_Click(this, new RoutedEventArgs()); e.Handled = true; }
+        else if (ctrl && alt && e.Key == Key.Y) { ToggleSyncScroll(); e.Handled = true; }
         else if (ctrl && shift && e.Key == Key.S) { _ = AskLumaAsync("Кратко о странице: главные тезисы списком."); e.Handled = true; }
         else if (ctrl && shift && e.Key == Key.R) { _ = ToggleReaderAsync(CurrentTab?.ActiveView); e.Handled = true; }
         else if (ctrl && shift && e.Key == Key.T) { _ = ReopenLastClosedAsync(); e.Handled = true; }
@@ -521,7 +615,7 @@ public partial class MainWindow
         else if (ctrl && alt && e.Key == Key.D4) { SelectSpaceByIndex(3); e.Handled = true; }
         else if (ctrl && alt && e.Key == Key.D5) { SelectSpaceByIndex(4); e.Handled = true; }
         else if (ctrl && e.Key == Key.R) { if (CurrentTab is { IsHome: false } tabR) tabR.ActiveView.Reload(); }
-        else if (ctrl && e.Key == Key.J) { _ = ToggleAssistantAsync(); e.Handled = true; }
+        else if (ctrl && (e.Key == Key.J || (shift && e.Key == Key.A) || (alt && e.Key == Key.A))) { _ = ToggleAssistantAsync(); e.Handled = true; }
     }
     private void OnClosing(object? sender, CancelEventArgs e)
     {
@@ -529,6 +623,8 @@ public partial class MainWindow
         _closing = true;
         _voiceService?.Dispose();
         _voiceService = null;
+        _soundscapeEngine?.Dispose();
+        _soundscapeEngine = null;
         _auth.SessionChanged -= AccountSessionChanged;
         CloseFloatingVideoForShutdown();
         _floatingMusic?.Close();
@@ -582,9 +678,18 @@ public partial class MainWindow
     /// <summary>Moves keyboard focus to the address bar / URL input.</summary>
     private void FocusAddressBar()
     {
-        // Open the navigation search popup pre-filled with the current URL, identical to
-        // clicking the domain pill in the toolbar.
-        OpenSearch(SearchPurpose.Navigate, CurrentTab?.ActiveUrl);
+        if (SidebarAddressInput is not null && SidebarDomainText is not null)
+        {
+            SidebarDomainText.Visibility = Visibility.Collapsed;
+            SidebarAddressInput.Visibility = Visibility.Visible;
+            SidebarAddressInput.Text = CurrentTab?.ActiveUrl ?? string.Empty;
+            SidebarAddressInput.Focus();
+            SidebarAddressInput.SelectAll();
+        }
+        else
+        {
+            OpenSearch(SearchPurpose.Navigate, CurrentTab?.ActiveUrl);
+        }
     }
 
     private void Extensions_Click(object sender, RoutedEventArgs e)

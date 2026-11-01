@@ -13,11 +13,48 @@ public sealed class BrowserTab : INotifyPropertyChanged, IDisposable
     private string _activePane = "primary";
     private double _splitRatio = .5;
 
+    public int ShieldBlockedCount { get; set; } = 0;
     public string Id { get; init; } = Guid.NewGuid().ToString("N");
     public string? FolderId { get; set; }
     private bool _isPinned;
-    /// <summary>Pinned tabs live in the sidebar PINNED section and are hidden from the TABS list.</summary>
+    private bool _isEssential;
+    private string _containerId = "default";
+    private bool _isMuted;
+
+    /// <summary>Pinned tabs live in the sidebar workspace PINNED section and are hidden from the normal TABS list.</summary>
     public bool IsPinned { get => _isPinned; set { if (_isPinned == value) return; _isPinned = value; OnChanged(); } }
+    /// <summary>Global Essentials live at the very top of the Zen sidebar and stay visible across all workspaces.</summary>
+    public bool IsEssential { get => _isEssential; set { if (_isEssential == value) return; _isEssential = value; OnChanged(); } }
+    public string ContainerId
+    {
+        get => _containerId;
+        set
+        {
+            var next = string.IsNullOrWhiteSpace(value) ? "default" : value;
+            if (_containerId == next) return;
+            _containerId = next;
+            OnChanged();
+            OnChanged(nameof(HasContainer));
+            OnChanged(nameof(ContainerColor));
+            OnChanged(nameof(ContainerName));
+        }
+    }
+    public bool HasContainer => !string.IsNullOrWhiteSpace(_containerId) && !string.Equals(_containerId, "default", StringComparison.OrdinalIgnoreCase);
+    public string ContainerColor => ZenContainers.GetColor(_containerId);
+    public string ContainerName => ZenContainers.GetName(_containerId);
+
+    public bool IsMuted
+    {
+        get => _isMuted;
+        set
+        {
+            if (_isMuted == value) return;
+            _isMuted = value;
+            OnChanged();
+            OnChanged(nameof(ShowAudioButton));
+        }
+    }
+    public bool ShowAudioButton => _mediaPlaying || _isMuted;
     public bool IsInternal { get; set; }
     public string InternalPageKind { get; set; } = "";
     public string BackFallbackInternalUrl { get; set; } = "";
@@ -42,7 +79,7 @@ public sealed class BrowserTab : INotifyPropertyChanged, IDisposable
     public string MediaTitle { get => _mediaTitle; set { if (_mediaTitle == value) return; _mediaTitle = value; OnChanged(); } }
     public string MediaArtist { get => _mediaArtist; set { if (_mediaArtist == value) return; _mediaArtist = value; OnChanged(); } }
     public string MediaArtwork { get => _mediaArtwork; set { if (_mediaArtwork == value) return; _mediaArtwork = value; OnChanged(); } }
-    public bool MediaPlaying { get => _mediaPlaying; set { if (_mediaPlaying == value) return; _mediaPlaying = value; OnChanged(); } }
+    public bool MediaPlaying { get => _mediaPlaying; set { if (_mediaPlaying == value) return; _mediaPlaying = value; OnChanged(); OnChanged(nameof(ShowAudioButton)); } }
     public double MediaPosition { get => _mediaPosition; set { if (Math.Abs(_mediaPosition - value) < .01) return; _mediaPosition = value; OnChanged(); OnChanged(nameof(MediaPositionText)); OnChanged(nameof(MediaProgress)); } }
     public double MediaDuration { get => _mediaDuration; set { if (Math.Abs(_mediaDuration - value) < .01) return; _mediaDuration = value; OnChanged(); OnChanged(nameof(MediaDurationText)); OnChanged(nameof(MediaProgress)); } }
     public double MediaVolume { get => _mediaVolume; set { if (Math.Abs(_mediaVolume - value) < .01) return; _mediaVolume = value; OnChanged(); } }
@@ -61,22 +98,28 @@ public sealed class BrowserTab : INotifyPropertyChanged, IDisposable
     public WebView2? SecondaryView { get; set; }
 
     public string Title { get => _title; set { if (_title == value) return; _title = value; OnChanged(); OnChanged(nameof(DisplayTitle)); } }
-    public string FullUrl { get => _fullUrl; set { if (_fullUrl == value) return; _fullUrl = value; OnChanged(); OnChanged(nameof(ActiveUrl)); OnChanged(nameof(Domain)); OnChanged(nameof(FaviconUrl)); } }
+    public string FullUrl { get => _fullUrl; set { if (_fullUrl == value) return; _fullUrl = value; OnChanged(); OnChanged(nameof(ActiveUrl)); OnChanged(nameof(Domain)); OnChanged(nameof(FaviconUrl)); OnChanged(nameof(PrimaryFaviconUrl)); } }
     public string SecondaryTitle { get => _secondaryTitle; set { if (_secondaryTitle == value) return; _secondaryTitle = value; OnChanged(); OnChanged(nameof(DisplayTitle)); } }
-    public string SecondaryUrl { get => _secondaryUrl; set { if (_secondaryUrl == value) return; _secondaryUrl = value; OnChanged(); OnChanged(nameof(ActiveUrl)); OnChanged(nameof(Domain)); OnChanged(nameof(FaviconUrl)); OnChanged(nameof(IsSplit)); } }
-    public string ActivePane { get => _activePane; set { var next = value == "secondary" && SecondaryView is not null ? "secondary" : "primary"; if (_activePane == next) return; _activePane = next; OnChanged(); OnChanged(nameof(ActiveUrl)); OnChanged(nameof(Domain)); OnChanged(nameof(FaviconUrl)); OnChanged(nameof(DisplayTitle)); } }
+    public string SecondaryUrl { get => _secondaryUrl; set { if (_secondaryUrl == value) return; _secondaryUrl = value; OnChanged(); OnChanged(nameof(ActiveUrl)); OnChanged(nameof(Domain)); OnChanged(nameof(FaviconUrl)); OnChanged(nameof(SecondaryFaviconUrl)); OnChanged(nameof(IsSplit)); } }
+    public string ActivePane { get => _activePane; set { var next = value == "secondary" && SecondaryView is not null ? "secondary" : "primary"; if (_activePane == next) return; _activePane = next; OnChanged(); OnChanged(nameof(ActiveUrl)); OnChanged(nameof(Domain)); OnChanged(nameof(FaviconUrl)); OnChanged(nameof(DisplayTitle)); OnChanged(nameof(IsPrimaryPaneActive)); OnChanged(nameof(IsSecondaryPaneActive)); } }
     public double SplitRatio { get => _splitRatio; set { var next = Math.Clamp(value, .25, .75); if (Math.Abs(_splitRatio - next) < .001) return; _splitRatio = next; OnChanged(); } }
 
     public bool IsSplit => SecondaryView is not null && !string.IsNullOrWhiteSpace(SecondaryUrl);
+    public bool IsPrimaryPaneActive => ActivePane != "secondary";
+    public bool IsSecondaryPaneActive => ActivePane == "secondary";
     public WebView2 ActiveView => ActivePane == "secondary" && SecondaryView is not null ? SecondaryView : View;
     public string ActiveUrl => ActivePane == "secondary" && IsSplit ? SecondaryUrl : FullUrl;
     public string DisplayTitle => ActivePane == "secondary" && IsSplit ? SecondaryTitle : Title;
     private string _favicon = "";
     private string _secondaryFavicon = "";
     /// <summary>Icon reported by the page itself (WebView2 FaviconChanged); far more reliable than /favicon.ico.</summary>
-    public string Favicon { get => _favicon; set { if (_favicon == value) return; _favicon = value ?? ""; OnChanged(); OnChanged(nameof(FaviconUrl)); } }
-    public string SecondaryFavicon { get => _secondaryFavicon; set { if (_secondaryFavicon == value) return; _secondaryFavicon = value ?? ""; OnChanged(); OnChanged(nameof(FaviconUrl)); } }
-    public string Domain => IsInternal && InternalPageKind.StartsWith("luma://search", StringComparison.Ordinal) ? "Luma Search" : DomainOf(ActiveUrl, IsInternal);
+    public string Favicon { get => _favicon; set { if (_favicon == value) return; _favicon = value ?? ""; OnChanged(); OnChanged(nameof(FaviconUrl)); OnChanged(nameof(PrimaryFaviconUrl)); } }
+    public string SecondaryFavicon { get => _secondaryFavicon; set { if (_secondaryFavicon == value) return; _secondaryFavicon = value ?? ""; OnChanged(); OnChanged(nameof(FaviconUrl)); OnChanged(nameof(SecondaryFaviconUrl)); } }
+    public string Domain => IsInternal && InternalPageKind.StartsWith("luma://search", StringComparison.Ordinal)
+        ? "Luma Search"
+        : (IsInternal && InternalPageKind == "luma://whiteboard" ? "Доска" : DomainOf(ActiveUrl, IsInternal));
+    public string PrimaryFaviconUrl => string.IsNullOrWhiteSpace(_favicon) ? FaviconOf(FullUrl, IsInternal) : _favicon;
+    public string SecondaryFaviconUrl => string.IsNullOrWhiteSpace(_secondaryFavicon) ? FaviconOf(SecondaryUrl, false) : _secondaryFavicon;
     public string FaviconUrl
     {
         get
@@ -86,7 +129,7 @@ public sealed class BrowserTab : INotifyPropertyChanged, IDisposable
         }
     }
 
-    public void NotifySplitChanged() { OnChanged(nameof(IsSplit)); OnChanged(nameof(ActiveUrl)); OnChanged(nameof(Domain)); OnChanged(nameof(FaviconUrl)); OnChanged(nameof(DisplayTitle)); }
+    public void NotifySplitChanged() { OnChanged(nameof(IsSplit)); OnChanged(nameof(ActiveUrl)); OnChanged(nameof(Domain)); OnChanged(nameof(FaviconUrl)); OnChanged(nameof(PrimaryFaviconUrl)); OnChanged(nameof(SecondaryFaviconUrl)); OnChanged(nameof(DisplayTitle)); OnChanged(nameof(IsPrimaryPaneActive)); OnChanged(nameof(IsSecondaryPaneActive)); }
     public WebView2 ReplacePrimaryView()
     {
         var old = View;
@@ -97,9 +140,15 @@ public sealed class BrowserTab : INotifyPropertyChanged, IDisposable
     }
     public void PromoteSecondary() { if (SecondaryView is null) return; View.Dispose(); View = SecondaryView; SecondaryView = null; FullUrl = SecondaryUrl; Title = SecondaryTitle; SecondaryUrl = ""; SecondaryTitle = "Вторая область"; ActivePane = "primary"; NotifySplitChanged(); }
     public void CloseSecondary() { SecondaryView?.Dispose(); SecondaryView = null; SecondaryFavicon = ""; SecondaryUrl = ""; SecondaryTitle = "Вторая область"; ActivePane = "primary"; NotifySplitChanged(); }
-    public TabSessionState ToSession() => new() { Id = Id, Url = FullUrl, Title = Title, FolderId = FolderId, IsPinned = IsPinned, IsInternal = IsInternal, InternalPageKind = InternalPageKind, IsSplit = IsSplit, SecondaryUrl = IsSplit ? SecondaryUrl : "", SecondaryTitle = SecondaryTitle, ActivePane = ActivePane, SplitRatio = SplitRatio };
+    public TabSessionState ToSession() => new() { Id = Id, Url = FullUrl, Title = Title, FolderId = FolderId, IsPinned = IsPinned, IsEssential = IsEssential, ContainerId = ContainerId, IsInternal = IsInternal, InternalPageKind = InternalPageKind, IsSplit = IsSplit, SecondaryUrl = IsSplit ? SecondaryUrl : "", SecondaryTitle = SecondaryTitle, ActivePane = ActivePane, SplitRatio = SplitRatio };
 
-    public static string DomainOf(string url, bool internalPage = false) { if (internalPage || !Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme == "luma") return "Страница Luma"; var host = uri.Host.StartsWith("www.", StringComparison.OrdinalIgnoreCase) ? uri.Host[4..] : uri.Host; return string.IsNullOrWhiteSpace(host) ? "Поиск или введите адрес…" : host; }
+    public static string DomainOf(string url, bool internalPage = false)
+    {
+        if (url.Equals("luma://whiteboard", StringComparison.OrdinalIgnoreCase)) return "Доска";
+        if (internalPage || !Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme == "luma") return "Страница Luma";
+        var host = uri.Host.StartsWith("www.", StringComparison.OrdinalIgnoreCase) ? uri.Host[4..] : uri.Host;
+        return string.IsNullOrWhiteSpace(host) ? "Поиск или введите адрес…" : host;
+    }
     public const string LumaIconUri = "pack://application:,,,/Assets/luma-mark.png";
     public static string FaviconOf(string url, bool internalPage = false)
     {

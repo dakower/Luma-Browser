@@ -1,4 +1,4 @@
-using Luma.Core;
+﻿using Luma.Core;
 using Luma.Services;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
@@ -81,21 +81,29 @@ public partial class MainWindow
             {
                 BeginAnimation(SidebarSlideProperty, null);
                 var settled = _sidebarVisible || _sidebarAutoShown ? SidebarWidth : 0d;
-                SidebarColumn.Width = new GridLength(settled);
-                Sidebar.Opacity = settled > 0 ? 1 : 0;
-                Sidebar.Visibility = settled > 0 ? Visibility.Visible : Visibility.Collapsed;
-                Sidebar.IsHitTestVisible = settled > 0;
+                if (SidebarColumn is not null) SidebarColumn.Width = new GridLength(settled);
+                if (Sidebar is not null)
+                {
+                    Sidebar.Width = settled;
+                    Sidebar.Opacity = settled > 0 ? 1 : 0;
+                    Sidebar.Visibility = settled > 0 ? Visibility.Visible : Visibility.Collapsed;
+                    Sidebar.IsHitTestVisible = settled > 0;
+                }
             };
             BeginAnimation(SidebarSlideProperty, slide);
         }
         else
         {
-            SidebarColumn.Width = new GridLength(target);
-            Sidebar.Opacity = visible ? 1 : 0;
-            Sidebar.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
-            Sidebar.IsHitTestVisible = visible;
+            if (SidebarColumn is not null) SidebarColumn.Width = new GridLength(target);
+            if (Sidebar is not null)
+            {
+                Sidebar.Width = target;
+                Sidebar.Opacity = visible ? 1 : 0;
+                Sidebar.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+                Sidebar.IsHitTestVisible = visible;
+            }
         }
-        EdgeReveal.Visibility = _sidebarVisible || _fullscreen ? Visibility.Collapsed : Visibility.Visible;
+        if (EdgeReveal is not null) EdgeReveal.Visibility = _sidebarVisible || _fullscreen ? Visibility.Collapsed : Visibility.Visible;
     }
 
     /// <summary>Real fullscreen for any site: the titlebar and sidebar fold away and the window
@@ -113,6 +121,7 @@ public partial class MainWindow
             EdgeReveal.Visibility = Visibility.Collapsed;
             TitleBar.Visibility = Visibility.Collapsed;
             RootShell.RowDefinitions[0].Height = new GridLength(0);
+            SiteShell.Margin = new Thickness(0);
             var screen = System.Windows.Forms.Screen.FromHandle(new System.Windows.Interop.WindowInteropHelper(this).Handle);
             var bounds = screen.Bounds;
             var transform = PresentationSource.FromVisual(this)?.CompositionTarget?.TransformFromDevice ?? System.Windows.Media.Matrix.Identity;
@@ -123,16 +132,19 @@ public partial class MainWindow
         }
         else
         {
-            TitleBar.Visibility = Visibility.Visible;
-            RootShell.RowDefinitions[0].Height = new GridLength(52);
+            TitleBar.Visibility = Visibility.Collapsed;
+            RootShell.RowDefinitions[0].Height = new GridLength(0);
+            SiteShell.Margin = new Thickness(0, 5, 5, 5);
             Left = _fsBounds.Left; Top = _fsBounds.Top; Width = _fsBounds.Width; Height = _fsBounds.Height;
             _manualMaximized = _fsWasMaximized;
             SetSidebar(_fsSidebarWasVisible, false, false);
         }
     }
-    private const double SidebarWidth = 270;
+    private double SidebarWidth => IsSidebarVisualExpanded ? 206 : 48;
+    private const double PeekSidebarWidth = 206;
     private bool _peekActive;
     private double _peekHeight, _peekOriginX, _peekOriginY;
+    private void HidePeek() => HidePeek(false);
 
     /// <summary>
     /// The hover reveal used to animate the layout column, which resized the native page window
@@ -153,7 +165,7 @@ public partial class MainWindow
         {
             SidebarColumn.Width = new GridLength(0);
             if (Sidebar.Parent is Grid host) host.Children.Remove(Sidebar);
-            Sidebar.Width = SidebarWidth;
+            Sidebar.Width = PeekSidebarWidth;
             Sidebar.Opacity = 1;
             SidebarPeekHost.Child = Sidebar;
         }
@@ -171,7 +183,7 @@ public partial class MainWindow
         _peekActive = false;
         Sidebar.IsHitTestVisible = false;
         var duration = TimeSpan.FromMilliseconds(animate && _state.AnimationsEnabled ? 210 : 0);
-        var slide = new DoubleAnimation(SidebarPeekSlide.X, -SidebarWidth, duration) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn } };
+        var slide = new DoubleAnimation(SidebarPeekSlide.X, -PeekSidebarWidth, duration) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn } };
         slide.Completed += (_, _) => FinishPeek();
         SidebarPeekSlide.BeginAnimation(TranslateTransform.XProperty, slide);
     }
@@ -211,7 +223,7 @@ public partial class MainWindow
     }
     private void CloseTransientUi() { foreach (var p in Popups()) p.IsOpen = false; _openMenu?.SetCurrentValue(ContextMenu.IsOpenProperty, false); if (_homeSupportOpen) CloseSupportChat(); }
     private void CloseMenusExcept(Popup keep) { foreach (var p in Popups()) if (p != keep) p.IsOpen = false; _openMenu?.SetCurrentValue(ContextMenu.IsOpenProperty, false); }
-    private Popup[] Popups() => [SearchPopup, SiteMenuPopup, TranslatePopup, SplitPopup, DeleteFolderPopup, ConfirmPopup, MainMenuPopup, NewSpacePopup, NewFolderPopup, HistoryPopup, DownloadPopup, ExtensionsPopup, ExtensionPromptPopup];
+    private Popup[] Popups() => [SearchPopup, SiteMenuPopup, TranslatePopup, SplitPopup, DeleteFolderPopup, ConfirmPopup, MainMenuPopup, NewSpacePopup, NewFolderPopup, HistoryPopup, DownloadPopup, ExtensionsPopup, ExtensionPromptPopup, ZenWorkspaceMenuPopup, ZenWorkspaceGridPopup, ZenGlancePopup, ZenCreateNewPopup, UpdateNotificationPopup];
     // Every toast uses the same fixed card width, so they always line up in the same
     // spot at the top-right corner of the page area instead of drifting with their text.
     private const double ToastWidth = 300, ToastMargin = 16;

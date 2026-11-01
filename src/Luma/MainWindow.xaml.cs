@@ -1,4 +1,4 @@
-using Luma.Core;
+﻿﻿﻿﻿using Luma.Core;
 using Luma.Services;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
@@ -62,7 +62,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         public Task? Loading { get; set; }
         public RuntimeSpace(SpaceState state) => State = state;
     }
-    public sealed class SpaceDotView { public int Index { get; init; } public string Name { get; init; } = "Пространство"; public Brush Brush { get; init; } = Brushes.White; public Brush TextBrush { get; init; } = Brushes.White; public Brush OutlineBrush { get; init; } = Brushes.Transparent; public bool IsActive { get; init; } public double Size { get; init; } public string Letter => string.IsNullOrWhiteSpace(Name) ? "?" : Name.Trim().Substring(0, 1).ToUpperInvariant(); }
+    public sealed class SpaceDotView { public int Index { get; init; } public string Name { get; init; } = "РџСЂРѕСЃС‚СЂР°РЅСЃС‚РІРѕ"; public Brush Brush { get; init; } = Brushes.White; public Brush TextBrush { get; init; } = Brushes.White; public Brush OutlineBrush { get; init; } = Brushes.Transparent; public bool IsActive { get; init; } public double Size { get; init; } public string Letter => string.IsNullOrWhiteSpace(Name) ? "?" : Name.Trim().Substring(0, 1).ToUpperInvariant(); }
     private sealed class FolderVisual { public TextBlock Label = null!; public TextBox Editor = null!; public Border Content = null!; public StackPanel Items = null!; public RotateTransform Chevron = null!; public Image FolderIcon = null!; public Image DeleteIcon = null!; public TranslateTransform ItemsTranslate = null!; }
     private sealed class SavedDrag { public SavedSite Site = null!; public FolderState? Source; public bool Loose; }
     private enum SearchPurpose { NewTab, Navigate, Split, Folder, TabSearch }
@@ -160,7 +160,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     // That is why MouseEnter on the edge strip only fired when the cursor happened to sit over
     // WPF chrome, so the reveal worked "every other time". Polling the real cursor position
     // works no matter what is underneath it.
-    private readonly DispatcherTimer _edgeWatch = new() { Interval = TimeSpan.FromMilliseconds(60) };
+    private readonly DispatcherTimer _edgeWatch = new() { Interval = TimeSpan.FromMilliseconds(40) };
     // WebView2 can retain native mouse capture after selecting text. This independent poller
     // observes the physical left-button edge and activates the tab under the cursor by its
     // screen rectangle, so no routed WPF event or WebView focus state can block switching.
@@ -192,26 +192,58 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool SetForegroundWindow(IntPtr hWnd);
 
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool IsChild(IntPtr hWndParent, IntPtr hWnd);
+
+    public bool IsForegroundWindowOrChild()
+    {
+        if (IsActive) return true;
+        var fg = GetForegroundWindow();
+        if (fg == IntPtr.Zero) return false;
+        var helper = new System.Windows.Interop.WindowInteropHelper(this);
+        var myHwnd = helper.Handle;
+        return myHwnd != IntPtr.Zero && (fg == myHwnd || IsChild(myHwnd, fg));
+    }
+
     private void TabInputWatchTick()
     {
         var down = (GetAsyncKeyState(0x01) & 0x8000) != 0;
         var pressedNow = down && !_leftButtonWasDown;
         _leftButtonWasDown = down;
-        if (!pressedNow || !IsLoaded || !IsActive || TabsList.Visibility != Visibility.Visible || !GetCursorPos(out var native)) return;
+        if (!pressedNow || !IsLoaded || !IsForegroundWindowOrChild() || TabsList.Visibility != Visibility.Visible || !GetCursorPos(out var native)) return;
+        // Skip native click override if Alt key (VK_MENU = 0x12) is held so Alt+Click triggers Zen Glance
+        if ((GetAsyncKeyState(0x12) & 0x8000) != 0) return;
         for (var i = 0; i < TabsList.Items.Count; i++)
         {
             if (TabsList.ItemContainerGenerator.ContainerFromIndex(i) is not ListBoxItem row || row.DataContext is not BrowserTab tab || !row.IsVisible) continue;
+            if (tab.IsSplit) continue; // Split View dual-subtab row handles its own sub-tab clicks
             Point topLeft;
             try { topLeft = row.PointToScreen(new Point(0, 0)); }
             catch { continue; }
             var right = topLeft.X + row.ActualWidth;
             var bottom = topLeft.Y + row.ActualHeight;
             if (native.X < topLeft.X || native.X > right || native.Y < topLeft.Y || native.Y > bottom) continue;
+
+            // In collapsed (48px) icon-only mode, there is NEVER a close button!
+            // Any click anywhere on the tab must ALWAYS activate the tab!
+            if (!IsSidebarVisualExpanded)
+            {
+                ReleaseCapture();
+                if (!IsActive) Activate();
+                ActivateTabFromUser(tab);
+                return;
+            }
+
+            // If the tab is showing its audio mute button, let WPF handle the audio button zone (right - 54 to right - 28)
+            if (tab.ShowAudioButton && native.X >= right - 54 && native.X < right - 28) return;
             ReleaseCapture();
             if (!IsActive) Activate();
-            // The final 24 px are the close target. Handle it here too because a captured
-            // WebView may suppress the close button's routed Click exactly like a tab click.
-            if (native.X >= right - 24) _ = CloseTabAfterPointerReleaseAsync(tab, 0x01);
+            // The final 28 px are the close target ONLY when the sidebar is visually expanded!
+            if (native.X >= right - 28) _ = CloseTabAfterPointerReleaseAsync(tab, 0x01);
             else ActivateTabFromUser(tab);
             return;
         }
@@ -219,33 +251,24 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async Task CloseTabAfterPointerReleaseAsync(BrowserTab tab, int virtualKey)
     {
+        if (!IsSidebarVisualExpanded) return;
         // Native fallback sees the press before WPF receives a Click. Wait for the physical
         // button release so removing the row cannot poison capture/selection state.
         for (var attempt = 0; attempt < 100 && (GetAsyncKeyState(virtualKey) & 0x8000) != 0; attempt++)
             await Task.Delay(5);
         await Dispatcher.InvokeAsync(() =>
         {
+            if (!IsSidebarVisualExpanded) return;
             if (_spaces.Any(space => space.Tabs.Contains(tab))) CloseTab(tab);
         }, DispatcherPriority.Input);
     }
 
     private void EdgeWatchTick()
     {
-        if (!IsLoaded || WindowState == WindowState.Minimized) return;
-        if (!GetCursorPos(out var native)) return;
-        Point local;
-        try { local = PointFromScreen(new Point(native.X, native.Y)); }
-        catch { return; }
-        var insideWindow = local.X >= -2 && local.Y >= -2 && local.X <= ActualWidth + 2 && local.Y <= ActualHeight + 2;
-        if (!_sidebarVisible && !_sidebarAutoShown && !_fullscreen && insideWindow && IsActive && local.X <= 8)
-        {
-            SetSidebar(true, true, false, true);
-        }
-        else if (_sidebarAutoShown && (!insideWindow || !IsActive || _fullscreen || local.X > SidebarWidth + 24))
-        {
-            SetSidebar(false, true, false, true);
-        }
-        if (_peekActive) SyncPeekBounds();
+        // Sidebar is permanently stitched into BodyGrid (Grid.Column="0") like Zen Browser normal mode,
+        // never lifted into a floating island Popup.
+        if (_peekActive) HidePeek();
+        CheckSidebarHoverState();
     }
     private Rect _fsBounds = new(0, 0, 1280, 800);
     private Rect _restoreBounds;
@@ -293,11 +316,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
     public event PropertyChangedEventHandler? PropertyChanged;
+    internal static MainWindow? CurrentWindow { get; private set; }
 
     public MainWindow() : this(BrowserServices.CreateDefault()) { }
 
     internal MainWindow(BrowserServices services)
     {
+        CurrentWindow = this;
         ArgumentNullException.ThrowIfNull(services);
         _stateStore = services.StateStore;
         _clock = services.Clock;
@@ -320,9 +345,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         UpdateHomeClock();
         InitializeDashboardStudio();
         InitializeSupportChat();
+        InitializeSuperFeatures();
         SiteShell.SizeChanged += (_, _) =>
         {
             if (ToastPopup.IsOpen) PositionToast();
+            if (UpdateNotificationPopup != null && UpdateNotificationPopup.IsOpen) PositionUpdateNotification();
             if (HistoryPopup.IsOpen) { HistoryOverlay.Width = Math.Max(1, SiteShell.ActualWidth); HistoryOverlay.Height = Math.Max(1, SiteShell.ActualHeight); }
             UpdateResponsiveLayout();
         };
@@ -365,11 +392,22 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _edgeWatch.Tick += (_, _) => EdgeWatchTick(); _edgeWatch.Start();
         _tabInputWatch.Tick += (_, _) => TabInputWatchTick(); _tabInputWatch.Start();
         _sleepWatch.Tick += (_, _) => SleepWatchTick(); _sleepWatch.Start();
-        StartEmptyMotion(); SetSidebar(_state.SidebarVisible, false); RefreshSpaces(); RefreshFolders();
+        StartEmptyMotion();
+        _state.SidebarCompactMode = false;
+        _state.SidebarVisible = true;
+        _isSidebarExpanded = true; // Default pinned open so sidebar stays permanently visible while browsing sites
+        _state.SidebarCollapsedIconsOnly = false;
+        _isSidebarHoverExpanded = false;
+        SetSidebar(true, false);
+        SidebarColumn.Width = new GridLength(206.0);
+        if (Sidebar != null) Sidebar.Width = 206.0;
+        if (Sidebar != null) Sidebar.Width = _isSidebarExpanded ? 206.0 : 48.0;
+        UpdateSidebarExpandedUi();
+        RefreshSpaces(); RefreshFolders();
         await LoadSpaceAsync(_activeSpace);
         if (Tabs.Count == 0) _spaces[_activeSpace].Current = EnsureHomeTab(_spaces[_activeSpace]);
         CurrentTab = _spaces[_activeSpace].Current ?? Tabs.FirstOrDefault() ?? EnsureHomeTab(_spaces[_activeSpace]);
-        FilterTabs(); UpdateChrome(); Save();
+        FilterTabs(); UpdateChrome(); RefreshZenSidebar(); UpdateResponsiveLayout(); Save();
         await ClearForgetDomainsAsync();
         await OfferPendingCrashReportAsync();
         _ = StartUpdateLoopAsync();
@@ -400,9 +438,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             // Publish lightweight rows immediately. Only the selected tab creates a WebView now;
             // the rest are restored on demand, so changing spaces never constructs many Chromium
             // windows on the UI thread at once.
-            var remembered = space.Tabs.FirstOrDefault(tab => tab.Id == space.State.ActiveTabId);
-            var home = EnsureHomeTab(space);
-            space.Current = remembered ?? home;
+            var remembered = space.Tabs.FirstOrDefault(tab => tab.Id == space.State.ActiveTabId)
+                ?? space.Tabs.FirstOrDefault(tab => !tab.IsHome && !tab.IsEssential)
+                ?? space.Tabs.FirstOrDefault();
+            space.Current = remembered ?? EnsureHomeTab(space);
             if (index == _activeSpace) { OnChanged(nameof(Tabs)); FilterTabs(); }
             if (space.Current is not null) await EnsureTabReadyAsync(space.Current);
         }
@@ -415,27 +454,30 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var theme = previewTheme ?? Registry.CurrentUser.OpenSubKey(@"Software\Luma")?.GetValue("Theme") as string ?? "dark";
         var palette = theme switch
         {
-            "dark" => (Accent: "#8B8F99", Shell: "#0C0D0F", Panel: "#141518", Top: "#090A0C", Site: "#101114", Surface: "#1A1B1F", Raised: "#222329", Inset: "#111216", Border: "#2D2F36", Strong: "#41444D", Soft: "#2B2D33", MutedAccent: "#C1C4CC", Muted: "#858891", Secondary: "#D6D8DE"),
-            "blue" => (Accent: "#6687C8", Shell: "#0B1119", Panel: "#111B28", Top: "#090F16", Site: "#0E1621", Surface: "#172334", Raised: "#1D2C40", Inset: "#0B1420", Border: "#2A3C53", Strong: "#405873", Soft: "#243550", MutedAccent: "#AFC3EA", Muted: "#8090A5", Secondary: "#CFD8E6"),
-            "purple" => (Accent: "#756BB7", Shell: "#111016", Panel: "#1A1821", Top: "#0E0D12", Site: "#141219", Surface: "#211E29", Raised: "#292531", Inset: "#17141C", Border: "#37323F", Strong: "#4A4355", Soft: "#302A42", MutedAccent: "#B9B0DE", Muted: "#8D8797", Secondary: "#D7D2DC"),
-            "sand" => (Accent: "#A77C64", Shell: "#151210", Panel: "#201A17", Top: "#110E0C", Site: "#191411", Surface: "#28211D", Raised: "#302722", Inset: "#191411", Border: "#40352F", Strong: "#594940", Soft: "#3A2D27", MutedAccent: "#D8B9A7", Muted: "#A08D82", Secondary: "#E2D7D0"),
-            "mint" => (Accent: "#4F9E94", Shell: "#0C1413", Panel: "#12201E", Top: "#09110F", Site: "#0E1816", Surface: "#172724", Raised: "#1D302C", Inset: "#0C1715", Border: "#29413C", Strong: "#3B5B54", Soft: "#203B36", MutedAccent: "#A9D8D1", Muted: "#7F9E99", Secondary: "#CEE0DD"),
-            "graphite" => (Accent: "#607D8B", Shell: "#121416", Panel: "#1B1E21", Top: "#0F1113", Site: "#16191B", Surface: "#22262A", Raised: "#2A2F34", Inset: "#171A1D", Border: "#363C42", Strong: "#4B545C", Soft: "#29343A", MutedAccent: "#ABC0CA", Muted: "#8D969D", Secondary: "#D2D8DC"),
-            _ => (Accent: "#756BB7", Shell: "#111016", Panel: "#1A1821", Top: "#0E0D12", Site: "#141219", Surface: "#211E29", Raised: "#292531", Inset: "#17141C", Border: "#37323F", Strong: "#4A4355", Soft: "#302A42", MutedAccent: "#B9B0DE", Muted: "#8D8797", Secondary: "#D7D2DC")
+            "dark" => (Accent: "#7C6EE6", Shell: "#0E0F12", Panel: "#141519", Top: "#00000000", Site: "#111215", Surface: "#1A1B20", Raised: "#22242B", Inset: "#111216", Border: "#23252E", Strong: "#353846", Soft: "#2A2740", MutedAccent: "#A59BF0", Muted: "#7A7D87", Secondary: "#C5C8D4"),
+            "graphite" => (Accent: "#8B95A5", Shell: "#101114", Panel: "#16171B", Top: "#00000000", Site: "#121316", Surface: "#1C1E22", Raised: "#24262C", Inset: "#131417", Border: "#252830", Strong: "#383C47", Soft: "#252833", MutedAccent: "#B8C2D1", Muted: "#757985", Secondary: "#C4C8D2"),
+            "purple" => (Accent: "#8A7BF0", Shell: "#100E17", Panel: "#171420", Top: "#00000000", Site: "#13111A", Surface: "#1F1B2A", Raised: "#282336", Inset: "#14121B", Border: "#2D273B", Strong: "#443B59", Soft: "#2D2545", MutedAccent: "#BAAFF7", Muted: "#867D94", Secondary: "#CCC4DC"),
+            "blue" => (Accent: "#5E8FE6", Shell: "#0C1017", Panel: "#121822", Top: "#00000000", Site: "#0F141D", Surface: "#18202D", Raised: "#1F293A", Inset: "#0F141C", Border: "#253144", Strong: "#384964", Soft: "#202D45", MutedAccent: "#9DC0FA", Muted: "#778499", Secondary: "#C2CFE0"),
+            "mint" => (Accent: "#4EAB98", Shell: "#0C1312", Panel: "#12201E", Top: "#00000000", Site: "#0F1715", Surface: "#172422", Raised: "#1F2E2B", Inset: "#0F1816", Border: "#243734", Strong: "#37534E", Soft: "#1D3631", MutedAccent: "#89D1C3", Muted: "#738A85", Secondary: "#BFD3CF"),
+            "sand" => (Accent: "#B88B6E", Shell: "#14110E", Panel: "#1B1713", Top: "#00000000", Site: "#16120F", Surface: "#231D19", Raised: "#2C2520", Inset: "#16120F", Border: "#362D27", Strong: "#50433A", Soft: "#382A22", MutedAccent: "#DEC0AB", Muted: "#948479", Secondary: "#D9CBC1"),
+            _ => (Accent: "#7C6EE6", Shell: "#0E0F12", Panel: "#141519", Top: "#00000000", Site: "#111215", Surface: "#1A1B20", Raised: "#22242B", Inset: "#111216", Border: "#23252E", Strong: "#353846", Soft: "#2A2740", MutedAccent: "#A59BF0", Muted: "#7A7D87", Secondary: "#C5C8D4")
         };
         var color = (Color)ColorConverter.ConvertFromString(palette.Accent);
-        RootShell.Background = Brush(palette.Shell); SiteShell.Background = Brush(palette.Site); EmptyBackground.Background = Brush(palette.Shell);
-        Resources["AccentBrush"] = Brush(palette.Accent); Resources["AccentSoftBrush"] = Brush(palette.Soft); Resources["AccentMutedBrush"] = Brush(palette.MutedAccent);
+        SetZenShift(ZenChromeFor(theme)); ApplyZenChromeResources(); RootShell.Background = Brush("#3D3D42");
+        if (BodyGrid is not null) BodyGrid.Background = Brush("#3D3D42");
+        SiteShell.Background = RawBrush(palette.Site); EmptyBackground.Background = RawBrush(palette.Shell);
+        Resources["ShellBrush"] = RawBrush(palette.Shell);
+        Resources["AccentBrush"] = RawBrush(palette.Accent); Resources["AccentSoftBrush"] = RawBrush(palette.Soft); Resources["AccentMutedBrush"] = RawBrush(palette.MutedAccent);
         var homeGlow = theme switch { "blue" => "#557AAE", "purple" => "#6C61A8", "sand" => "#8B6958", "mint" => "#43837B", "graphite" => "#52636C", "dark" => "#454850", _ => "#6C61A8" };
         var homeGlowSoft = theme switch { "blue" => "#26384E", "purple" => "#39334F", "sand" => "#43342D", "mint" => "#24423D", "graphite" => "#293238", "dark" => "#26282D", _ => "#39334F" };
-        Resources["HomeGlowBrush"] = Brush(homeGlow); Resources["HomeGlowSoftBrush"] = Brush(homeGlowSoft);
-        Resources["SurfaceBrush"] = Brush(palette.Surface); Resources["SurfaceRaisedBrush"] = Brush(palette.Raised); Resources["SurfaceInsetBrush"] = Brush(palette.Inset);
-        Resources["BorderBrush"] = Brush(palette.Border); Resources["BorderStrongBrush"] = Brush(palette.Strong);
-        Resources["PanelBrush"] = Brush(palette.Panel); Resources["TopBrush"] = Brush(palette.Top);
-        Resources["ChromeMuted"] = Brush(palette.Muted); Resources["ChromeIconMuted"] = Brush(palette.Muted); Resources["ChromeSecondary"] = Brush(palette.Secondary);
-        Resources["ActiveTabBrush"] = Brush(palette.Soft); Resources["ActiveTabText"] = Brushes.White;
-        SidebarNeon.Fill = Brush(palette.Accent);
-        HistoryCard.Background = Brush(palette.Surface); HistoryCard.BorderBrush = Brush(palette.Border);
+        Resources["HomeGlowBrush"] = RawBrush(homeGlow); Resources["HomeGlowSoftBrush"] = RawBrush(homeGlowSoft);
+        Resources["SurfaceBrush"] = RawBrush(palette.Surface); Resources["SurfaceRaisedBrush"] = RawBrush(palette.Raised); Resources["SurfaceInsetBrush"] = RawBrush(palette.Inset);
+        Resources["BorderBrush"] = RawBrush(palette.Border); Resources["BorderStrongBrush"] = RawBrush(palette.Strong);
+        Resources["PanelBrush"] = RawBrush(palette.Panel); Resources["TopBrush"] = RawBrush(palette.Top);
+        Resources["ChromeMuted"] = RawBrush(palette.Muted); Resources["ChromeIconMuted"] = RawBrush(palette.Muted); Resources["ChromeSecondary"] = RawBrush(palette.Secondary);
+        Resources["ActiveTabBrush"] = new SolidColorBrush(Color.FromArgb(0x22, 0xFF, 0xFF, 0xFF)); Resources["ActiveTabText"] = Brushes.White;
+        SidebarNeon.Fill = RawBrush(palette.Accent);
+        HistoryCard.Background = RawBrush(palette.Surface); HistoryCard.BorderBrush = RawBrush(palette.Border);
         foreach (var tab in _spaces.SelectMany(space => space.Tabs))
         {
             if (tab.View.CoreWebView2 is not null) _ = Script(tab.View, BrowserScripts.SetScrollbarAccent(palette.Accent));
@@ -444,7 +486,32 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (_assistantView?.CoreWebView2 is not null)
         {
             _ = Script(_assistantView, BrowserScripts.SetScrollbarAccent(palette.Accent));
-            PostAssistant(new { kind = "theme", palette = new { bg = palette.Shell, panel = palette.Panel, surface = palette.Surface, raised = palette.Raised, inset = palette.Inset, border = palette.Border, strong = palette.Strong, accent = palette.Accent, soft = palette.Soft, mutedAccent = palette.MutedAccent, muted = palette.Muted, secondary = palette.Secondary } });
+            var zenBg = ZenColor("#38383D");
+            var zenPanel = ZenColor("#3D3D42");
+            var zenRaised = ZenColor("#4B4B50");
+            var zenInset = ZenColor("#2C2C32");
+            var zenBorder = ZenColor("#505056");
+            var zenStrong = ZenColor("#5E5E64");
+            static string Hex(Color c) => $"#{c.R:X2}{c.G:X2}{c.B:X2}";
+            PostAssistant(new
+            {
+                kind = "theme",
+                palette = new
+                {
+                    bg = Hex(zenBg),
+                    panel = Hex(zenPanel),
+                    surface = Hex(zenPanel),
+                    raised = Hex(zenRaised),
+                    inset = Hex(zenInset),
+                    border = Hex(zenBorder),
+                    strong = Hex(zenStrong),
+                    accent = palette.Accent,
+                    soft = palette.Soft,
+                    mutedAccent = palette.MutedAccent,
+                    muted = "#A8A8B0",
+                    secondary = "#D4D4DC"
+                }
+            });
         }
         _floatingMusic?.SyncTheme(this);
         _floatingVideo?.SyncTheme(this);
@@ -463,13 +530,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (_previewTheme is null) return;
         _previewTheme = null; _previewThemeTab = null; ApplyTheme();
     }
-    private static SolidColorBrush Brush(string color) => new((Color)ColorConverter.ConvertFromString(color));
+    private static SolidColorBrush Brush(string color)
+    {
+        var parsed = (Color)ColorConverter.ConvertFromString(color);
+        return new SolidColorBrush(parsed.A == 255 ? ZenShift(parsed) : parsed);
+    }
+    private static SolidColorBrush RawBrush(string color) => new((Color)ColorConverter.ConvertFromString(color));
 
     private void UpdateHomeClock()
     {
         if (HomeClockText is null || HomeDateText is null) return;
         var now = DateTime.Now;
-        HomeClockText.Text = now.ToString("HH:mm");
+        HomeClockText.Text = FormatHomeClock(now);
         var culture = _state.Language switch
         {
             "ru" => new System.Globalization.CultureInfo("ru-RU"),
@@ -482,4 +554,51 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         HomeDateText.Text = dateFormatted;
     }
 
+    internal async Task<string?> RecognizeHandwritingViaLumaAiAsync(string base64Png)
+    {
+        try
+        {
+            var token = await _auth.GetAccessTokenAsync(CancellationToken.None);
+            if (string.IsNullOrWhiteSpace(token)) return null;
+
+            const string prompt = """
+РўРё вЂ” РІРёСЃРѕРєРѕС‚РѕС‡РЅРёР№ РјРѕРґСѓР»СЊ СЂРѕР·РїС–Р·РЅР°РІР°РЅРЅСЏ СЂСѓРєРѕРїРёСЃРЅРѕРіРѕ С‚РµРєСЃС‚Сѓ (OCR) РґР»СЏ С–РЅС‚РµСЂР°РєС‚РёРІРЅРѕС— С€РєС–Р»СЊРЅРѕС— РґРѕС€РєРё.
+РќР° Р·РѕР±СЂажеРЅРЅС– РІС–Рґ СЂСѓРєРё РЅР°РїРёСЃР°РЅРѕ С‚РµРєСЃС‚ (СѓРєСЂР°С—РЅСЃСЊРєРѕСЋ, Р°РЅРіР»С–Р№СЃСЊРєРѕСЋ, С†РёС„СЂРё, Р·РЅР°РєРё абРѕ С„РѕСЂРјСѓР»Рё).
+РўРІРѕС” заРІРґР°РЅРЅСЏ вЂ” РўРћР§РќРћ РїСЂРѕС‡РёС‚Р°С‚Рё РЅР°РїРёСЃР°РЅРµ РІС–Рґ СЂСѓРєРё.
+РџРѕРІРµСЂРЅРё Р’РРљР›ЮЧРќРћ СЂРѕР·РїС–Р·РЅР°РЅРёР№ С‚РµРєСЃС‚ без лаРїРѕРє, РїСЂРёРІС–С‚Р°РЅСЊ С‚Р° заР№РІРёС… РїРѕСЏСЃРЅРµРЅСЊ.
+""";
+            var request = new List<AssistantMessage>
+            {
+                new() { Role = "system", Text = prompt },
+                new()
+                {
+                    Role = "user",
+                    Text = "Р РѕР·РїС–Р·РЅР°Р№ СЂСѓРєРѕРїРёСЃРЅРёР№ С‚РµРєСЃС‚ РЅР° Р·РѕР±СЂажеРЅРЅС– С‚Р° РїРѕРІРµСЂРЅРё С‚С–Р»СЊРєРё СЂРѕР·РїС–Р·РЅР°РЅС– СЃРёРјРІРѕР»Рё абРѕ СЃР»РѕРІР°.",
+                    Images = [new AssistantImage { Base64 = base64Png, MimeType = "image/png", Name = "ink.png" }]
+                }
+            };
+
+            var sb = new StringBuilder();
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            await AssistantClient.StreamAsync(token, "fast", request, delta =>
+            {
+                sb.Append(delta);
+                return Task.CompletedTask;
+            }, cts.Token);
+
+            var raw = sb.ToString().Trim();
+            if (raw.StartsWith("```"))
+            {
+                var lines = raw.Split('\n');
+                raw = string.Join('\n', lines.Where(l => !l.Trim().StartsWith("```"))).Trim();
+            }
+            raw = raw.Trim('\"', '\'', '\u00AB', '\u00BB', '`', ' ');
+            return string.IsNullOrWhiteSpace(raw) ? null : raw;
+        }
+        catch (Exception ex)
+        {
+            App.Log(ex);
+            return null;
+        }
+    }
 }

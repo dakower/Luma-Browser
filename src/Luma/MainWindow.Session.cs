@@ -1,4 +1,4 @@
-using Luma.Core;
+﻿﻿using Luma.Core;
 using Luma.Services;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
@@ -109,9 +109,15 @@ public partial class MainWindow
         try
         {
             if (tab.View.CoreWebView2 is { } core)
+            {
                 core.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Normal;
+                _ = TryInjectLumaSkipAsync(core, tab);
+            }
             if (tab.SecondaryView?.CoreWebView2 is { } secCore)
+            {
                 secCore.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Normal;
+                _ = TryInjectLumaSkipAsync(secCore, tab);
+            }
         }
         catch (Exception ex) { App.Log(ex); }
 
@@ -317,27 +323,88 @@ public partial class MainWindow
     }
     private void ClearTabs()
     {
-        var targets = Tabs.Where(t => string.IsNullOrEmpty(t.FolderId)).ToList();
+        var targets = Tabs.Where(t => string.IsNullOrEmpty(t.FolderId) && !t.IsPinned && !t.IsEssential).ToList();
         if (targets.Count == 0) { ShowToast("Нет временных вкладок"); return; }
-        if (_state.ConfirmManyTabs && targets.Count > 1) { Confirm("Закрыть временные вкладки?", $"Будет закрыто вкладок: {targets.Count}. Папки и закреплённые сайты сохранятся.", ClearTabsCore); return; }
+        if (_state.ConfirmManyTabs && targets.Count > 1) { Confirm("Закрыть временные вкладки?", $"Будет закрыто вкладок: {targets.Count}. Закреплённые сайты и Essentials сохранятся.", ClearTabsCore); return; }
         ClearTabsCore();
     }
     private void ClearTabsCore()
     {
-        foreach (var tab in Tabs.Where(t => string.IsNullOrEmpty(t.FolderId)).ToList()) CloseTab(tab);
-        FilterTabs(); ShowToast("Вкладки очищены", "Папки сохранены");
+        foreach (var tab in Tabs.Where(t => string.IsNullOrEmpty(t.FolderId) && !t.IsPinned && !t.IsEssential).ToList()) CloseTab(tab);
+        FilterTabs(); ShowToast("Вкладки очищены", "Закреплённые вкладки сохранены");
     }
 
     private void ShowTabMenu(BrowserTab tab)
     {
         var menu = NewMenu();
-        Add(menu, "Закрепить", () => PinTab(tab));
-        Add(menu, "Удалить", () => { CloseTab(tab); FilterTabs(); });
+        Add(menu, "Закрепить вкладку", () => PinTab(tab), !tab.IsHome);
+        Add(menu, "Добавить в Global Essentials", () => PinToEssentials(tab), !tab.IsHome);
+        Add(menu, "Закрепить на главной странице", () => PinTabToHomePage(tab), !tab.IsHome);
+        Add(menu, "Предпросмотр Luma Glance", async () => await OpenZenGlanceAsync(tab), true, "Alt+Click");
+        Add(menu, "Режим чтения", async () =>
+        {
+            if (!ReferenceEquals(CurrentTab, tab)) ActivateTabFromUser(tab);
+            if (tab.ActiveView is { } v) await ToggleReaderAsync(v);
+        }, !tab.IsHome, "F9", "IconBookOpen");
+        Add(menu, "⚡ Краткий пересказ (AI)", () =>
+        {
+            if (!ReferenceEquals(CurrentTab, tab)) ActivateTabFromUser(tab);
+            _ = SummarizeCurrentPageAsync(false);
+        }, !tab.IsHome, "Alt+S", "IconSpark");
+        Add(menu, "📖 Подробный пересказ (AI)", () =>
+        {
+            if (!ReferenceEquals(CurrentTab, tab)) ActivateTabFromUser(tab);
+            _ = SummarizeCurrentPageAsync(true);
+        }, !tab.IsHome, "", "IconBookOpen");
+        Sep(menu);
+        if (tab.IsSplit)
+        {
+            Add(menu, "Разделить Split View", async () => await UnsplitTabToSeparateTabAsync(tab), true, "Ctrl+Alt+V");
+        }
+        else
+        {
+            Add(menu, "Открыть в Split View", () =>
+            {
+                if (!ReferenceEquals(CurrentTab, tab)) ActivateTabFromUser(tab);
+                SplitView_Click(this, new RoutedEventArgs());
+            }, !tab.IsHome, "Ctrl+Alt+V");
+        }
+        Add(menu, tab.IsMuted ? "Включить звук вкладки" : "Выключить звук вкладки", () => ToggleTabMute(tab));
+        Add(menu, "Усиление звука (Boost до 300%)", () => ShowTabVolumeMenu(tab), !tab.IsHome);
+        Add(menu, "Дублировать вкладку", async () => await AddTabAsync(tab.ActiveUrl, activate: true, containerId: tab.ContainerId), !tab.IsHome);
+        Sep(menu);
+        Add(menu, "Сделать скриншот страницы", async () => await CaptureFullPageScreenshotAsync(), !tab.IsHome, "Ctrl+Shift+S");
+        Add(menu, "Восстановить черновик текста", async () => await RestoreFormDraftAsync(), !tab.IsHome);
+        Sep(menu);
+        Add(menu, "Закрыть дубликаты вкладок", () => CloseDuplicateTabs());
+        Add(menu, "Сгруппировать вкладки по сайтам", () => GroupTabsByDomain());
+        Sep(menu);
+        foreach (var jar in ZenContainers.All.Where(c => c.Id != "default"))
+        {
+            var jarId = jar.Id;
+            var jarName = jar.Name;
+            Add(menu, $"Открыть в контейнере: {jarName}", async () =>
+            {
+                await AddTabAsync(tab.ActiveUrl, activate: true, containerId: jarId);
+                ShowToast($"Контейнер {jarName}", "Вкладка открыта в изолированном Cookie-профиле");
+            }, !tab.IsHome && !string.Equals(tab.ContainerId, jarId, StringComparison.OrdinalIgnoreCase));
+        }
+        if (_spaces.Count > 1)
+        {
+            Sep(menu);
+            for (int i = 0; i < _spaces.Count; i++)
+            {
+                if (i == _activeSpace) continue;
+                int targetSpace = i;
+                var spaceName = _spaces[i].State.Name;
+                Add(menu, $"Переместить в «{spaceName}»", async () => await MoveTabToWorkspaceAsync(tab, targetSpace));
+            }
+        }
+        Sep(menu);
+        Add(menu, "Закрыть вкладку", () => { CloseTab(tab); FilterTabs(); }, true, "Ctrl+W");
         OpenMenu(menu);
     }
 
-    /// <summary>Moves a live tab into the sidebar PINNED section for good: it leaves the TABS
-    /// list, keeps running, and comes back only when the user unpins it.</summary>
     private void PinTab(BrowserTab tab)
     {
         var space = _spaces[_activeSpace];

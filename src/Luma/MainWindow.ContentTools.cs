@@ -197,10 +197,32 @@ public partial class MainWindow
         NowPlayingDur.Text = tab.MediaDurationText;
         if (!_seekDragging) { SeekFill.Width = Math.Clamp(tab.MediaProgress, 0, 1) * Math.Max(1, SeekTrack.ActualWidth); PositionThumb(SeekThumb, SeekFill.Width); }
         if (!_volumeDragging) { VolumeFill.Width = Math.Clamp(tab.MediaVolume, 0, 1) * Math.Max(1, VolumeTrack.ActualWidth); PositionThumb(VolumeThumb, VolumeFill.Width); }
-        var playIcon = tab.MediaPlaying ? "IconPause" : "IconPlay";
+        var isPlaying = tab.MediaPlaying;
+        var playIcon = isPlaying ? "IconPause" : "IconPlay";
         var geometry = (Geometry)FindResource(playIcon);
         NowPlayingToggleIcon.Data = geometry;
         NowPlayingToggleIconPopup.Data = geometry;
+        var zenTextBrush = (Brush)FindResource("ZenTextBrush");
+        if (isPlaying)
+        {
+            NowPlayingToggleIcon.Fill = Brushes.Transparent;
+            NowPlayingToggleIcon.Stroke = Brushes.White;
+            NowPlayingToggleIcon.StrokeThickness = 2.0;
+
+            NowPlayingToggleIconPopup.Fill = Brushes.Transparent;
+            NowPlayingToggleIconPopup.Stroke = Brushes.White;
+            NowPlayingToggleIconPopup.StrokeThickness = 2.2;
+        }
+        else
+        {
+            NowPlayingToggleIcon.Fill = Brushes.White;
+            NowPlayingToggleIcon.Stroke = Brushes.White;
+            NowPlayingToggleIcon.StrokeThickness = 1.0;
+
+            NowPlayingToggleIconPopup.Fill = Brushes.White;
+            NowPlayingToggleIconPopup.Stroke = Brushes.White;
+            NowPlayingToggleIconPopup.StrokeThickness = 1.0;
+        }
         try
         {
             if (NowPlayingPillProgress is not null && NowPlayingWidget is not null)
@@ -224,6 +246,18 @@ public partial class MainWindow
             HomeMediaTitle.Text = displayTitle;
             HomeMediaArtist.Text = string.IsNullOrWhiteSpace(tab.MediaArtist) ? tab.Domain : tab.MediaArtist;
             HomeMediaToggleIcon.Data = geometry;
+            if (isPlaying)
+            {
+                HomeMediaToggleIcon.Fill = Brushes.Transparent;
+                HomeMediaToggleIcon.Stroke = zenTextBrush;
+                HomeMediaToggleIcon.StrokeThickness = 2.4;
+            }
+            else
+            {
+                HomeMediaToggleIcon.Fill = zenTextBrush;
+                HomeMediaToggleIcon.Stroke = zenTextBrush;
+                HomeMediaToggleIcon.StrokeThickness = 1.0;
+            }
             if (hasArt && NowPlayingArt.Source is not null)
             {
                 HomeMediaArt.Source = NowPlayingArt.Source;
@@ -385,6 +419,10 @@ public partial class MainWindow
         {
             Add(menu, "Копировать выделенное", async () => { var json = await Script(view, "String(getSelection())"); Copy(JsonSerializer.Deserialize<string>(json) ?? "", "Текст скопирован"); }, true, "", "IconCopy");
             Sep(menu);
+            Add(menu, "⚡ Краткий пересказ выделенного (AI)", () => _ = SummarizeCurrentPageAsync(false), true, "Alt+S", "IconSpark");
+            Add(menu, "📖 Подробный пересказ выделенного (AI)", () => _ = SummarizeCurrentPageAsync(true), true, "", "IconBookOpen");
+            Add(menu, "Режим чтения", async () => await ToggleReaderAsync(view), true, "F9", "IconBookOpen");
+            Sep(menu);
             Add(menu, "Спросить Luma о фрагменте", async () => await AskLumaAsync("Что значит выделенный фрагмент?"), true, "", "IconSpark");
             Add(menu, "Объяснить проще", async () => await AskLumaAsync("Объясни выделенный фрагмент простыми словами."), true, "", "IconCircleHelp");
             var targetLangName = _state.Language switch { "uk" => "українську", "en" => "English", _ => "русский" };
@@ -422,10 +460,10 @@ public partial class MainWindow
             Add(menu, "Трансляция…", () => ShowToast("Трансляция", "Зависит от поддержки устройства"), true, "", "IconCast");
             var transLabel = _state.Language switch { "uk" => "Перекласти сторінку", "en" => "Translate page", _ => "Перевести страницу" };
             Add(menu, transLabel, async () => await ApplyTranslationAsync(view, true), true, "", "IconGlobe");
-            Add(menu, "Режим чтения", async () => await ToggleReaderAsync(view), true, "Ctrl+Shift+R", "IconBookOpen");
+            Add(menu, "Режим чтения", async () => await ToggleReaderAsync(view), true, "F9", "IconBookOpen");
+            Add(menu, "⚡ Краткий пересказ страницы (AI)", () => _ = SummarizeCurrentPageAsync(false), true, "Alt+S", "IconSpark");
+            Add(menu, "📖 Подробный пересказ страницы (AI)", () => _ = SummarizeCurrentPageAsync(true), true, "", "IconBookOpen");
             Add(menu, _state.ForceDarkDomains.Contains(DomainKey(view.Source?.ToString() ?? "")) ? "Выключить тёмный режим сайта" : "Включить тёмный режим сайта", async () => await ToggleSiteDarkAsync(view), !tab.IsInternal, "", "IconMoon");
-            Sep(menu);
-            Add(menu, "Кратко о странице", async () => await AskLumaAsync("Кратко о странице: главные тезисы списком."), true, "Ctrl+Shift+S", "IconFileText");
             Add(menu, "Забыть этот сайт", async () => await ForgetSiteAsync(view), !tab.IsInternal, "", "IconTrash2");
             Add(menu, "Забывать при выходе", () => ToggleForgetOnExit(view), !tab.IsInternal, "", "IconLogOut");
             Sep(menu);

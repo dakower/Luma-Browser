@@ -79,7 +79,7 @@ public sealed class BackgroundUpdateService : IUpdateService
     public BackgroundUpdateService(UpdateOptions options)
     {
         _options = options;
-        _http.DefaultRequestHeaders.UserAgent.ParseAdd("Luma-Browser/2.1.5");
+        _http.DefaultRequestHeaders.UserAgent.ParseAdd("Luma-Browser/2.1.6");
     }
 
     public bool IsConfigured => _options.IsConfigured;
@@ -157,6 +157,15 @@ public sealed class BackgroundUpdateService : IUpdateService
             return new(UpdateCheckStatus.Downloaded, "Обновление загружено и проверено.", finalPath, manifest);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (HttpRequestException ex)
+        {
+            // Network or DNS failure (e.g. offline / server down) is normal, don't pollute crash.log
+            return new(UpdateCheckStatus.Failed, "Сеть недоступна: " + ex.Message);
+        }
+        catch (System.Net.Sockets.SocketException ex)
+        {
+            return new(UpdateCheckStatus.Failed, "Ошибка подключения: " + ex.Message);
+        }
         catch (Exception ex)
         {
             App.Log(ex);

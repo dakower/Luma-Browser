@@ -88,6 +88,7 @@ public partial class MainWindow
             }
             UpdateAccountMenu();
             UpdateChrome();
+            UpdateMainMenuLanguage();
             if (MenuVersionText is not null) MenuVersionText.Text = L("Версия ", "Version ", "Версія ") + AppVersion;
             await webLocalization;
         }
@@ -126,10 +127,56 @@ public partial class MainWindow
         if (tasks.Count > 0) await Task.WhenAll(tasks);
     }
 
+    private void UpdateMainMenuLanguage()
+    {
+        if (MenuSyncTitle is null) return;
+        var user = _auth?.CurrentUser;
+        MenuSyncTitle.Text = L("Синхронизация и данные", "Sync and Save Data", "Синхронізація та дані");
+        if (MenuSignInText is not null) MenuSignInText.Text = user is not null ? L("Аккаунт", "Account", "Акаунт") : L("Войти", "Sign In", "Увійти");
+        if (MenuNewTabTitle is not null) MenuNewTabTitle.Text = L("Новая вкладка", "New Tab", "Нова вкладка");
+        if (MenuNewWindowTitle is not null) MenuNewWindowTitle.Text = L("Новое окно", "New Window", "Нове вікно");
+        if (MenuNewEmptyWindowTitle is not null) MenuNewEmptyWindowTitle.Text = L("Новое пустое окно", "New Window (empty)", "Нове порожнє вікно");
+        if (MenuNewPrivateWindowTitle is not null) MenuNewPrivateWindowTitle.Text = L("Приватное окно", "New Private Window", "Приватне вікно");
+        if (MenuHistoryTitle is not null) MenuHistoryTitle.Text = L("История", "History", "Історія");
+        if (MenuBookmarksTitle is not null) MenuBookmarksTitle.Text = L("Закладки", "Bookmarks", "Закладки");
+        if (MenuDownloadsTitle is not null) MenuDownloadsTitle.Text = L("Загрузки", "Downloads", "Завантаження");
+        if (MenuPasswordsTitle is not null) MenuPasswordsTitle.Text = L("Пароли", "Passwords", "Паролі");
+        if (MenuExtensionsTitle is not null) MenuExtensionsTitle.Text = L("Расширения и темы", "Extensions and Themes", "Розширення та теми");
+        if (MenuPrintTitle is not null) MenuPrintTitle.Text = L("Печать…", "Print…", "Друк…");
+        if (MenuSavePageTitle is not null) MenuSavePageTitle.Text = L("Сохранить как…", "Save Page As…", "Зберегти як…");
+        if (MenuTranslateTitle is not null) MenuTranslateTitle.Text = L("Перевести страницу…", "Translate Page…", "Перекласти сторінку…");
+        if (MenuFindTitle is not null) MenuFindTitle.Text = L("Найти на странице…", "Find in Page…", "Знайти на сторінці…");
+        if (MenuZoomTitle is not null) MenuZoomTitle.Text = L("Масштаб", "Zoom", "Масштаб");
+        if (MenuSettingsTitle is not null) MenuSettingsTitle.Text = L("Настройки", "Settings", "Налаштування");
+        if (MenuMoreToolsTitle is not null) MenuMoreToolsTitle.Text = L("Другие инструменты", "More Tools", "Інші інструменти");
+        if (MenuHelpTitle is not null) MenuHelpTitle.Text = L("Справка и отзывы", "Help and Report", "Довідка та відгуки");
+        if (MenuExitTitle is not null) MenuExitTitle.Text = L("Выход", "Exit", "Вихід");
+    }
+
     private static readonly HashSet<string> DynamicElementNames = new(StringComparer.OrdinalIgnoreCase)
     {
         "DomainText",
         "MenuVersionText",
+        "MenuSyncTitle",
+        "MenuSignInText",
+        "MenuNewTabTitle",
+        "MenuNewWindowTitle",
+        "MenuNewEmptyWindowTitle",
+        "MenuNewPrivateWindowTitle",
+        "MenuHistoryTitle",
+        "MenuBookmarksTitle",
+        "MenuDownloadsTitle",
+        "MenuPasswordsTitle",
+        "MenuExtensionsTitle",
+        "MenuPrintTitle",
+        "MenuSavePageTitle",
+        "MenuTranslateTitle",
+        "MenuFindTitle",
+        "MenuZoomTitle",
+        "MenuSettingsTitle",
+        "MenuMoreToolsTitle",
+        "MenuHelpTitle",
+        "MenuExitTitle",
         "AccountMenuText",
         "AccountMenuStatus",
         "AccountMenuAvatar",

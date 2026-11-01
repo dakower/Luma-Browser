@@ -65,10 +65,28 @@ public sealed class LumaState
     public bool HomeShowRecent { get; set; } = true;
     public string? HomeWallpaperPath { get; set; }
     public double HomeWallpaperDim { get; set; } = 0.35;
+    /// <summary>Start page constructor: widgets, their order/size and the global look, serialised as JSON.</summary>
+    public string HomeLayoutJson { get; set; } = "";
     public string? SupportGuestId { get; set; }
     public string? SupportThreadId { get; set; }
 
-    public List<SpaceState> Spaces { get; set; } = [new SpaceState()];
+    public bool SidebarCompactMode { get; set; }
+    public bool SidebarCollapsedIconsOnly { get; set; }
+    public bool ZenLibraryMediaEnabled { get; set; }
+    public List<EssentialItemState> Essentials { get; set; } = DefaultEssentials();
+    public List<SpaceState> Spaces { get; set; } = DefaultSpaces();
+
+    public static List<SpaceState> DefaultSpaces() =>
+    [
+        new SpaceState { Name = "Работа работенка", Icon = "briefcase", Accent = "#3D3D42", GradientEnd = "#3D3D42" },
+        new SpaceState { Name = "Личное", Icon = "dot", Accent = "#3D3D42", GradientEnd = "#3D3D42" }
+    ];
+
+    public static List<EssentialItemState> DefaultEssentials() =>
+    [
+        new EssentialItemState { Id = "ess_discord", Title = "Discord", Url = "https://discord.com/app", CustomIconKey = "IconDiscord", AccentColor = "#5865F2" },
+        new EssentialItemState { Id = "ess_google", Title = "Google", Url = "https://www.google.com", CustomIconKey = "IconGoogle", AccentColor = "#FFFFFF" }
+    ];
     public static string DirectoryPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Luma");
     public static string FilePath => Path.Combine(DirectoryPath, "state.json");
     /// <summary>Language chosen in the installer (HKCU\Software\Luma\Language). English when the user never changed it.</summary>
@@ -155,8 +173,35 @@ public sealed class LumaState
             state.AssistantConversations = state.AssistantConversations
                 .Where(item => !string.IsNullOrWhiteSpace(item.Id) && !string.IsNullOrWhiteSpace(item.Title))
                 .OrderByDescending(item => item.UpdatedAt).Take(20).ToList();
-            foreach (var space in state.Spaces) { space.Folders ??= []; space.LooseItems ??= []; space.SessionTabs ??= []; }
-            if (state.Spaces.Count == 0) state.Spaces.Add(new SpaceState());
+            state.Essentials ??= DefaultEssentials();
+            if (state.Spaces.Count == 0) state.Spaces = DefaultSpaces();
+            state.SidebarVisible = true;
+            state.SidebarCompactMode = false;
+            if (state.SchemaVersion < 17)
+            {
+                if (state.Spaces.Count > 0 && (state.Spaces[0].Name is "Личное" or "Главное" or "Основное" || state.Spaces[0].Icon == "🏠"))
+                {
+                    state.Spaces[0].Name = "Работа работенка";
+                    state.Spaces[0].Icon = "briefcase";
+                    state.Spaces[0].Accent = "#3D3D42";
+                    state.Spaces[0].GradientEnd = "#3D3D42";
+                }
+                if (state.Spaces.Count == 1)
+                {
+                    state.Spaces.Add(new SpaceState { Name = "Личное", Icon = "dot", Accent = "#3D3D42", GradientEnd = "#3D3D42" });
+                }
+                state.SchemaVersion = 17;
+            }
+            foreach (var space in state.Spaces)
+            {
+                space.Folders ??= [];
+                space.LooseItems ??= [];
+                space.SessionTabs ??= [];
+                if (string.IsNullOrWhiteSpace(space.Icon)) space.Icon = "dot";
+                if (string.IsNullOrWhiteSpace(space.Accent) || space.Accent == "#202020") space.Accent = "#3D3D42";
+                if (string.IsNullOrWhiteSpace(space.GradientEnd) || space.GradientEnd == "#202020") space.GradientEnd = "#3D3D42";
+                if (string.IsNullOrWhiteSpace(space.ContainerId)) space.ContainerId = "default";
+            }
             state.Save(); return state;
         }
         catch
@@ -175,7 +220,7 @@ public sealed class LumaState
         {
             try
             {
-                SchemaVersion = 15;
+                SchemaVersion = 17;
                 Directory.CreateDirectory(DirectoryPath);
                 var temp = FilePath + ".tmp";
                 File.WriteAllText(temp, JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
@@ -190,18 +235,91 @@ public sealed class LumaState
     }
 }
 
+public sealed class EssentialItemState
+{
+    private string? _faviconUrl;
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string Title { get; set; } = "Сайт";
+    public string Url { get; set; } = "";
+    public string CustomIconKey { get; set; } = "";
+    public string AccentColor { get; set; } = "#222225";
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string? TabId { get; set; }
+    public string FaviconUrl
+    {
+        get => !string.IsNullOrWhiteSpace(_faviconUrl) ? _faviconUrl : BrowserTab.FaviconOf(Url);
+        set => _faviconUrl = value;
+    }
+}
+
+public static class ZenContainers
+{
+    public sealed record ContainerDef(string Id, string Name, string Color, string Icon)
+    {
+        public string ColorHex => Color;
+    }
+
+    public static readonly IReadOnlyList<ContainerDef> All =
+    [
+        new("default", "Без контейнера", "#8E8E93", "🌐"),
+        new("personal", "Личное (Personal)", "#3B82F6", "🏠"),
+        new("work", "Работа (Work)", "#F59E0B", "💼"),
+        new("banking", "Финансы (Banking)", "#10B981", "🏦"),
+        new("shopping", "Покупки (Shopping)", "#EC4899", "🛒"),
+        new("dev", "Разработка (Dev)", "#8B5CF6", "⚡")
+    ];
+
+    public static ContainerDef Get(string? id)
+    {
+        if (string.IsNullOrWhiteSpace(id)) return All[0];
+        return All.FirstOrDefault(c => c.Id.Equals(id, StringComparison.OrdinalIgnoreCase)) ?? All[0];
+    }
+
+    public static string GetColor(string? id) => Get(id).Color;
+    public static string GetName(string? id) => Get(id).Name;
+    public static string GetIcon(string? id) => Get(id).Icon;
+
+    public static string? NormalizeProfileName(string? id)
+    {
+        if (string.IsNullOrWhiteSpace(id) || id.Equals("default", StringComparison.OrdinalIgnoreCase))
+            return null;
+        var clean = new string(id.Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
+        return string.IsNullOrEmpty(clean) ? null : $"luma_jar_{clean}";
+    }
+}
+
 public sealed class SpaceState
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
-    public string Name { get; set; } = "Личное";
-    public string Accent { get; set; } = "#7C5CE4";
+    public string Name { get; set; } = "Работа работенка";
+    public string Icon { get; set; } = "briefcase";
+    public string Accent { get; set; } = "#3D3D42";
+    public string GradientEnd { get; set; } = "#3D3D42";
+    public string ContainerId { get; set; } = "default";
     public string ActiveTabId { get; set; } = "";
     public List<string> OpenUrls { get; set; } = [];
     public List<TabSessionState> SessionTabs { get; set; } = [];
     public List<FolderState> Folders { get; set; } = [];
     public List<SavedSite> LooseItems { get; set; } = [];
 }
-public sealed class TabSessionState { public string Id { get; set; } = Guid.NewGuid().ToString("N"); public string Url { get; set; } = ""; public string Title { get; set; } = ""; public string? FolderId { get; set; } public bool IsPinned { get; set; } public bool IsInternal { get; set; } public string InternalPageKind { get; set; } = ""; public bool IsSplit { get; set; } public string SecondaryUrl { get; set; } = ""; public string SecondaryTitle { get; set; } = ""; public string ActivePane { get; set; } = "primary"; public double SplitRatio { get; set; } = .5; }
+
+public sealed class TabSessionState
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string Url { get; set; } = "";
+    public string Title { get; set; } = "";
+    public string? FolderId { get; set; }
+    public bool IsPinned { get; set; }
+    public bool IsEssential { get; set; }
+    public string ContainerId { get; set; } = "default";
+    public bool IsInternal { get; set; }
+    public string InternalPageKind { get; set; } = "";
+    public bool IsSplit { get; set; }
+    public string SecondaryUrl { get; set; } = "";
+    public string SecondaryTitle { get; set; } = "";
+    public string ActivePane { get; set; } = "primary";
+    public double SplitRatio { get; set; } = .5;
+}
 public sealed class FolderState { public string Id { get; set; } = Guid.NewGuid().ToString("N"); public string Name { get; set; } = "Новая папка"; public bool Expanded { get; set; } public List<SavedSite> Items { get; set; } = []; }
 public sealed class SavedSite {
     /// <summary>Runtime id of the live tab this pinned item owns (not persisted across restarts).</summary>

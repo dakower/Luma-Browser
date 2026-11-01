@@ -65,7 +65,21 @@ public partial class MainWindow
     public async void NavigateInput(string input)
     {
         if (string.IsNullOrWhiteSpace(input)) return;
+        var trimmed = input.Trim();
+        if (trimmed.Equals("whiteboard.vseosvita.ua", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.Equals("https://whiteboard.vseosvita.ua", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.Equals("http://whiteboard.vseosvita.ua", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.Equals("luma://whiteboard", StringComparison.OrdinalIgnoreCase))
+        {
+            OpenWhiteboardTab();
+            return;
+        }
         var target = Normalize(input);
+        if (target.Contains("whiteboard.vseosvita.ua", StringComparison.OrdinalIgnoreCase))
+        {
+            OpenWhiteboardTab();
+            return;
+        }
         if (TryParseLumaSearchUrl(target, out var query, out var mode)) { await OpenLumaSearchTabAsync(query, mode); return; }
         if (CurrentTab is null || CurrentTab.IsHome)
         {
@@ -92,9 +106,44 @@ public partial class MainWindow
         if (home) ShowHomeSurface(_showAccountSurface);
         else AccountSurfaceCloseButton.Visibility = Visibility.Collapsed;
         DomainText.Text = home ? "Luma" : present ? tab!.Domain : L("Новая вкладка", "New tab", "Нова вкладка");
+        if (SidebarDomainText != null) SidebarDomainText.Text = home ? "google.com" : present ? tab!.Domain : "google.com";
+        UpdateShieldState(tab);
         CopyUrlButton.IsEnabled = present; SiteSettingsButton.IsEnabled = present;
         TranslateButton.IsEnabled = present && !tab!.IsInternal; SplitButton.IsEnabled = present && !tab!.IsInternal;
-        BackButton.IsEnabled = present && (tab!.ActiveView.CanGoBack || !string.IsNullOrWhiteSpace(tab.BackFallbackInternalUrl)); ForwardButton.IsEnabled = present && tab!.ActiveView.CanGoForward;
+        bool canGoBack = false;
+        bool canGoForward = false;
+        if (present && tab?.ActiveView is not null)
+        {
+            try
+            {
+                canGoBack = tab.ActiveView.CanGoBack;
+                canGoForward = tab.ActiveView.CanGoForward;
+            }
+            catch { }
+        }
+        BackButton.IsEnabled = present && (canGoBack || !string.IsNullOrWhiteSpace(tab?.BackFallbackInternalUrl));
+        ForwardButton.IsEnabled = present && canGoForward;
+        if (ZenBackButton != null) ZenBackButton.IsEnabled = BackButton.IsEnabled;
+        if (ZenForwardButton != null) ZenForwardButton.IsEnabled = ForwardButton.IsEnabled;
+
+        UpdateSidebarContainerBadge();
+        if (UrlBarMediaSnifferBtn != null)
+        {
+            if (!present || home || tab!.IsInternal)
+            {
+                UrlBarMediaSnifferBtn.Visibility = Visibility.Collapsed;
+            }
+            else
+            {
+                var d = tab.Domain.ToLowerInvariant();
+                bool isKnownVideoSite = d.Contains("youtube.com") || d.Contains("youtu.be")
+                    || d.Contains("filmix") || d.Contains("rutube") || d.Contains("vk.com")
+                    || d.Contains("vimeo") || d.Contains("tiktok") || d.Contains("twitch")
+                    || d.Contains("bilibili") || d.Contains("dailymotion");
+                bool hasDetectedMedia = _tabDetectedMedia.TryGetValue(tab, out var mediaList) && mediaList.Count > 0;
+                UrlBarMediaSnifferBtn.Visibility = (isKnownVideoSite || hasDetectedMedia) ? Visibility.Visible : Visibility.Collapsed;
+            }
+        }
         if (present)
         {
             _suppressPip = true; PipToggle.IsChecked = _state.AutoPictureInPicture.TryGetValue(tab!.Domain, out var pip) && pip; _suppressPip = false;
@@ -105,6 +154,19 @@ public partial class MainWindow
             _suppressAmbient = false;
             if (Uri.TryCreate(tab.ActiveUrl, UriKind.Absolute, out var uri)) { var secure = uri.Scheme == "https"; SecurityText.Text = secure ? "Защищено" : "Не защищено"; SecurityIcon.Data = (Geometry)FindResource(secure ? "IconShieldCheck" : "IconInfo"); SecurityIcon.Stroke = secure ? new SolidColorBrush(Color.FromRgb(97, 196, 84)) : new SolidColorBrush(Color.FromRgb(224, 138, 147)); }
             if (tab.ActiveView?.CoreWebView2 is { } activeCore) _ = TryInjectAutourokAsync(activeCore, tab);
+        }
+
+        bool isWhiteboardTab = (tab?.IsInternal == true && tab?.InternalPageKind == "luma://whiteboard")
+            || string.Equals(tab?.FullUrl, "luma://whiteboard", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(tab?.ActiveUrl, "luma://whiteboard", StringComparison.OrdinalIgnoreCase)
+            || (_isToolsDrawerOpen && _activeDrawerTag == "Whiteboard");
+        if (FloatingWindowControlsPanel != null)
+        {
+            FloatingWindowControlsPanel.Visibility = isWhiteboardTab ? Visibility.Collapsed : Visibility.Visible;
+        }
+        else if (FloatingAssistantButton != null)
+        {
+            FloatingAssistantButton.Visibility = isWhiteboardTab ? Visibility.Collapsed : Visibility.Visible;
         }
     }
 

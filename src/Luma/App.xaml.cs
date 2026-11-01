@@ -10,6 +10,29 @@ namespace Luma;
 
 public partial class App : System.Windows.Application
 {
+    [System.Runtime.InteropServices.DllImport("psapi.dll")]
+    private static extern int EmptyWorkingSet(IntPtr hwProc);
+
+    private DispatcherTimer? _ramOptimizerTimer;
+
+    public static void TrimWorkingSet()
+    {
+        try
+        {
+            GC.Collect(2, GCCollectionMode.Optimized, false);
+            GC.WaitForPendingFinalizers();
+            EmptyWorkingSet(Process.GetCurrentProcess().Handle);
+        }
+        catch { }
+    }
+
+    private void StartRamOptimizer()
+    {
+        _ramOptimizerTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(45) };
+        _ramOptimizerTimer.Tick += (_, _) => TrimWorkingSet();
+        _ramOptimizerTimer.Start();
+    }
+
     static App()
     {
         Timeline.DesiredFrameRateProperty.OverrideMetadata(typeof(Timeline), new FrameworkPropertyMetadata(120));
@@ -80,7 +103,8 @@ public partial class App : System.Windows.Application
             Shutdown(WebViewRuntime.IsAvailable(out _) ? 0 : 1);
             return;
         }
-        CleanupPrivateProfiles(); KeepInBackground = StartupManager.Enabled;
+        KeepInBackground = false; // быстрый старт без чтения реестра
+        Task.Run(() => { try { KeepInBackground = StartupManager.Enabled; } catch { } });
         if (!WebViewRuntime.EnsureAvailableAsync().GetAwaiter().GetResult())
         {
             System.Windows.MessageBox.Show("Не найден совместимый Microsoft Edge WebView2 Runtime.\n\nLuma попыталась автоматически восстановить компонент, но Windows не подтвердила установку. Запустите новый установщик Luma от имени администратора.", "Luma — требуется WebView2 Runtime", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -112,11 +136,6 @@ public partial class App : System.Windows.Application
                 try
                 {
                     Directory.CreateDirectory(Path.GetDirectoryName(SessionMarkerPath)!);
-                    if (File.Exists(SessionMarkerPath) && !File.Exists(PendingCrashPath))
-                    {
-                        var previous = File.ReadAllText(SessionMarkerPath);
-                        File.WriteAllText(PendingCrashPath, $"[{DateTime.Now:O}]\nПредыдущая сессия Luma не завершилась корректно.\nМаркер запуска: {previous}");
-                    }
                     File.WriteAllText(SessionMarkerPath, $"PID={Environment.ProcessId}; started={DateTime.Now:O}");
                     _ownsSessionMarker = true;
                 }
@@ -125,8 +144,17 @@ public partial class App : System.Windows.Application
 
             _host.CommandReceived += args => Dispatcher.Invoke(() => { var forced = args.Contains("--show-welcome"); var target = args.FirstOrDefault(value => !value.StartsWith("--")); ShowBrowser(target, forced); });
             _host.StartListening();
-            SetupTray();
-            BrowserRegistry.RegisterPerUser(Process.GetCurrentProcess().MainModule!.FileName!);
+            // Отложенная фоновая регистрация и трей для молниеносного запуска окна
+            Task.Run(() =>
+            {
+                try { CleanupPrivateProfiles(); } catch { }
+                try { BrowserRegistry.RegisterPerUser(Process.GetCurrentProcess().MainModule!.FileName!); } catch { }
+            });
+            Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+            {
+                try { SetupTray(); } catch { }
+                try { StartRamOptimizer(); } catch { }
+            }));
 
             if (!e.Args.Contains("--background"))
             {
@@ -215,11 +243,15 @@ public partial class App : System.Windows.Application
         }
     }
 
+    private int _unhandledExceptionCount = 0;
     private void OnUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
         Log(e.Exception);
         RecordPendingCrash(e.Exception);
-        System.Windows.MessageBox.Show($"Ошибка Luma:\n\n{e.Exception.Message}\n\nЖурнал: {LogPath}", "Luma", MessageBoxButton.OK, MessageBoxImage.Error);
+        if (System.Threading.Interlocked.Increment(ref _unhandledExceptionCount) <= 1)
+        {
+            System.Windows.MessageBox.Show($"Ошибка Luma:\n\n{e.Exception.Message}\n\nЖурнал: {LogPath}", "Luma", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
         e.Handled = true;
     }
 

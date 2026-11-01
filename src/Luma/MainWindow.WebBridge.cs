@@ -1,4 +1,4 @@
-using Luma.Core;
+﻿using Luma.Core;
 using Luma.Services;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
@@ -64,6 +64,50 @@ public partial class MainWindow
                 root = innerDoc.RootElement.Clone();
             }
             var kind = root.TryGetProperty("kind", out var value) ? value.GetString() : "";
+            if (kind == "toggle-assistant")
+            {
+                Dispatcher.BeginInvoke(async () => await ToggleAssistantAsync());
+                return;
+            }
+            if (kind == "escape-pressed")
+            {
+                Dispatcher.BeginInvoke(() =>
+                {
+                    if (_homeStudioOpen || HomeCustomizeDrawerOverlay?.Visibility == Visibility.Visible)
+                        CloseHomeStudio();
+                });
+                return;
+            }
+            if (kind == "media-detected")
+            {
+                Dispatcher.BeginInvoke(() => HandleMediaDetected(tab, root));
+                return;
+            }
+            if (kind == "open-media-sniffer-menu")
+            {
+                Dispatcher.BeginInvoke(() => UrlBarMediaSnifferBtn_Click(this, new RoutedEventArgs()));
+                return;
+            }
+            if (kind == "open-summarize-menu")
+            {
+                Dispatcher.BeginInvoke(() => UrlBarSummarizeBtn_Click(this, new RoutedEventArgs()));
+                return;
+            }
+            if (kind == "luma-shield-blocked")
+            {
+                tab.ShieldBlockedCount++;
+                Dispatcher.BeginInvoke(() => UpdateShieldState(tab));
+                return;
+            }
+            if (kind == "lumaskip-request")
+            {
+                var videoId = root.TryGetProperty("videoId", out value) ? value.GetString() ?? "" : "";
+                if (!string.IsNullOrWhiteSpace(videoId))
+                {
+                    _ = FetchAndSendLumaSkipSegmentsAsync(view, videoId);
+                }
+                return;
+            }
             var settingsPage = tab.IsInternal && tab.InternalPageKind == "luma://settings";
             var importPage = tab.IsInternal && tab.InternalPageKind == "luma://import";
             var searchPage = tab.IsInternal && tab.InternalPageKind.StartsWith("luma://search", StringComparison.Ordinal);
@@ -327,7 +371,7 @@ public partial class MainWindow
                                 view.CoreWebView2.PostWebMessageAsJson(previewPayload);
                                 await view.CoreWebView2.ExecuteScriptAsync($"window.__lumaShowPreview && window.__lumaShowPreview({previewPayload})");
                             }
-                            await ParseScheduleImageAsync(view, b64, mime);
+                            if (view is not null) await ParseScheduleImageAsync(view, b64, mime);
                         }
                         catch (Exception ex)
                         {
@@ -454,6 +498,74 @@ public partial class MainWindow
                 }
             }
             catch { }
+        }
+    }
+
+    private static readonly HttpClient SponsorBlockHttp = new()
+    {
+        Timeout = TimeSpan.FromSeconds(6),
+        DefaultRequestHeaders = { { "User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) LumaBrowser/1.0" } }
+    };
+
+    private async Task FetchAndSendLumaSkipSegmentsAsync(WebView2 view, string videoId)
+    {
+        try
+        {
+            var url = $"https://sponsor.ajay.app/api/skipSegments?videoID={Uri.EscapeDataString(videoId)}&categories=%5B%22sponsor%22,%22selfpromo%22,%22interaction%22,%22intro%22,%22outro%22,%22preview%22,%22filler%22%5D";
+            HttpResponseMessage? resp = null;
+            var mirrorUrl = $"https://api.sponsor.ajay.app/api/skipSegments?videoID={Uri.EscapeDataString(videoId)}&categories=%5B%22sponsor%22,%22selfpromo%22,%22interaction%22,%22intro%22,%22outro%22,%22preview%22,%22filler%22%5D";
+            try
+            {
+                resp = await SponsorBlockHttp.GetAsync(url).ConfigureAwait(false);
+                if (resp == null || !resp.IsSuccessStatusCode)
+                {
+                    resp?.Dispose();
+                    resp = await SponsorBlockHttp.GetAsync(mirrorUrl).ConfigureAwait(false);
+                }
+            }
+            catch
+            {
+                try
+                {
+                    resp = await SponsorBlockHttp.GetAsync(mirrorUrl).ConfigureAwait(false);
+                }
+                catch { }
+            }
+
+            string segmentsJson = "[]";
+            if (resp != null && resp.IsSuccessStatusCode)
+            {
+                var raw = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                if (!string.IsNullOrWhiteSpace(raw) && raw.TrimStart().StartsWith("["))
+                {
+                    segmentsJson = raw;
+                }
+            }
+            resp?.Dispose();
+
+            var payload = JsonSerializer.Serialize(new
+            {
+                kind = "lumaskip-segments",
+                videoId = videoId,
+                segments = JsonDocument.Parse(segmentsJson).RootElement
+            });
+
+            await Dispatcher.InvokeAsync(async () =>
+            {
+                try
+                {
+                    if (view?.CoreWebView2 != null)
+                    {
+                        view.CoreWebView2.PostWebMessageAsJson(payload);
+                        await view.CoreWebView2.ExecuteScriptAsync($"window.__lumaReceiveSegments && window.__lumaReceiveSegments({payload})");
+                    }
+                }
+                catch { }
+            });
+        }
+        catch (Exception ex)
+        {
+            App.Log(ex);
         }
     }
 }

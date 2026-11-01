@@ -1,0 +1,1016 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ========================================================================= -->
+    <!-- 1. COLOR PALETTE & BRUSHES (Zen / Arc inspired Dark Mode)                -->
+    <!-- ========================================================================= -->
+    <Color x:Key="SidebarBgColor">#3D3D42</Color>
+    <Color x:Key="SidebarDrawerBgColor">#3D3D42</Color>
+    <Color x:Key="SidebarItemHoverColor">#4B4B50</Color>
+    <Color x:Key="SidebarItemActiveColor">#56565A</Color>
+    <Color x:Key="TextPrimaryColor">#F2F2F5</Color>
+    <Color x:Key="TextSecondaryColor">#C8C8CE</Color>
+    <Color x:Key="TextDimmedColor">#9A9AA0</Color>
+    <Color x:Key="AccentIndicatorColor">#0A84FF</Color>
+    <Color x:Key="SeparatorColor">#4B4B50</Color>
+
+    <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="{StaticResource SidebarBgColor}"/>
+    <SolidColorBrush x:Key="SidebarDrawerBackgroundBrush" Color="{StaticResource SidebarDrawerBgColor}"/>
+    <SolidColorBrush x:Key="SidebarItemHoverBrush" Color="{StaticResource SidebarItemHoverColor}"/>
+    <SolidColorBrush x:Key="SidebarItemActiveBrush" Color="{StaticResource SidebarItemActiveColor}"/>
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimaryColor}"/>
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondaryColor}"/>
+    <SolidColorBrush x:Key="TextDimmedBrush" Color="{StaticResource TextDimmedColor}"/>
+    <SolidColorBrush x:Key="AccentIndicatorBrush" Color="{StaticResource AccentIndicatorColor}"/>
+    <SolidColorBrush x:Key="SidebarSeparatorBrush" Color="{StaticResource SeparatorColor}"/>
+    <SolidColorBrush x:Key="InputBackgroundBrush" Color="#4B4B50"/>
+    <SolidColorBrush x:Key="InputHoverBackgroundBrush" Color="#56565A"/>
+
+    <!-- Official Zen Browser CSS Tokens (zen-themes.css / zen-sidebar.css) -->
+    <!-- Dark Theme Tokens -->
+    <Color x:Key="ZenDarkToolboxBgColor">#121214</Color>
+    <Color x:Key="ZenDarkPrimaryColor">#1E1E22</Color>
+    <Color x:Key="ZenDarkSecondaryColor">#26262B</Color>
+    <Color x:Key="ZenDarkTertiaryColor">#2F2F36</Color>
+    <Color x:Key="ZenDarkBorderColor">#2C2C32</Color>
+    <Color x:Key="ZenDarkTabHoverColor">#222227</Color>
+    <Color x:Key="ZenDarkTabSelectedColor">#2D2D35</Color>
+    <Color x:Key="ZenDarkTextPrimaryColor">#F2F2F7</Color>
+    <Color x:Key="ZenDarkTextSecondaryColor">#9898A0</Color>
+
+    <!-- Light Theme Tokens -->
+    <Color x:Key="ZenLightToolboxBgColor">#F3F3F6</Color>
+    <Color x:Key="ZenLightPrimaryColor">#FFFFFF</Color>
+    <Color x:Key="ZenLightSecondaryColor">#E8E8EE</Color>
+    <Color x:Key="ZenLightTertiaryColor">#DCDCE4</Color>
+    <Color x:Key="ZenLightBorderColor">#D4D4DC</Color>
+    <Color x:Key="ZenLightTabHoverColor">#E5E5EC</Color>
+    <Color x:Key="ZenLightTabSelectedColor">#FFFFFF</Color>
+    <Color x:Key="ZenLightTextPrimaryColor">#18181B</Color>
+    <Color x:Key="ZenLightTextSecondaryColor">#63636B</Color>
+
+    <!-- Zen Layout Metrics (1:1 from zen-sidebar.css & zen-tabs.css) -->
+    <CornerRadius x:Key="ZenBorderRadius">8</CornerRadius>
+    <CornerRadius x:Key="ZenTabBorderRadius">7</CornerRadius>
+    <CornerRadius x:Key="ZenEssentialBorderRadius">8</CornerRadius>
+    <CornerRadius x:Key="ZenFloatingSidebarRadius">10</CornerRadius>
+    <Thickness x:Key="ZenToolboxPadding">8,8,8,8</Thickness>
+    <Thickness x:Key="ZenTabItemMargin">0,1,0,1</Thickness>
+    <Thickness x:Key="ZenTabItemPadding">6,0,6,0</Thickness>
+
+    <!-- Subtle DropShadow for Menus and Overlays -->
+    <DropShadowEffect x:Key="ModernMenuShadow"
+                      BlurRadius="20"
+                      Direction="270"
+                      ShadowDepth="6"
+                      Opacity="0.45"
+                      Color="#000000"/>
+
+    <!-- ========================================================================= -->
+    <!-- 2. VECTOR OUTLINE ICONS (Lucide 24x24 compatible Geometries)             -->
+    <!-- ========================================================================= -->
+    <Geometry x:Key="IconWorkspaces">M 4 4 H 10 V 10 H 4 Z M 14 4 H 20 V 10 H 14 Z M 14 14 H 20 V 20 H 14 Z M 4 14 H 10 V 20 H 4 Z</Geometry>
+    <Geometry x:Key="IconDiscord">M 18.5 5.5 C 17.2 4.9 15.8 4.5 14.3 4.3 C 14.1 4.7 13.9 5.2 13.7 5.6 C 12.1 5.4 10.5 5.4 8.9 5.6 C 8.7 5.2 8.5 4.7 8.3 4.3 C 6.8 4.5 5.4 4.9 4.1 5.5 C 1.5 9.4 0.8 13.2 1.2 17 C 2.9 18.3 4.6 19.1 6.3 19.6 C 6.7 19 7.1 18.4 7.4 17.7 C 6.8 17.5 6.2 17.2 5.7 16.8 C 5.8 16.7 6 16.6 6.1 16.5 C 9.6 18.1 13.4 18.1 16.9 16.5 C 17 16.6 17.2 16.7 17.3 16.8 C 16.8 17.2 16.2 17.5 15.6 17.7 C 15.9 18.4 16.3 19 16.7 19.6 C 18.4 19.1 20.1 18.3 21.8 17 C 22.3 12.5 21.1 8.7 18.5 5.5 Z M 7.5 14.5 C 6.5 14.5 5.7 13.6 5.7 12.5 C 5.7 11.4 6.5 10.5 7.5 10.5 C 8.5 10.5 9.3 11.4 9.3 12.5 C 9.3 13.6 8.5 14.5 7.5 14.5 Z M 15.5 14.5 C 14.5 14.5 13.7 13.6 13.7 12.5 C 13.7 11.4 14.5 10.5 15.5 10.5 C 16.5 10.5 17.3 11.4 17.3 12.5 C 17.3 13.6 16.5 14.5 15.5 14.5 Z</Geometry>
+    <Geometry x:Key="IconGoogle">M 12 2 C 6.48 2 2 6.48 2 12 C 2 17.52 6.48 22 12 22 C 17.52 22 22 17.52 22 12 C 22 11.31 21.93 10.65 21.81 10 H 12 V 14 H 17.65 C 17.15 16.53 14.93 18.4 12 18.4 C 8.47 18.4 5.6 15.53 5.6 12 C 5.6 8.47 8.47 5.6 12 5.6 C 13.63 5.6 15.1 6.18 16.24 7.14 L 18.8 4.58 C 17.02 2.97 14.65 2 12 2 Z</Geometry>
+    <Geometry x:Key="IconPlus">M 12 5 V 19 M 5 12 H 19</Geometry>
+    <Geometry x:Key="IconClose">M 18 6 L 6 18 M 6 6 L 18 18</Geometry>
+    <Geometry x:Key="IconGlobe">M 12 2 A 10 10 0 1 0 12 22 A 10 10 0 1 0 12 2 Z M 2 12 H 22 M 12 2 C 14.5 4.7 16 8.2 16 12 C 16 15.8 14.5 19.3 12 22 C 9.5 19.3 8 15.8 8 12 C 8 8.2 9.5 4.7 12 2 Z</Geometry>
+    <Geometry x:Key="IconFolder">M 3 7 V 19 A 2 2 0 0 0 5 21 H 19 A 2 2 0 0 0 21 19 V 9 A 2 2 0 0 0 19 7 H 12 L 10 4 H 5 A 2 2 0 0 0 3 6 Z</Geometry>
+    <Geometry x:Key="IconFolderShine">M 12 3 L 13.4 7.6 L 18 9 L 13.4 10.4 L 12 15 L 10.6 10.4 L 6 9 L 10.6 7.6 Z M 19 16 V 20 M 17 18 H 21</Geometry>
+    <Geometry x:Key="IconToolsDrawer">M 3 7 A 2 2 0 0 1 5 5 H 19 A 2 2 0 0 1 21 7 V 17 A 2 2 0 0 1 19 19 H 5 A 2 2 0 0 1 3 17 Z M 3 11 H 21 M 9 11 V 19</Geometry>
+    <Geometry x:Key="IconGear">M 12 15.5 A 3.5 3.5 0 1 1 12 8.5 A 3.5 3.5 0 1 1 12 15.5 M 19.4 15 A 1.65 1.65 0 0 0 19.73 16.82 L 19.79 16.88 A 2 2 0 0 1 16.96 19.71 L 16.9 19.65 A 1.65 1.65 0 0 0 15.08 19.32 A 1.65 1.65 0 0 0 14.08 20.83 V 21 A 2 2 0 0 1 10.08 21 V 20.91 A 1.65 1.65 0 0 0 9 19.4 A 1.65 1.65 0 0 0 7.18 19.73 L 7.12 19.79 A 2 2 0 0 1 4.29 16.96 L 4.35 16.9 A 1.65 1.65 0 0 0 4.68 15.08 A 1.65 1.65 0 0 0 3.17 14.08 H 3 A 2 2 0 0 1 3 10.08 H 3.09 A 1.65 1.65 0 0 0 4.6 9 A 1.65 1.65 0 0 0 4.27 7.18 L 4.21 7.12 A 2 2 0 0 1 7.04 4.29 L 7.1 4.35 A 1.65 1.65 0 0 0 8.92 4.68 A 1.65 1.65 0 0 0 10 3.17 V 3 A 2 2 0 0 1 14 3 V 3.09 A 1.65 1.65 0 0 0 15 4.6 A 1.65 1.65 0 0 0 16.82 4.27 L 16.88 4.21 A 2 2 0 0 1 19.71 7.04 L 19.65 7.1 A 1.65 1.65 0 0 0 19.32 8.92 A 1.65 1.65 0 0 0 20.83 10 H 21 A 2 2 0 0 1 21 14 H 20.91 A 1.65 1.65 0 0 0 19.4 15 Z</Geometry>
+    <Geometry x:Key="IconUser">M 20 21 V 19 A 4 4 0 0 0 16 15 H 8 A 4 4 0 0 0 4 19 V 21 M 12 11 A 4 4 0 1 0 12 3 A 4 4 0 0 0 12 11 Z</Geometry>
+    <Geometry x:Key="IconExtensions">M 19.4 7.8 C 19.4 8.2 19.5 8.5 19.7 8.7 L 21.3 10.3 C 22.2 11.2 22.2 12.8 21.3 13.7 L 19.7 15.3 C 19.5 15.5 19.4 15.8 19.4 16.2 C 19.3 17.5 18 18.5 16.7 18.1 C 16.2 17.9 15.8 18.3 15.9 18.8 C 16.3 20.1 15.3 21.4 14 21.5 C 12.8 21.6 11.6 20.8 11.2 19.7 L 9.6 18.1 C 9.4 17.9 9.1 17.8 8.7 17.8 C 7.4 17.9 6.4 19.2 6.8 20.5 C 7 21 6.6 21.4 6.1 21.3 C 4.8 20.9 3.5 21.9 3.4 23.2</Geometry>
+    <Geometry x:Key="IconPuzzleOutline">M 19.4 7.8 A 2.5 2.5 0 0 0 17 5 H 14 A 2 2 0 0 1 12 3 A 2 2 0 0 1 10 5 H 7 A 2 2 0 0 0 5 7 V 10 A 2 2 0 0 1 3 12 A 2 2 0 0 1 5 14 V 17 A 2 2 0 0 0 7 19 H 10 A 2 2 0 0 1 12 21 A 2 2 0 0 1 14 19 H 17 A 2 2 0 0 0 19 17 V 14 A 2 2 0 0 1 21 12 A 2 2 0 0 1 19 10 V 7 Z</Geometry>
+    <Geometry x:Key="IconSearch">M 21 21 L 16.65 16.65 M 19 11 A 8 8 0 1 1 3 11 A 8 8 0 1 1 19 11 Z</Geometry>
+    <Geometry x:Key="IconFilter">M 22 3 H 2 L 10 12.46 V 19 L 14 21 V 12.46 L 22 3 Z</Geometry>
+    <Geometry x:Key="IconMedia">M 12 2 A 10 10 0 1 0 22 12 A 10 10 0 0 0 12 2 Z M 10 8 L 16 12 L 10 16 Z</Geometry>
+    <Geometry x:Key="IconDownloads">M 21 15 V 19 A 2 2 0 0 1 19 21 H 5 A 2 2 0 0 1 3 19 V 15 M 7 10 L 12 15 L 17 10 M 12 15 V 3</Geometry>
+    <Geometry x:Key="IconBoosts">M 12 2 L 14.5 7.5 L 20 8.3 L 16 12.2 L 17 18 L 12 15.3 L 7 18 L 8 12.2 L 4 8.3 L 9.5 7.5 Z</Geometry>
+    <Geometry x:Key="IconSpaces">M 3 3 H 10 V 10 H 3 Z M 14 3 H 21 V 10 H 14 Z M 14 14 H 21 V 21 H 14 Z M 3 14 H 10 V 21 H 3 Z</Geometry>
+    <Geometry x:Key="IconHistory">M 3 12 A 9 9 0 1 0 6 5.3 M 3 3 V 8 H 8 M 12 7 V 12 L 15 14</Geometry>
+    <Geometry x:Key="IconTimeMachine">M 12 8 V 12 L 15 15 M 3 12 A 9 9 0 1 0 6 5.3 M 3 3 V 8 H 8</Geometry>
+    <Geometry x:Key="IconScrapbook">M 4 19.5 A 2.5 2.5 0 0 1 6.5 17 H 20 M 6.5 2 H 20 V 22 H 6.5 A 2.5 2.5 0 0 1 4 19.5 V 4.5 A 2.5 2.5 0 0 1 6.5 2 Z M 8 6 H 16 M 8 10 H 14</Geometry>
+    <Geometry x:Key="IconSync">M 21.5 2 V 6 H 17.5 M 2.5 22 V 18 H 6.5 M 21.5 15 A 9 9 0 0 1 6.36 19.36 L 2.5 18 M 2.5 9 A 9 9 0 0 1 17.64 4.64 L 21.5 6</Geometry>
+    <Geometry x:Key="IconTable">M 3 3 H 21 V 21 H 3 Z M 3 9 H 21 M 3 15 H 21 M 9 3 V 21 M 15 3 V 21</Geometry>
+    <Geometry x:Key="IconPlay">M 5 3 L 19 12 L 5 21 Z</Geometry>
+    <Geometry x:Key="IconPause">M 6 4 H 10 V 20 H 6 Z M 14 4 H 18 V 20 H 14 Z</Geometry>
+    <Geometry x:Key="IconReader">M 2 3 H 8 A 4 4 0 0 1 12 7 A 4 4 0 0 1 16 3 H 22 V 19 H 16 A 4 4 0 0 0 12 23 A 4 4 0 0 0 2 19 Z M 12 7 V 23</Geometry>
+    <Geometry x:Key="IconChevronRight">M 9 18 L 15 12 L 9 6</Geometry>
+    <Geometry x:Key="IconChevronLeft">M 15 18 L 9 12 L 15 6</Geometry>
+    <Geometry x:Key="IconLock">M 5 8 V 6 A 4 4 0 0 1 13 6 V 8 M 3 8 H 15 V 17 H 3 Z</Geometry>
+    <Geometry x:Key="IconShield">M 12 2 L 4 5 V 11 C 4 16 12 21 12 21 C 12 21 20 16 20 11 V 5 Z</Geometry>
+    <Geometry x:Key="IconNewWindow">M 18 13 V 19 A 2 2 0 0 1 16 21 H 5 A 2 2 0 0 1 3 19 V 8 A 2 2 0 0 1 5 6 H 11 M 15 3 H 21 V 9 M 10 14 L 21 3</Geometry>
+    <Geometry x:Key="IconPrivate">M 12 22 S 20 18 20 12 V 5 L 12 2 L 4 5 V 12 S 4 22 12 22 Z</Geometry>
+    <Geometry x:Key="IconBookmark">M 19 21 L 12 16 L 5 21 V 5 A 2 2 0 0 1 7 3 H 17 A 2 2 0 0 1 19 5 Z</Geometry>
+    <Geometry x:Key="IconPrint">M 6 9 V 2 H 18 V 9 M 6 18 H 4 A 2 2 0 0 1 2 16 V 11 A 2 2 0 0 1 4 9 H 20 A 2 2 0 0 1 22 11 V 16 A 2 2 0 0 1 20 18 H 18 M 6 14 H 18 V 22 H 6 Z</Geometry>
+    <Geometry x:Key="IconSave">M 19 21 H 5 A 2 2 0 0 1 3 19 V 5 A 2 2 0 0 1 5 3 H 16 L 21 8 V 19 A 2 2 0 0 1 19 21 Z M 17 21 V 13 H 7 V 21 M 7 3 V 8 H 15</Geometry>
+    <Geometry x:Key="IconMinus">M 5 12 H 19</Geometry>
+    <Geometry x:Key="IconMaximize">M 8 3 H 5 A 2 2 0 0 0 3 5 V 8 M 21 8 V 5 A 2 2 0 0 0 19 3 H 16 M 16 21 H 19 A 2 2 0 0 0 21 19 V 16 M 3 16 V 19 A 2 2 0 0 0 5 21 H 8</Geometry>
+    <Geometry x:Key="IconKey">M 21 2 L 19 4 M 14 7 L 18 11 M 15 10 L 17 12 M 7.5 13.5 A 5 5 0 1 0 10.5 16.5 L 22 5 L 19 2 L 7.5 13.5 Z</Geometry>
+    <Geometry x:Key="IconHelpCircle">M 12 22 A 10 10 0 1 0 12 2 A 10 10 0 0 0 12 22 Z M 9.09 9 A 3 3 0 0 1 14.83 10.5 C 14.83 12 12.83 12.75 12.83 14 M 12 17 H 12.01</Geometry>
+    <Geometry x:Key="IconExit">M 9 21 H 5 A 2 2 0 0 1 3 19 V 5 A 2 2 0 0 1 5 3 H 9 M 16 17 L 21 12 L 16 7 M 21 12 H 9</Geometry>
+    
+    <!-- Zen Browser Exact SVG Geometries from official repository (src/browser/themes/shared/zen-icons/) -->
+    <Geometry x:Key="ZenIconMenu">M9 10.25a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5m-5.75 0a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5m11.5 0a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5</Geometry>
+    <Geometry x:Key="ZenIconSidebar">M5.75 8.25a.75.75 0 0 1 0 1.5h-1.5a.75.75 0 0 1 0-1.5zM5.75 5.5a.75.75 0 0 1 0 1.5h-1.5a.75.75 0 0 1 0-1.5z M14.25 2A2.75 2.75 0 0 1 17 4.75v8.5A2.75 2.75 0 0 1 14.25 16H3.75A2.75 2.75 0 0 1 1 13.25v-8.5A2.75 2.75 0 0 1 3.75 2zM3.75 3.5c-.69 0-1.25.56-1.25 1.25v8.5c0 .69.56 1.25 1.25 1.25H7.5v-11zM9 14.5h5.25c.69 0 1.25-.56 1.25-1.25v-8.5c0-.69-.56-1.25-1.25-1.25H9z</Geometry>
+    <Geometry x:Key="ZenIconBack">M7.47 3.22a.75.75 0 1 1 1.06 1.06L4.56 8.25h10.69a.75.75 0 0 1 0 1.5H4.56l3.97 3.97a.75.75 0 1 1-1.06 1.06L2.22 9.53a.75.75 0 0 1-.165-.812l.004-.01q.018-.04.042-.078a.8.8 0 0 1 .119-.16z</Geometry>
+    <Geometry x:Key="ZenIconForward">M9.47 3.22a.75.75 0 0 1 1.06 0l5.25 5.25a.8.8 0 0 1 .118.16q.025.04.044.083a.75.75 0 0 1-.078.715 1 1 0 0 1-.084.102l-5.25 5.25a.75.75 0 1 1-1.06-1.06l3.97-3.97H2.75a.75.75 0 0 1 0-1.5h10.69L9.47 4.28a.75.75 0 0 1 0-1.06</Geometry>
+    <Geometry x:Key="ZenIconReload">M9 1a7.98 7.98 0 0 1 6.263 3.025l.115-.823a.75.75 0 0 1 1.485.205l-.408 2.946a.75.75 0 0 1-.846.64l-2.943-.407a.75.75 0 0 1 .205-1.486l1.475.203a6.5 6.5 0 1 0 1.151 3.879.75.75 0 0 1 1.5.042A8 8 0 1 1 9 1</Geometry>
+    <Geometry x:Key="ZenIconLink">M8.176 6.15a.75.75 0 0 1 .647 1.353 2.8 2.8 0 0 0-.765.543l-.01.011a2.786 2.786 0 0 0 0 3.94l2.174 2.174a2.785 2.785 0 0 0 3.94 0l.01-.01a2.785 2.785 0 0 0 0-3.939l-.931-.932a.75.75 0 0 1 1.06-1.06l.93.931a4.285 4.285 0 0 1 0 6.061l-.009.01a4.285 4.285 0 0 1-6.06 0l-2.175-2.175a4.285 4.285 0 0 1 0-6.06l.009-.01.133-.13a4.3 4.3 0 0 1 1.047-.707 M2.778 2.768a4.285 4.285 0 0 1 6.06 0l2.175 2.175a4.285 4.285 0 0 1 0 6.06l-.01.01a4.3 4.3 0 0 1-1.18.837.75.75 0 0 1-.646-1.354c.276-.131.535-.312.765-.543l.01-.01a2.785 2.785 0 0 0 0-3.94L7.779 3.828a2.786 2.786 0 0 0-3.94 0l-.01.01a2.785 2.785 0 0 0 0 3.94l.931.93a.75.75 0 0 1-1.06 1.06l-.931-.93a4.285 4.285 0 0 1 0-6.06z</Geometry>
+    <Geometry x:Key="ZenIconSliders">M 8.5,14.25 A 1.75,1.75 0 0 1 6.75,16 1.75,1.75 0 0 1 5,14.25 1.75,1.75 0 0 1 6.75,12.5 1.75,1.75 0 0 1 8.5,14.25 Z m 0,-10.5 A 1.75,1.75 0 0 1 6.75,5.5 1.75,1.75 0 0 1 5,3.75 1.75,1.75 0 0 1 6.75,2 1.75,1.75 0 0 1 8.5,3.75 Z M 12.75,9 A 1.75,1.75 0 0 1 11,10.75 1.75,1.75 0 0 1 9.25,9 1.75,1.75 0 0 1 11,7.25 1.75,1.75 0 0 1 12.75,9 Z m 3.5,5.25 h -5 M 5,14.25 H 1.75 m 14.5,-10.5 h -5 M 5,3.75 H 1.75 M 1.75,9 H 9 m 6.25,0 h 1</Geometry>
+    <Geometry x:Key="ZenIconTranslations">M12.75 7a.75.75 0 0 1 .702.486l3 8a.75.75 0 0 1-1.404.528L14.293 14h-3.586l-.755 2.014a.75.75 0 0 1-1.404-.528l3-8 .049-.104A.75.75 0 0 1 12.25 7zm-1.48 5.5h2.46L12.5 9.219zm-5.02-11a.75.75 0 0 1 .75.75V3.5h3.25a.75.75 0 0 1 0 1.5H8.92c-.227 1.5-.817 2.634-1.555 3.487.475.32 1.007.567 1.582.723a.75.75 0 0 1-.394 1.447 6.8 6.8 0 0 1-2.318-1.135 7 7 0 0 1-.774.495 8.5 8.5 0 0 1-3.073.973l-.06.006-.017.002H2.3l-.051-.748.05.748a.75.75 0 0 1-.1-1.496h-.002l.006-.001.034-.003q.05-.005.15-.019a7 7 0 0 0 2.35-.777q.192-.106.382-.23A6.85 6.85 0 0 1 3.564 5H2.25a.75.75 0 0 1 0-1.5H5.5V2.25a.75.75 0 0 1 .75-.75M5.084 5a5.35 5.35 0 0 0 1.167 2.484c.524-.615.948-1.42 1.146-2.484z</Geometry>
+    <Geometry x:Key="ZenIconBriefcase">M 496,176 A 64.07,64.07 0 0 0 432,112 H 384 V 96 A 48.05,48.05 0 0 0 336,48 H 176 a 48.05,48.05 0 0 0 -48,48 v 16 H 80 a 64.07,64.07 0 0 0 -64,64 v 48 H 496 Z M 352,112 H 160 V 96 a 16,16 0 0 1 16,-16 h 160 a 16,16 0 0 1 16,16 z m -16,152 a 24,24 0 0 1 -24,24 H 200 a 24,24 0 0 1 -24,-24 v -4 a 4,4 0 0 0 -4,-4 H 16 v 144 a 64,64 0 0 0 64,64 h 352 a 64,64 0 0 0 64,-64 V 256 H 340 a 4,4 0 0 0 -4,4 z M 336,80 H 176 a 16,16 0 0 0 -16,16 v 16 H 352 V 96 A 16,16 0 0 0 336,80 Z</Geometry>
+    <Geometry x:Key="ZenIconArrowDown">M14.72 5.97a.75.75 0 1 1 1.06 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0L2.22 7.03a.75.75 0 1 1 1.06-1.06L9 11.69z</Geometry>
+    <Geometry x:Key="ZenIconPlus">M9 2.5a.75.75 0 0 1 .75.75v5h5a.75.75 0 0 1 0 1.5h-5v5a.75.75 0 0 1-1.5 0v-5h-5a.75.75 0 0 1 0-1.5h5v-5A.75.75 0 0 1 9 2.5</Geometry>
+    <Geometry x:Key="ZenIconClose">M13.47 3.47a.75.75 0 1 1 1.06 1.06L10.06 9l4.47 4.47a.75.75 0 1 1-1.06 1.06L9 10.06l-4.47 4.47a.75.75 0 0 1-1.06-1.06L7.94 9 3.47 4.53a.75.75 0 1 1 1.06-1.06L9 7.94z</Geometry>
+    <Geometry x:Key="ZenIconLibrary">M7.773 11.635c.363.228.467.44.445.659l-.182 1.788a.579.579 0 0 0 .946.503l1.38-1.153a.58.58 0 0 1 .604-.085l1.644.725a.578.578 0 0 0 .77-.745l-.679-1.692a.58.58 0 0 1 .115-.577l1.198-1.34a.578.578 0 0 0-.47-.962l-1.794.121a.58.58 0 0 1-.539-.286l-.904-1.553a.578.578 0 0 0-1.06.15l-.439 1.743a.58.58 0 0 1-.438.424l-1.757.38a.578.578 0 0 0-.186 1.055z M14 5.2 a1 1 0 1 0 0 2 a1 1 0 1 0 0 -2 M15.9 11c-.3.2-.6 0-.6-.3v-3c0-.3.3-.5.6-.3L18.4 8.8c.3.2.3.6 0 .8Z M7.218 13.287c0-.456.37-.826.826-.826h9.913c.457 0 .826.37.826.826v4.131a3.304 3.304 0 0 1-3.304 3.304h-4.956a3.305 3.305 0 0 1-3.305-3.304zm3.391 1.239c0-.456.37-.826.826-.826h3.304a.826.826 0 1 1 0 1.652h-3.304a.826.826 0 0 1-.826-.826</Geometry>
+    <Geometry x:Key="ZenIconPaintbrush">M 8.97,9.291 C 8.301,8.62 7.416,8.25 6.476,8.25 H 6.47 C 5.534,8.252 4.653,8.622 3.99,9.293 c -0.952,0.962 -1.119,1.933 -1.252,2.712 -0.149,0.869 -0.247,1.442 -1.347,2.043 -0.266,0.145 -0.418,0.435 -0.387,0.736 0.032,0.301 0.241,0.554 0.53,0.641 1.058,0.318 2.185,0.58 3.306,0.58 1.438,0 2.867,-0.43 4.13,-1.724 1.371,-1.375 1.371,-3.614 0,-4.989 z m 7.348,-7.36 c -0.79,-0.789 -2.166,-0.79 -2.957,0 L 8.216,7.076 c 0.673,0.25 1.294,0.631 1.817,1.156 0.525,0.527 0.897,1.145 1.14,1.802 l 5.146,-5.146 c 0.815,-0.815 0.815,-2.142 0,-2.958 z</Geometry>
+    <Geometry x:Key="ZenIconHeartCircle">M9 1a8 8 0 1 1 0 16A8 8 0 0 1 9 1m1.729 4.552A2.3 2.3 0 0 0 9 6.369a2.3 2.3 0 0 0-1.732-.817A2.284 2.284 0 0 0 5 7.838c0 2.736 2.8 4.412 3.658 4.86a.73.73 0 0 0 .682 0c.858-.448 3.659-2.123 3.659-4.86a2.284 2.284 0 0 0-2.27-2.286</Geometry>
+    <Geometry x:Key="ZenIconSearchGlass">M7.75 1.5A6.25 6.25 0 0 1 14 7.75a6.22 6.22 0 0 1-1.334 3.855l3.614 3.615a.75.75 0 0 1-1.06 1.06l-3.615-3.614A6.22 6.22 0 0 1 7.75 14a6.25 6.25 0 0 1 0-12.5m0 1.5a4.75 4.75 0 1 0 0 9.5 4.75 4.75 0 0 0 0-9.5</Geometry>
+    <Geometry x:Key="ZenIconFolder">M6.075 2a2.75 2.75 0 0 1 2.096.969L9.47 4.5h4.28a2.75 2.75 0 0 1 2.75 2.75v5.5a2.75 2.75 0 0 1-2.75 2.75h-9.5a2.75 2.75 0 0 1-2.75-2.75v-8A2.75 2.75 0 0 1 4.25 2zM4.25 3.5C3.56 3.5 3 4.06 3 4.75v8c0 .69.56 1.25 1.25 1.25h9.5c.69 0 1.25-.56 1.25-1.25v-5.5C15 6.56 14.44 6 13.75 6H9.123a.75.75 0 0 1-.571-.265L7.027 3.94a1.25 1.25 0 0 0-.952-.44z</Geometry>
+    <Geometry x:Key="ZenIconDuplicateTab">M14.25 4.5A2.75 2.75 0 0 1 17 7.25v7A2.75 2.75 0 0 1 14.25 17h-7a2.75 2.75 0 0 1-2.75-2.75v-7A2.75 2.75 0 0 1 7.25 4.5zm-7 1.5C6.56 6 6 6.56 6 7.25v7c0 .69.56 1.25 1.25 1.25h7c.69 0 1.25-.56 1.25-1.25v-7c0-.69-.56-1.25-1.25-1.25z M10.51 1.006a2.75 2.75 0 0 1 2.714 1.715.75.75 0 0 1-1.392.56 1.25 1.25 0 0 0-1.233-.777l-.108.011-6.924 1.03a1.25 1.25 0 0 0-1.053 1.42l1.03 6.923a.751.751 0 0 1-1.485.22L1.031 5.186A2.75 2.75 0 0 1 3.346 2.06l6.924-1.03z</Geometry>
+    <Geometry x:Key="ZenIconDiscordInner">M18.5844 9C18.4039 9.32044 18.2418 9.65193 18.0945 9.99079C16.6949 9.78085 15.2695 9.78085 13.8661 9.99079C13.7225 9.65193 13.5567 9.32044 13.3763 9C12.0614 9.22469 10.7796 9.61879 9.56412 10.1749C7.15527 13.744 6.50334 17.221 6.82747 20.6501C8.23814 21.6924 9.81826 22.488 11.5015 22.9963C11.8809 22.488 12.2161 21.9466 12.5033 21.3831C11.9582 21.1805 11.4315 20.9263 10.9269 20.6317C11.0595 20.5359 11.1884 20.4365 11.3137 20.3407C14.2713 21.733 17.6967 21.733 20.658 20.3407C20.7833 20.4438 20.9122 20.5433 21.0448 20.6317C20.5402 20.93 20.0135 21.1805 19.4647 21.3867C19.752 21.9503 20.0871 22.4917 20.4665 23C22.1497 22.4917 23.7298 21.6998 25.1406 20.6575C25.5236 16.6796 24.4849 13.232 22.3965 10.1786C21.1847 9.62247 19.903 9.22836 18.5881 9.00736L18.5844 9ZM12.9159 18.5396C12.0061 18.5396 11.251 17.7145 11.251 16.6943C11.251 15.674 11.9766 14.8453 12.9122 14.8453C13.8477 14.8453 14.5917 15.6777 14.577 16.6943C14.5623 17.7109 13.844 18.5396 12.9159 18.5396ZM19.0522 18.5396C18.1387 18.5396 17.391 17.7145 17.391 16.6943C17.391 15.674 18.1166 14.8453 19.0522 14.8453C19.9877 14.8453 20.728 15.6777 20.7133 16.6943C20.6986 17.7109 19.9803 18.5396 19.0522 18.5396Z</Geometry>
+    <Geometry x:Key="ZenIconExpandSidebar">M8.22 5.97a.75.75 0 1 1 1.06 1.06L8.06 8.25h4.69a.75.75 0 0 1 0 1.5H8.06l1.22 1.22a.75.75 0 0 1-1.06 1.06l-2.5-2.5a.75.75 0 0 1-.165-.812l.004-.01q.018-.04.042-.078a.8.8 0 0 1 .119-.16z M14.25 2A2.75 2.75 0 0 1 17 4.75v8.5A2.75 2.75 0 0 1 14.25 16H3.75A2.75 2.75 0 0 1 1 13.25v-8.5A2.75 2.75 0 0 1 3.75 2zM3.75 3.5c-.69 0-1.25.56-1.25 1.25v8.5c0 .69.56 1.25 1.25 1.25H5.5v-2a.75.75 0 0 1 1.5 0v2h7.25c.69 0 1.25-.56 1.25-1.25v-8.5c0-.69-.56-1.25-1.25-1.25H7v2a.75.75 0 0 1-1.5 0v-2z</Geometry>
+    <Geometry x:Key="ZenIconCollapseSidebar">M5.75 8.25a.75.75 0 0 1 0 1.5h-1.5a.75.75 0 0 1 0-1.5zM5.75 5.5a.75.75 0 0 1 0 1.5h-1.5a.75.75 0 0 1 0-1.5z M14.25 2A2.75 2.75 0 0 1 17 4.75v8.5A2.75 2.75 0 0 1 14.25 16H3.75A2.75 2.75 0 0 1 1 13.25v-8.5A2.75 2.75 0 0 1 3.75 2zM3.75 3.5c-.69 0-1.25.56-1.25 1.25v8.5c0 .69.56 1.25 1.25 1.25H7.5v-11zM9 14.5h5.25c.69 0 1.25-.56 1.25-1.25v-8.5c0-.69-.56-1.25-1.25-1.25H9z</Geometry>
+    <Geometry x:Key="ZenIconSplit">M13.25 2A2.75 2.75 0 0 1 16 4.75v8.5A2.75 2.75 0 0 1 13.25 16h-8.5A2.75 2.75 0 0 1 2 13.25v-8.5A2.75 2.75 0 0 1 4.75 2zm-3.5 12.5h3.5c.69 0 1.25-.56 1.25-1.25v-8.5c0-.69-.56-1.25-1.25-1.25h-3.5zm-5-11c-.69 0-1.25.56-1.25 1.25v8.5c0 .69.56 1.25 1.25 1.25h3.5v-11z</Geometry>
+    <Geometry x:Key="ZenIconCompact">M2 4.75A2.75 2.75 0 0 1 4.75 2h8.5A2.75 2.75 0 0 1 16 4.75v8.5A2.75 2.75 0 0 1 13.25 16h-8.5A2.75 2.75 0 0 1 2 13.25z M4.75 3.5c-.69 0-1.25.56-1.25 1.25v8.5c0 .69.56 1.25 1.25 1.25h8.5c.69 0 1.25-.56 1.25-1.25v-8.5c0-.69-.56-1.25-1.25-1.25z</Geometry>
+    <Geometry x:Key="ZenIconAudio">M10.234 1.524A1.25 1.25 0 0 1 12 2.664v12.673a1.25 1.25 0 0 1-1.924 1.053L4.78 13H2.25A2.25 2.25 0 0 1 0 10.75v-3.5A2.25 2.25 0 0 1 2.25 5h2.53l5.296-3.389zm-4.83 4.858A.75.75 0 0 1 5 6.5H2.25a.75.75 0 0 0-.75.75v3.5c0 .414.336.75.75.75H5l.106.008a.75.75 0 0 1 .298.11L10.5 14.88V3.119zM15.33 5.11a.75.75 0 0 1 1.06 0 5.5 5.5 0 0 1 0 7.779.75.75 0 0 1-1.06-1.06 4 4 0 0 0 0-5.658.75.75 0 0 1 0-1.06</Geometry>
+    <Geometry x:Key="IconAudioPlaying">M10.234 1.524A1.25 1.25 0 0 1 12 2.664v12.673a1.25 1.25 0 0 1-1.924 1.053L4.78 13H2.25A2.25 2.25 0 0 1 0 10.75v-3.5A2.25 2.25 0 0 1 2.25 5h2.53l5.296-3.389zm-4.83 4.858A.75.75 0 0 1 5 6.5H2.25a.75.75 0 0 0-.75.75v3.5c0 .414.336.75.75.75H5l.106.008a.75.75 0 0 1 .298.11L10.5 14.88V3.119zM15.33 5.11a.75.75 0 0 1 1.06 0 5.5 5.5 0 0 1 0 7.779.75.75 0 0 1-1.06-1.06 4 4 0 0 0 0-5.658.75.75 0 0 1 0-1.06</Geometry>
+    <Geometry x:Key="ZenIconAudioMuted">M10.234 1.524A1.25 1.25 0 0 1 12 2.664v12.673a1.25 1.25 0 0 1-1.924 1.053L4.78 13H2.25A2.25 2.25 0 0 1 0 10.75v-3.5A2.25 2.25 0 0 1 2.25 5h2.53l5.296-3.389z M14.5 6.5 L 18.5 10.5 M 18.5 6.5 L 14.5 10.5</Geometry>
+    <Geometry x:Key="ZenIconPin">M16 9V4h1c.55 0 1-.45 1-1s-.45-1-1-1H7c-.55 0-1 .45-1 1s.45 1 1 1h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3z</Geometry>
+    <Geometry x:Key="ZenIconUnpin">M2 5.27L3.28 4 20 20.72 18.73 22l-5.76-5.76v4.76l-1 1-1-1v-7H5v-2c1.66 0 3-1.34 3-3V8.73L2 5.27zM16 9V4h1c.55 0 1-.45 1-1s-.45-1-1-1H7c-.55 0-1 .45-1 1s.45 1 1 1h1v1.18L16 13.18V9z</Geometry>
+    <Geometry x:Key="ZenIconEssentialStar">M12 2L14.8 8.5L22 9.3L16.5 14L18.2 21L12 17.3L5.8 21L7.5 14L2 9.3L9.2 8.5L12 2Z</Geometry>
+    <Geometry x:Key="ZenIconGlance">M12 5C5.636 5 2 12 2 12s3.636 7 10 7 10-7 10-7-3.636-7-10-7zm0 11.5a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9zm0-7a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z</Geometry>
+    <Geometry x:Key="ZenIconContainer">M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 3a3 3 0 1 0 6 0 3 3 0 0 0-6 0z</Geometry>
+    <Geometry x:Key="ZenIconUnsplit">M4 4h16v16H4V4zm2 2v12h12V6H6z</Geometry>
+    <Geometry x:Key="ZenIconWorkspaceGrid">M3 3h7v7H3V3zm11 0h7v7h-7V3zM3 14h7v7H3v-7zm11 0h7v7h-7v-7z</Geometry>
+    <Geometry x:Key="ZenIconTrash">M4.488 6.501a.75.75 0 0 1 .788.71l.374 7.104A1.25 1.25 0 0 0 6.898 15.5h4.206a1.25 1.25 0 0 0 1.248-1.185l.374-7.104a.75.75 0 0 1 1.498.078l-.374 7.106A2.75 2.75 0 0 1 11.104 17H6.898a2.75 2.75 0 0 1-2.746-2.605l-.374-7.106a.75.75 0 0 1 .71-.788M10.25 1c.966 0 1.75.784 1.75 1.75V4h3.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H6V2.75C6 1.784 6.784 1 7.75 1zm-2.5 1.5a.25.25 0 0 0-.25.25V4h3V2.75a.25.25 0 0 0-.25-.25z</Geometry>
+    <Geometry x:Key="ZenIconGitHub">M9 1C4.58 1 1 4.58 1 9c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0017 9c0-4.42-3.58-8-8-8z</Geometry>
+    <Geometry x:Key="ZenIconYouTube">M16.5 4.5c-.2-.7-.7-1.2-1.4-1.4C13.8 2.7 9 2.7 9 2.7s-4.8 0-6.1.4c-.7.2-1.2.7-1.4 1.4C1.1 5.8 1.1 9 1.1 9s0 3.2.4 4.5c.2.7.7 1.2 1.4 1.4 1.3.4 6.1.4 6.1.4s4.8 0 6.1-.4c.7-.2 1.2-.7 1.4-1.4.4-1.3.4-4.5.4-4.5s0-3.2-.4-4.5zM7.3 11.7V6.3l4.7 2.7-4.7 2.7z</Geometry>
+    <Geometry x:Key="ZenIconCircleBarsFilter">M10.25 11.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1 0-1.5zm1.25-2.75a.75.75 0 0 1 0 1.5h-5a.75.75 0 0 1 0-1.5zM12.75 6a.75.75 0 0 1 0 1.5h-7.5a.75.75 0 0 1 0-1.5z M9 1a8 8 0 1 1 0 16A8 8 0 0 1 9 1m0 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13</Geometry>
+    <!-- Official Zen Library Sprite Geometries (128x128 viewBox from library-*-sprite.svg) -->
+    <Geometry x:Key="ZenLibMediaMountain">m7.721 53.756 10.433-9.037c1.8-1.514 3.508-2.248 5.308-2.248 1.985 0 3.832.734 5.632 2.34l7.386 6.651L55.129 35.04c1.939-1.697 3.97-2.431 6.232-2.431s4.478.826 6.278 2.477l17.218 16.193 7.432 7.11c0 9.45-4.847 14.22-14.449 14.22H14.784C5.09 72.609.289 67.884.289 58.389Z</Geometry>
+    <Geometry x:Key="ZenLibDownloadsArrow">M64 45v38M50 69l14 14 14-14</Geometry>
+    <Geometry x:Key="ZenLibBoostsBrush">M1.747 109.313q-.037-5.555 4.916-10.46 1.703-1.685 4.334-3.408c1.78-1.15 3.639-2.247 5.574-3.372s3.74-2.195 5.495-3.217l4.296-2.873-8.089-7.969q-2.438-2.413-2.477-5.133 0-2.76 2.4-5.133l5.07-5.018q2.4-2.375 5.147-2.338c2.175.031 2.518.523 5.225 2.414l30.77 30.531q2.476 2.415 2.476 5.134.038 2.682-2.323 5.095l-5.108 5.057q-2.36 2.336-5.147 2.298-2.787 0-5.186-2.414l-8.05-8.005q-1.394 1.646-2.942 4.214a475 475 0 0 0-3.251 5.478 93 93 0 0 1-3.406 5.516q-1.702 2.643-3.445 4.329-4.953 4.903-10.565 4.865-5.613-.039-10.644-5.057-5.032-4.979-5.07-10.534M63.63 92.567l-2.143-2.127L76.56 74.91q1.084-1.073 1.084-2.375t-1.2-2.49L47.687 41.622q-.58-.576-1.2-.614-.58-.037-1.083.384-.464.383-.697 1.264a1458 1458 0 0 0-2.36 8.657q-.968 3.601-2.013 6.475a35.3 35.3 0 0 1-2.67 5.669c-1.06 1.84-1.411 1.944-1.411 1.944l-2.615-2.595-2.707-1.891c.8-1.252 1.778-3.153 2.32-4.353a33 33 0 0 0 1.47-4.1q.698-2.298 1.471-5.516.774-3.256 1.897-8.044.58-2.49 2.09-4.023 1.51-1.571 3.483-2.107a7.83 7.83 0 0 1 4.064 0q2.05.498 3.716 2.107l30.42 30.149q3.445 3.448 3.483 7.24.079 3.793-3.29 7.126L65.639 94.767z</Geometry>
+    <Geometry x:Key="ZenLibHistoryBody">M27.66 48.719h72.634v46.856a10.25 10.25 0 0 1-10.25 10.25H37.91a10.25 10.25 0 0 1-10.25-10.25Z</Geometry>
+    <Geometry x:Key="ZenLibHistoryDash">M49.6 65h28.8</Geometry>
+
+    <!-- ========================================================================= -->
+    <!-- 3. MINIMALIST SCROLLBAR                                                  -->
+    <!-- ========================================================================= -->
+    <Style x:Key="SidebarThumbStyle" TargetType="{x:Type Thumb}">
+        <Setter Property="IsTabStop" Value="False"/>
+        <Setter Property="Focusable" Value="False"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type Thumb}">
+                    <Border CornerRadius="3"
+                            Background="{DynamicResource Zen_404044}"
+                            Opacity="0.6"/>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Opacity" Value="0.9"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ========================================================================= -->
+    <!-- БЛОК 1: КНОПКА "ДОСКА" ДЛЯ БОКОВОЙ ПАНЕЛИ НАВИГАЦИИ                        -->
+    <!-- ========================================================================= -->
+
+    <Style x:Key="SidebarScrollBarStyle" TargetType="{x:Type ScrollBar}">
+        <Setter Property="Width" Value="5"/>
+        <Setter Property="MinWidth" Value="5"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ScrollBar}">
+                    <Track x:Name="PART_Track" IsDirectionReversed="True">
+                        <Track.Thumb>
+                            <Thumb Style="{StaticResource SidebarThumbStyle}"/>
+                        </Track.Thumb>
+                    </Track>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ========================================================================= -->
+    <!-- 4. BUTTON STYLES (Workspaces, New Tab, Utilities, Close)                  -->
+    <!-- ========================================================================= -->
+
+    <!-- Zen Browser Top Action Button (Expand/Collapse, Compact Mode, Split View) -->
+    <Style x:Key="ZenTopActionButtonStyle" TargetType="Button">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="OverridesDefaultStyle" Value="True"/>
+        <Setter Property="Width" Value="34"/>
+        <Setter Property="Height" Value="34"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="BtnBorder" CornerRadius="8" Background="{TemplateBinding Background}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="BtnBorder" Property="Background" Value="{DynamicResource SidebarItemHoverBrush}"/>
+                            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="BtnBorder" Property="Background" Value="{DynamicResource SidebarItemActiveBrush}"/>
+                            <Setter Property="Foreground" Value="#FFFFFF"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ========================================================================= -->
+    <!-- БЛОК 1: КНОПКА "ДОСКА" ДЛЯ БОКОВОЙ ПАНЕЛИ НАВИГАЦИИ                        -->
+    <!-- ========================================================================= -->
+
+    <!-- Zen Browser Essentials Pinned Site Tile (Discord, Google, GitHub, YouTube) -->
+    <Style x:Key="ZenEssentialTileButtonStyle" TargetType="Button">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="OverridesDefaultStyle" Value="True"/>
+        <Setter Property="Height" Value="34"/>
+        <Setter Property="Background" Value="#202023"/>
+        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="TileBorder" CornerRadius="8" Background="{TemplateBinding Background}" BorderBrush="{DynamicResource Zen_2A2A2E}" BorderThickness="1" SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="TileBorder" Property="Background" Value="{DynamicResource SidebarItemHoverBrush}"/>
+                            <Setter TargetName="TileBorder" Property="BorderBrush" Value="{DynamicResource Zen_3F3F46}"/>
+                            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="TileBorder" Property="Background" Value="{DynamicResource SidebarItemActiveBrush}"/>
+                            <Setter TargetName="TileBorder" Property="BorderBrush" Value="#0A84FF"/>
+                            <Setter Property="Foreground" Value="#FFFFFF"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ========================================================================= -->
+    <!-- БЛОК 1: КНОПКА "ДОСКА" ДЛЯ БОКОВОЙ ПАНЕЛИ НАВИГАЦИИ                        -->
+    <!-- ========================================================================= -->
+
+    <!-- Zen Browser Workspace Bottom Pill Button -->
+    <Style x:Key="ZenWorkspacePillButtonStyle" TargetType="Button">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="OverridesDefaultStyle" Value="True"/>
+        <Setter Property="Width" Value="30"/>
+        <Setter Property="Height" Value="30"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="PillBorder" CornerRadius="15" Background="{TemplateBinding Background}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="PillBorder" Property="Background" Value="{DynamicResource SidebarItemHoverBrush}"/>
+                            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="PillBorder" Property="Background" Value="{DynamicResource SidebarItemActiveBrush}"/>
+                            <Setter Property="Foreground" Value="#FFFFFF"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ========================================================================= -->
+    <!-- БЛОК 1: КНОПКА "ДОСКА" ДЛЯ БОКОВОЙ ПАНЕЛИ НАВИГАЦИИ                        -->
+    <!-- ========================================================================= -->
+
+    <!-- Workspaces Pill Button (Screenshot 1 top: Discord, Google buttons) -->
+    <Style x:Key="WorkspacePillButtonStyle" TargetType="Button">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="OverridesDefaultStyle" Value="True"/>
+        <Setter Property="Height" Value="36"/>
+        <Setter Property="Background" Value="#222225"/>
+        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="PillBorder"
+                            CornerRadius="8"
+                            Background="{TemplateBinding Background}"
+                            Padding="8,4">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="PillBorder" Property="Background" Value="{DynamicResource SidebarItemHoverBrush}"/>
+                            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="PillBorder" Property="Opacity" Value="0.8"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ========================================================================= -->
+    <!-- БЛОК 1: КНОПКА "ДОСКА" ДЛЯ БОКОВОЙ ПАНЕЛИ НАВИГАЦИИ                        -->
+    <!-- ========================================================================= -->
+
+    <!-- New Tab Prominent Button (+ New Tab) -->
+    <Style x:Key="NewTabButtonStyle" TargetType="Button">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="OverridesDefaultStyle" Value="True"/>
+        <Setter Property="Height" Value="32"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="#D4D4D8"/>
+        <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="BtnBorder"
+                            CornerRadius="7"
+                            Background="{TemplateBinding Background}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="BtnBorder" Property="Background" Value="{DynamicResource Zen_48484D}"/>
+                            <Setter Property="Foreground" Value="#FFFFFF"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="BtnBorder" Property="Background" Value="{DynamicResource Zen_525257}"/>
+                            <Setter Property="Foreground" Value="#FFFFFF"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ========================================================================= -->
+    <!-- БЛОК 1: КНОПКА "ДОСКА" ДЛЯ БОКОВОЙ ПАНЕЛИ НАВИГАЦИИ                        -->
+    <!-- ========================================================================= -->
+
+    <!-- Bottom Utility Icon Button (Folder, Gear, User, Extensions) -->
+    <Style x:Key="UtilityIconButtonStyle" TargetType="Button">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="OverridesDefaultStyle" Value="True"/>
+        <Setter Property="Width" Value="34"/>
+        <Setter Property="Height" Value="34"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="BtnBorder"
+                            CornerRadius="7"
+                            Background="{TemplateBinding Background}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="BtnBorder" Property="Background" Value="{DynamicResource SidebarItemHoverBrush}"/>
+                            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="BtnBorder" Property="Background" Value="{DynamicResource SidebarItemActiveBrush}"/>
+                            <Setter Property="Foreground" Value="#FFFFFF"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ========================================================================= -->
+    <!-- БЛОК 1: КНОПКА "ДОСКА" ДЛЯ БОКОВОЙ ПАНЕЛИ НАВИГАЦИИ                        -->
+    <!-- ========================================================================= -->
+
+    <!-- Close Tab Small Cross Button -->
+    <Style x:Key="CloseTabButtonStyle" TargetType="Button">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="OverridesDefaultStyle" Value="True"/>
+        <Setter Property="Width" Value="20"/>
+        <Setter Property="Height" Value="20"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Border"
+                            CornerRadius="4"
+                            Background="{TemplateBinding Background}">
+                        <Path Data="{StaticResource IconClose}"
+                              Width="9" Height="9"
+                              Stretch="Uniform"
+                              Stroke="{TemplateBinding Foreground}"
+                              StrokeThickness="1.6"
+                              StrokeStartLineCap="Round"
+                              StrokeEndLineCap="Round"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Border" Property="Background" Value="{DynamicResource Zen_56565A}"/>
+                            <Setter Property="Foreground" Value="#FFFFFF"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ========================================================================= -->
+    <!-- БЛОК 1: КНОПКА "ДОСКА" ДЛЯ БОКОВОЙ ПАНЕЛИ НАВИГАЦИИ                        -->
+    <!-- ========================================================================= -->
+
+    <!-- ========================================================================= -->
+    <!-- 5. VERTICAL TAB LISTBOX ITEM TEMPLATE (Screenshot 1)                     -->
+    <!-- ========================================================================= -->
+    <Style x:Key="VerticalTabListBoxItemStyle" TargetType="{x:Type ListBoxItem}">
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="OverridesDefaultStyle" Value="True"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Height" Value="36"/>
+        <Setter Property="Margin" Value="0,1"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ListBoxItem}">
+                    <Border x:Name="TabBody"
+                            CornerRadius="7"
+                            Background="Transparent"
+                            SnapsToDevicePixels="True">
+                        <Grid Margin="0,0,6,0">
+                            <Grid.ColumnDefinitions>
+                                <!-- Col 0: Active Left Accent Strip -->
+                                <ColumnDefinition Width="6"/>
+                                <!-- Col 1: Favicon -->
+                                <ColumnDefinition Width="28"/>
+                                <!-- Col 2: Title -->
+                                <ColumnDefinition Width="*"/>
+                                <!-- Col 3: Close Button -->
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Vertical Active Accent Strip Indicator -->
+                            <Border x:Name="ActiveIndicator"
+                                    Grid.Column="0"
+                                    Width="3"
+                                    Height="16"
+                                    HorizontalAlignment="Left"
+                                    CornerRadius="1.5"
+                                    Background="{StaticResource AccentIndicatorBrush}"
+                                    Visibility="Collapsed"/>
+
+                            <!-- Favicon or Fallback Icon -->
+                            <Grid Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Image Source="{Binding Favicon}"
+                                       Width="16" Height="16"
+                                       RenderOptions.BitmapScalingMode="HighQuality"
+                                       VerticalAlignment="Center"
+                                       HorizontalAlignment="Center"
+                                       Visibility="{Binding Favicon, Converter={x:Null}}"/>
+                                <Path x:Name="FallbackIcon"
+                                      Data="{StaticResource IconGlobe}"
+                                      Width="14" Height="14"
+                                      Stroke="{StaticResource TextSecondaryBrush}"
+                                      StrokeThickness="1.5"
+                                      VerticalAlignment="Center"
+                                      HorizontalAlignment="Center"/>
+                            </Grid>
+
+                            <!-- Tab Title Text -->
+                            <TextBlock x:Name="TabTitleText"
+                                       Grid.Column="2"
+                                       Text="{Binding Title}"
+                                       FontSize="12.5"
+                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                       TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center"
+                                       Margin="2,0,6,0"/>
+
+                            <!-- Close Button (Visible on Hover/Selected) -->
+                            <Button x:Name="TabCloseBtn"
+                                    Grid.Column="3"
+                                    Style="{StaticResource CloseTabButtonStyle}"
+                                    Command="{Binding CloseCommand}"
+                                    CommandParameter="{Binding}"
+                                    Opacity="0"
+                                    VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+
+                    <ControlTemplate.Triggers>
+                        <!-- Hover State -->
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="TabBody" Property="Background" Value="{DynamicResource SidebarItemHoverBrush}"/>
+                            <Setter TargetName="TabTitleText" Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                            <Setter TargetName="FallbackIcon" Property="Stroke" Value="{StaticResource TextPrimaryBrush}"/>
+                            <Setter TargetName="TabCloseBtn" Property="Opacity" Value="1"/>
+                        </Trigger>
+
+                        <!-- Selected / Active State -->
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="TabBody" Property="Background" Value="{DynamicResource SidebarItemActiveBrush}"/>
+                            <Setter TargetName="TabTitleText" Property="Foreground" Value="#FFFFFF"/>
+                            <Setter TargetName="TabTitleText" Property="FontWeight" Value="SemiBold"/>
+                            <Setter TargetName="FallbackIcon" Property="Stroke" Value="#FFFFFF"/>
+                            <Setter TargetName="ActiveIndicator" Property="Visibility" Value="Visible"/>
+                            <Setter TargetName="TabCloseBtn" Property="Opacity" Value="1"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ========================================================================= -->
+    <!-- БЛОК 1: КНОПКА "ДОСКА" ДЛЯ БОКОВОЙ ПАНЕЛИ НАВИГАЦИИ                        -->
+    <!-- ========================================================================= -->
+
+    <Style x:Key="DrawerNavRailButtonStyle" TargetType="Button">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="OverridesDefaultStyle" Value="True"/>
+        <Setter Property="Height" Value="74"/>
+        <Setter Property="Margin" Value="8,4"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="RailBorder" CornerRadius="10" Background="{TemplateBinding Background}" SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="IsMouseOver" Value="True"/>
+                                <Condition Property="Background" Value="Transparent"/>
+                            </MultiTrigger.Conditions>
+                            <Setter TargetName="RailBorder" Property="Background" Value="{DynamicResource Zen_4B4B50}"/>
+                        </MultiTrigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="RailBorder" Property="Opacity" Value="0.85"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ========================================================================= -->
+    <!-- БЛОК 1: КНОПКА "ДОСКА" ДЛЯ БОКОВОЙ ПАНЕЛИ НАВИГАЦИИ                        -->
+    <!-- ========================================================================= -->
+
+    <!-- ========================================================================= -->
+    <!-- 6. DRAWER MINI RAIL NAVIGATION BUTTON (Screenshot 3 left column)         -->
+    <!-- ========================================================================= -->
+    <Style x:Key="DrawerNavRailItemStyle" TargetType="RadioButton">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="OverridesDefaultStyle" Value="True"/>
+        <Setter Property="Height" Value="52"/>
+        <Setter Property="Margin" Value="2,2"/>
+        <Setter Property="GroupName" Value="DrawerNavGroup"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Border x:Name="RailBorder"
+                            CornerRadius="7"
+                            Background="Transparent"
+                            SnapsToDevicePixels="True">
+                        <Grid>
+                            <!-- Left Active Accent Strip -->
+                            <Border x:Name="RailActiveIndicator"
+                                    Width="3"
+                                    Height="20"
+                                    HorizontalAlignment="Left"
+                                    CornerRadius="1.5"
+                                    Background="{StaticResource AccentIndicatorBrush}"
+                                    Visibility="Collapsed"/>
+
+                            <!-- Icon + Label Stack -->
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Path x:Name="NavIcon"
+                                      Data="{Binding IconGeometry}"
+                                      Width="18" Height="18"
+                                      Stroke="{StaticResource TextSecondaryBrush}"
+                                      StrokeThickness="1.6"
+                                      Stretch="Uniform"
+                                      HorizontalAlignment="Center"/>
+                                <TextBlock x:Name="NavTitle"
+                                           Text="{Binding Title}"
+                                           FontSize="10"
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           Margin="0,3,0,0"
+                                           HorizontalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="RailBorder" Property="Background" Value="{DynamicResource SidebarItemHoverBrush}"/>
+                            <Setter TargetName="NavIcon" Property="Stroke" Value="{StaticResource TextPrimaryBrush}"/>
+                            <Setter TargetName="NavTitle" Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="RailBorder" Property="Background" Value="{DynamicResource SidebarItemActiveBrush}"/>
+                            <Setter TargetName="RailActiveIndicator" Property="Visibility" Value="Visible"/>
+                            <Setter TargetName="NavIcon" Property="Stroke" Value="#FFFFFF"/>
+                            <Setter TargetName="NavTitle" Property="Foreground" Value="#FFFFFF"/>
+                            <Setter TargetName="NavTitle" Property="FontWeight" Value="SemiBold"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ========================================================================= -->
+    <!-- БЛОК 1: КНОПКА "ДОСКА" ДЛЯ БОКОВОЙ ПАНЕЛИ НАВИГАЦИИ                        -->
+    <!-- ========================================================================= -->
+
+    <!-- ========================================================================= -->
+    <!-- 7. HISTORY LISTBOX ITEM TEMPLATE (Screenshot 3 right column)             -->
+    <!-- ========================================================================= -->
+    <Style x:Key="HistoryItemStyle" TargetType="{x:Type ListBoxItem}">
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="OverridesDefaultStyle" Value="True"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Height" Value="46"/>
+        <Setter Property="Margin" Value="0,1"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ListBoxItem}">
+                    <Border x:Name="ItemBorder"
+                            CornerRadius="7"
+                            Background="Transparent"
+                            Padding="8,5"
+                            SnapsToDevicePixels="True">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="26"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Resource Icon / Favicon -->
+                            <Grid Grid.Column="0" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                <Path x:Name="HistoryIcon"
+                                      Data="{StaticResource IconGlobe}"
+                                      Width="14" Height="14"
+                                      Stroke="{StaticResource TextSecondaryBrush}"
+                                      StrokeThickness="1.5"/>
+                            </Grid>
+
+                            <!-- Title (Light White) + URL (Muted Secondary) -->
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock x:Name="TitleBlock"
+                                           Text="{Binding Title}"
+                                           FontSize="12"
+                                           FontWeight="Normal"
+                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <TextBlock x:Name="UrlBlock"
+                                           Text="{Binding Url}"
+                                           FontSize="10.5"
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           TextTrimming="CharacterEllipsis"
+                                           Margin="0,1,0,0"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SidebarItemHoverBrush}"/>
+                            <Setter TargetName="TitleBlock" Property="Foreground" Value="#FFFFFF"/>
+                            <Setter TargetName="HistoryIcon" Property="Stroke" Value="{StaticResource TextPrimaryBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SidebarItemActiveBrush}"/>
+                            <Setter TargetName="TitleBlock" Property="Foreground" Value="#FFFFFF"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ========================================================================= -->
+    <!-- БЛОК 1: КНОПКА "ДОСКА" ДЛЯ БОКОВОЙ ПАНЕЛИ НАВИГАЦИИ                        -->
+    <!-- ========================================================================= -->
+
+    <Style x:Key="ModernMenuRowButtonStyle" TargetType="Button">
+        <Setter Property="OverridesDefaultStyle" Value="True"/>
+        <Setter Property="Height" Value="28"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="RowBorder" CornerRadius="6" Background="{TemplateBinding Background}" Padding="8,0" Margin="0,1">
+                        <ContentPresenter VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="RowBorder" Property="Background" Value="{DynamicResource SidebarItemHoverBrush}"/>
+                            <Setter Property="Foreground" Value="#FFFFFF"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="RowBorder" Property="Background" Value="{DynamicResource SidebarItemActiveBrush}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ========================================================================= -->
+    <!-- БЛОК 1: КНОПКА "ДОСКА" ДЛЯ БОКОВОЙ ПАНЕЛИ НАВИГАЦИИ                        -->
+    <!-- ========================================================================= -->
+
+    <!-- ========================================================================= -->
+    <!-- 8. CONTEXT MENU & MENU ITEMS (Screenshot 2: Browser Dropdown Menu)        -->
+    <!-- ========================================================================= -->
+    <Style x:Key="ModernContextMenuStyle" TargetType="{x:Type ContextMenu}">
+        <Setter Property="OverridesDefaultStyle" Value="True"/>
+        <Setter Property="SnapsToDevicePixels" Value="True"/>
+        <Setter Property="Effect" Value="{StaticResource ModernMenuShadow}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ContextMenu}">
+                    <Border CornerRadius="8"
+                            Background="#1C1C1E"
+                            BorderBrush="{DynamicResource Zen_2C2C2E}"
+                            BorderThickness="1"
+                            Padding="5,6">
+                        <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="ModernMenuItemStyle" TargetType="{x:Type MenuItem}">
+        <Setter Property="OverridesDefaultStyle" Value="True"/>
+        <Setter Property="Height" Value="28"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type MenuItem}">
+                    <Border x:Name="ItemBorder"
+                            CornerRadius="6"
+                            Background="Transparent"
+                            Padding="8,0"
+                            Margin="0,1">
+                        <Grid VerticalAlignment="Center">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="22"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Left Icon -->
+                            <ContentPresenter Grid.Column="0"
+                                              ContentSource="Icon"
+                                              HorizontalAlignment="Left"
+                                              VerticalAlignment="Center"/>
+
+                            <!-- Center Header Text -->
+                            <TextBlock Grid.Column="1"
+                                       Text="{TemplateBinding Header}"
+                                       FontSize="12"
+                                       Foreground="{TemplateBinding Foreground}"
+                                       VerticalAlignment="Center"
+                                       Margin="4,0,16,0"/>
+
+                            <!-- Right Shortcut Hint -->
+                            <TextBlock Grid.Column="2"
+                                       Text="{TemplateBinding InputGestureText}"
+                                       FontSize="11"
+                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                       VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SidebarItemHoverBrush}"/>
+                            <Setter Property="Foreground" Value="#FFFFFF"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Foreground" Value="{StaticResource TextDimmedBrush}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ========================================================================= -->
+    <!-- БЛОК 1: КНОПКА "ДОСКА" ДЛЯ БОКОВОЙ ПАНЕЛИ НАВИГАЦИИ                        -->
+    <!-- ========================================================================= -->
+
+    <Style x:Key="ModernMenuSeparatorStyle" TargetType="{x:Type Separator}">
+        <Setter Property="OverridesDefaultStyle" Value="True"/>
+        <Setter Property="Height" Value="1"/>
+        <Setter Property="Margin" Value="6,4"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type Separator}">
+                    <Rectangle Height="1" Fill="{DynamicResource Zen_2C2C2E}"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+
+    <!-- ===== ZLine icon family: 16x16 box, 1.5 round stroke (matches Zen sidebar glyph weight) ===== -->
+    <Geometry x:Key="ZLineSearch">M12.5,7 A5.5,5.5 0 1 1 1.5,7 A5.5,5.5 0 1 1 12.5,7 M11,11 L14.5,14.5</Geometry>
+    <Geometry x:Key="ZLineClock">M14.5,8 A6.5,6.5 0 1 1 1.5,8 A6.5,6.5 0 1 1 14.5,8 M8,4.5 V8 L10.5,9.5</Geometry>
+    <Geometry x:Key="ZLineSpark">M8,1.5 C8.4,5 9.5,6.6 14.5,8 C9.5,9.4 8.4,11 8,14.5 C7.6,11 6.5,9.4 1.5,8 C6.5,6.6 7.6,5 8,1.5 Z</Geometry>
+    <Geometry x:Key="ZLineUser">M11,5 A3,3 0 1 1 5,5 A3,3 0 1 1 11,5 M2.5,14.5 C2.5,11.5 5,10 8,10 C11,10 13.5,11.5 13.5,14.5</Geometry>
+    <Geometry x:Key="ZLineSliders">M2,4.5 H14 M2,11.5 H14 M10,2.5 V6.5 M5,9.5 V13.5</Geometry>
+    <Geometry x:Key="ZLinePlus">M8,3 V13 M3,8 H13</Geometry>
+    <Geometry x:Key="ZLineX">M3.5,3.5 L12.5,12.5 M12.5,3.5 L3.5,12.5</Geometry>
+    <Geometry x:Key="ZLineCheck">M3,8.5 L6.5,12 L13,4.5</Geometry>
+    <Geometry x:Key="ZLineNote">M3.5,2.5 H12.5 V13.5 H3.5 Z M6,6 H10 M6,9 H10</Geometry>
+    <Geometry x:Key="ZLineTimer">M14,9 A6,6 0 1 1 2,9 A6,6 0 1 1 14,9 M8,9 V6 M6.5,1.5 H9.5</Geometry>
+    <Geometry x:Key="ZLinePlay">M5,3 L12.5,8 L5,13 Z</Geometry>
+    <Geometry x:Key="ZLinePause">M5.5,3.5 V12.5 M10.5,3.5 V12.5</Geometry>
+    <Geometry x:Key="ZLineReset">M13,8 A5,5 0 1 1 11.5,4.5 M13,2.5 V5.5 H10</Geometry>
+    <Geometry x:Key="ZLinePencil">M10.5,3 L13,5.5 L5.5,13 L2.5,13.5 L3,10.5 Z</Geometry>
+    <Geometry x:Key="ZLineUp">M4,10 L8,6 L12,10</Geometry>
+    <Geometry x:Key="ZLineDown">M4,6 L8,10 L12,6</Geometry>
+    <Geometry x:Key="ZLineLeft">M10,4 L6,8 L10,12</Geometry>
+    <Geometry x:Key="ZLineRight">M6,4 L10,8 L6,12</Geometry>
+    <Geometry x:Key="ZLineEye">M1.5,8 C3,4.5 5.5,3.5 8,3.5 C10.5,3.5 13,4.5 14.5,8 C13,11.5 10.5,12.5 8,12.5 C5.5,12.5 3,11.5 1.5,8 Z M10,8 A2,2 0 1 1 6,8 A2,2 0 1 1 10,8</Geometry>
+    <Geometry x:Key="ZLineImage">M2.5,3 H13.5 V13 H2.5 Z M2.5,11 L6,7.5 L9,10.5 L11,8.5 L13.5,11 M10.5,6 A1,1 0 1 1 8.5,6 A1,1 0 1 1 10.5,6</Geometry>
+    <Geometry x:Key="ZLineGrid">M2.5,2.5 H7 V7 H2.5 Z M9,2.5 H13.5 V7 H9 Z M2.5,9 H7 V13.5 H2.5 Z M9,9 H13.5 V13.5 H9 Z</Geometry>
+    <Geometry x:Key="ZLineTrash">M3,4.5 H13 M6,4.5 V3 H10 V4.5 M4.5,4.5 L5.2,13.5 H10.8 L11.5,4.5</Geometry>
+    <Geometry x:Key="ZLineStar">M8,2 L9.9,6 L14,6.5 L11,9.5 L11.8,13.8 L8,11.8 L4.2,13.8 L5,9.5 L2,6.5 L6.1,6 Z</Geometry>
+    <Geometry x:Key="ZLineMusic">M6,12 V3.5 L13,2.5 V11 M6,12 A1.8,1.8 0 1 1 2.4,12 A1.8,1.8 0 1 1 6,12 M13,11 A1.8,1.8 0 1 1 9.4,11 A1.8,1.8 0 1 1 13,11</Geometry>
+    <Geometry x:Key="ZLineDownload">M8,2.5 V10 M4.5,6.5 L8,10 L11.5,6.5 M3,13.5 H13</Geometry>
+    <Geometry x:Key="ZLineGlobe">M14.5,8 A6.5,6.5 0 1 1 1.5,8 A6.5,6.5 0 1 1 14.5,8 M1.5,8 H14.5 M8,1.5 C5.5,4 5.5,12 8,14.5 M8,1.5 C10.5,4 10.5,12 8,14.5</Geometry>
+    <Geometry x:Key="ZLineDrop">M8,2 C8,2 3.5,7 3.5,9.5 A4.5,4.5 0 0 0 12.5,9.5 C12.5,7 8,2 8,2 Z</Geometry>
+    <Geometry x:Key="ZLineLink">M6.5,9.5 L9.5,6.5 M7,4.5 L8,3.5 A2.5,2.5 0 0 1 11.5,7 L10.5,8 M9,11.5 L8,12.5 A2.5,2.5 0 0 1 4.5,9 L5.5,8</Geometry>
+    <Geometry x:Key="ZLineChart">M3,13 V8 M8,13 V3 M13,13 V6</Geometry>
+    <Geometry x:Key="ZLineHome">M2.5,7.5 L8,2.5 L13.5,7.5 V13.5 H2.5 Z</Geometry>
+    <Geometry x:Key="ZLineLogout">M6,2.5 H3 V13.5 H6 M10,5 L13,8 L10,11 M13,8 H6.5</Geometry>
+    <Geometry x:Key="ZLineShield">M8,1.8 L13.5,3.8 V8 C13.5,11 11,13 8,14.3 C5,13 2.5,11 2.5,8 V3.8 Z</Geometry>
+    <Geometry x:Key="ZLineLock">M4,7 H12 V13.5 H4 Z M5.5,7 V5 A2.5,2.5 0 0 1 10.5,5 V7</Geometry>
+    <Geometry x:Key="ZLineMail">M2,3.5 H14 V12.5 H2 Z M2,4 L8,9 L14,4</Geometry>
+    <Geometry x:Key="ZLineLayers">M8,2 L14,5.5 L8,9 L2,5.5 Z M2,8.5 L8,12 L14,8.5</Geometry>
+    <Geometry x:Key="ZLineBeaker">M6,2.5 H10 M6.5,2.5 V7 L3,13.5 H13 L9.5,7 V2.5</Geometry>
+    <Geometry x:Key="ZLineKeyboard">M2,4.5 H14 V11.5 H2 Z M4.5,7 H4.6 M7,7 H7.1 M9.5,7 H9.6 M11.5,7 H11.6 M5,9.5 H11</Geometry>
+    <Geometry x:Key="ZLineCopy">M5.5,5.5 H13.5 V13.5 H5.5 Z M3,10.5 H2.5 V2.5 H10.5 V3</Geometry>
+    <Geometry x:Key="ZLineMinus">M3,8 H13</Geometry>
+    <Geometry x:Key="ZLineDivider">M2,8 H14 M5,4.5 H11 M5,11.5 H11</Geometry>
+    <Style x:Key="ZLinePath" TargetType="Path">
+        <Setter Property="Stroke" Value="#C8C8CE"/>
+        <Setter Property="StrokeThickness" Value="1.5"/>
+        <Setter Property="StrokeStartLineCap" Value="Round"/>
+        <Setter Property="StrokeEndLineCap" Value="Round"/>
+        <Setter Property="StrokeLineJoin" Value="Round"/>
+        <Setter Property="Stretch" Value="None"/>
+        <Setter Property="Width" Value="16"/>
+        <Setter Property="Height" Value="16"/>
+    </Style>
+
+    <!-- ========================================================================= -->
+    <!-- БЛОК 1: КНОПКА "ДОСКА" ДЛЯ БОКОВОЙ ПАНЕЛИ НАВИГАЦИИ                        -->
+    <!-- ========================================================================= -->
+            <Style x:Key="WhiteboardNavButtonStyle" TargetType="{x:Type RadioButton}">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="OverridesDefaultStyle" Value="True"/>
+        <Setter Property="Height" Value="66"/>
+        <Setter Property="Width" Value="86"/>
+        <Setter Property="Margin" Value="4,3"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type RadioButton}">
+                    <Grid SnapsToDevicePixels="True">
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal">
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="ActiveHighlight"
+                                                         Storyboard.TargetProperty="Opacity"
+                                                         To="0" Duration="0:0:0.12"/>
+                                    </Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="MouseOver">
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="ActiveHighlight"
+                                                         Storyboard.TargetProperty="Opacity"
+                                                         To="1" Duration="0:0:0.12"/>
+                                    </Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="ActiveHighlight"
+                                                         Storyboard.TargetProperty="Opacity"
+                                                         To="0.85" Duration="0:0:0.06"/>
+                                    </Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="Disabled">
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="ContentStack"
+                                                         Storyboard.TargetProperty="Opacity"
+                                                         To="0.4" Duration="0"/>
+                                    </Storyboard>
+                                </VisualState>
+                            </VisualStateGroup>
+                            <VisualStateGroup x:Name="CheckStates">
+                                <VisualState x:Name="Checked">
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="ActiveHighlight"
+                                                         Storyboard.TargetProperty="Opacity"
+                                                         To="1" Duration="0:0:0.12"/>
+                                    </Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="Unchecked">
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="ActiveHighlight"
+                                                         Storyboard.TargetProperty="Opacity"
+                                                         To="0" Duration="0:0:0.12"/>
+                                    </Storyboard>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+
+                        <!-- Подложка цвета #2D2D2D с CornerRadius=8 для наведения и активации -->
+                        <Border x:Name="ActiveHighlight"
+                                CornerRadius="8"
+                                Background="#2D2D2D"
+                                Opacity="0"/>
+
+                        <!-- Внутри кнопки: вертикальный StackPanel (Иконка 24x24 + Текст 10px) -->
+                        <StackPanel x:Name="ContentStack" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <!-- Сверху: Векторная иконка школьной доски (24x24, Fill=White, реалистичная геометрия) -->
+                            <Path x:Name="BoardIcon"
+                                  Data="M 2,4 C 2,2.9 2.9,2 4,2 L 20,2 C 21.1,2 22,2.9 22,4 L 22,16 C 22,17.1 21.1,18 20,18 L 16,18 L 17.5,21.5 L 15.5,22.2 L 13.7,18 L 10.3,18 L 8.5,22.2 L 6.5,21.5 L 8,18 L 4,18 C 2.9,18 2,17.1 2,16 Z M 4,4 L 4,16 L 20,16 L 20,4 Z M 13,16.5 L 17,16.5 C 17.3,16.5 17.5,16.7 17.5,17 C 17.5,17.3 17.3,17.5 17,17.5 L 13,17.5 C 12.7,17.5 12.5,17.3 12.5,17 C 12.5,16.7 12.7,16.5 13,16.5 Z"
+                                  Width="24" Height="24"
+                                  Stretch="Uniform"
+                                  Fill="White"
+                                  HorizontalAlignment="Center"/>
+
+                            <!-- Снизу: TextBlock с текстом "Доска" (FontSize 10, выравнивание по центру, Margin сверху 4) -->
+                            <TextBlock x:Name="BoardText"
+                                       Text="Доска"
+                                       FontSize="10"
+                                       Foreground="White"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <!-- Прямые триггеры WPF для 100% надежности -->
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="ActiveHighlight" Property="Opacity" Value="1"/>
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="ActiveHighlight" Property="Opacity" Value="1"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>

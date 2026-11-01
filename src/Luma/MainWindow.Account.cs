@@ -1,4 +1,4 @@
-using Luma.Authentication;
+﻿using Luma.Authentication;
 using Luma.Core;
 using System.IO;
 using System.Net.Http;
@@ -73,6 +73,11 @@ public partial class MainWindow
         var access = _auth.Access; AccountAdminBadge.Visibility = access?.IsAdmin == true ? Visibility.Visible : Visibility.Collapsed; AccountBetaBadge.Visibility = access?.IsAdmin != true && access?.HasBeta == true ? Visibility.Visible : Visibility.Collapsed; AccountAdminPanel.Visibility = access?.IsAdmin == true ? Visibility.Visible : Visibility.Collapsed;
         TesterCenterEntry.Visibility = access?.HasBeta == true || access?.IsAdmin == true ? Visibility.Visible : Visibility.Collapsed;
         if (TesterCenterEntry.Visibility != Visibility.Visible && _testCenterOpen) ShowTestCenter(false);
+        bool isDakowerr = string.Equals(user.Email?.Trim(), "dakowerr@gmail.com", StringComparison.OrdinalIgnoreCase);
+        if (AccountTestUpdateBtn is not null)
+        {
+            AccountTestUpdateBtn.Visibility = isDakowerr ? Visibility.Visible : Visibility.Collapsed;
+        }
         AccountProfileName.Text = user.DisplayName;
         AccountProfileEmail.Text = user.Email;
         AccountProfileAvatar.Text = string.IsNullOrWhiteSpace(user.DisplayName) ? "L" : user.DisplayName.Trim()[..1].ToUpperInvariant();
@@ -264,16 +269,16 @@ public partial class MainWindow
         if (register)
         {
             AccountLoginModeButton.Background = WpfBrushes.Transparent;
-            AccountLoginModeButton.SetResourceReference(WpfControl.ForegroundProperty, "ChromeMuted");
-            AccountRegisterModeButton.SetResourceReference(WpfControl.BackgroundProperty, "AccentSoftBrush");
-            AccountRegisterModeButton.Foreground = WpfBrushes.White;
+            AccountLoginModeButton.SetResourceReference(WpfControl.ForegroundProperty, "ZenMutedBrush");
+            AccountRegisterModeButton.SetResourceReference(WpfControl.BackgroundProperty, "Zen_4B4B50");
+            AccountRegisterModeButton.SetResourceReference(WpfControl.ForegroundProperty, "ZenTextBrush");
         }
         else
         {
-            AccountLoginModeButton.SetResourceReference(WpfControl.BackgroundProperty, "AccentSoftBrush");
-            AccountLoginModeButton.Foreground = WpfBrushes.White;
+            AccountLoginModeButton.SetResourceReference(WpfControl.BackgroundProperty, "Zen_4B4B50");
+            AccountLoginModeButton.SetResourceReference(WpfControl.ForegroundProperty, "ZenTextBrush");
             AccountRegisterModeButton.Background = WpfBrushes.Transparent;
-            AccountRegisterModeButton.SetResourceReference(WpfControl.ForegroundProperty, "ChromeMuted");
+            AccountRegisterModeButton.SetResourceReference(WpfControl.ForegroundProperty, "ZenMutedBrush");
         }
         if (clearStatus) HideAccountStatus();
         AnimateModeChange();
@@ -422,17 +427,8 @@ public partial class MainWindow
     {
         if (sender is not FrameworkElement { Tag: WpfBorder shell }) return;
         var focused = e.RoutedEvent == System.Windows.Input.Keyboard.GotKeyboardFocusEvent;
-        var from = focused ? WpfColor.FromRgb(58, 48, 69) : WpfColor.FromRgb(137, 111, 238);
-        var to = focused ? WpfColor.FromRgb(137, 111, 238) : WpfColor.FromRgb(58, 48, 69);
-        var brush = new SolidColorBrush(from); shell.BorderBrush = brush;
-        brush.BeginAnimation(SolidColorBrush.ColorProperty, new ColorAnimation(from, to, TimeSpan.FromMilliseconds(180)));
-        shell.Background = new SolidColorBrush(focused ? WpfColor.FromRgb(24, 19, 31) : WpfColor.FromRgb(16, 13, 21));
-        if (shell.RenderTransform is WpfScaleTransform scale)
-        {
-            var target = focused ? 1.008 : 1;
-            scale.BeginAnimation(WpfScaleTransform.ScaleXProperty, new WpfDoubleAnimation(target, TimeSpan.FromMilliseconds(170)));
-            scale.BeginAnimation(WpfScaleTransform.ScaleYProperty, new WpfDoubleAnimation(target, TimeSpan.FromMilliseconds(170)));
-        }
+        shell.SetResourceReference(WpfBorder.BorderBrushProperty, focused ? "AccentBrush" : "Zen_505056");
+        shell.SetResourceReference(WpfBorder.BackgroundProperty, focused ? "Zen_3A3A40" : "Zen_2C2C32");
     }
 
     private void AccountField_KeyDown(object sender, WpfKeyEventArgs e)
@@ -441,4 +437,11 @@ public partial class MainWindow
         e.Handled = true;
         AccountSubmit_Click(sender, new RoutedEventArgs());
     }
+
+    private void AccountTestUpdate_Click(object sender, RoutedEventArgs e)
+    {
+        CloseTransientUi();
+        ShowUpdateNotificationBanner("2.4.0", "Luma 2.4.0 • Оптимизация памяти и ускорение запуска", "• Полная оптимизация энергопотребления и RAM\n• Мгновенный отклик интерфейса и доски\n• Обновлённый минималистичный дизайн в стиле Zen");
+    }
+
 }

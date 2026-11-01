@@ -21,6 +21,19 @@ public sealed class VoiceAssistantService : IDisposable
     private string _activeMicrophoneName = "";
     public string ActiveMicrophoneName => _activeMicrophoneName;
     private bool _isAwaitingVoiceQuery;
+    public bool IsWhiteboardDictationActive { get; set; }
+    public event Action<string>? WhiteboardDictationReceived;
+
+    public void SetWhiteboardDictation(bool active, string lang = "uk-UA")
+    {
+        IsWhiteboardDictationActive = active;
+        try
+        {
+            _speechView?.CoreWebView2?.ExecuteScriptAsync(
+                $"window.__setDictationMode && window.__setDictationMode({(active ? "true" : "false")}, '{lang}');");
+        }
+        catch { }
+    }
 
     // Win32 Hotkey (Ctrl + Alt + L)
     private const int HotkeyId = 9482;
@@ -224,6 +237,19 @@ public sealed class VoiceAssistantService : IDisposable
                 var cleanCommand = root.TryGetProperty("cleanCommand", out var cv) ? cv.GetString() ?? "" : "";
                 var hasWakeWord = root.TryGetProperty("hasWakeWord", out var wv) && wv.GetBoolean();
                 var isFinal = root.TryGetProperty("isFinal", out var fv) && fv.GetBoolean();
+
+                if (IsWhiteboardDictationActive)
+                {
+                    var textToDictate = !string.IsNullOrWhiteSpace(transcript) ? transcript : cleanCommand;
+                    if (isFinal && !string.IsNullOrWhiteSpace(textToDictate))
+                    {
+                        _mainWindow.Dispatcher.Invoke(() =>
+                        {
+                            WhiteboardDictationReceived?.Invoke(textToDictate);
+                        });
+                    }
+                    return;
+                }
 
                 var isHudAwaiting = _hud?.IsVisible == true && _hud.IsAwaitingQuery;
                 var isAwaiting = isHudAwaiting || _isAwaitingVoiceQuery;
@@ -540,6 +566,8 @@ public sealed class VoiceAssistantService : IDisposable
   let pendingHasWake = false;
   let selectedDeviceId = null;
   let micInitialized = false;
+  let isDictationMode = false;
+  let currentLang = '{{lang}}';
 
   async function setupMicrophone() {
     try {
@@ -664,13 +692,13 @@ public sealed class VoiceAssistantService : IDisposable
     }
     const text = accumulatedFinal.trim();
     accumulatedFinal = '';
-    const hadWake = pendingHasWake;
+    const hadWake = pendingHasWake || isDictationMode;
     pendingHasWake = false;
 
     if (!text) return;
 
     let cleanCommand = '';
-    if (hadWake) {
+    if (hadWake && !isDictationMode) {
       const extracted = extractCommandAfterWake(text);
       cleanCommand = normalizeSpokenText(extracted.after);
     }
@@ -679,8 +707,8 @@ public sealed class VoiceAssistantService : IDisposable
     if (window.chrome && window.chrome.webview) {
       window.chrome.webview.postMessage({
         kind: 'speech-result',
-        transcript: norm,
-        cleanCommand: cleanCommand,
+        transcript: isDictationMode ? text : norm,
+        cleanCommand: isDictationMode ? text : cleanCommand,
         hasWakeWord: hadWake,
         isFinal: true
       });
@@ -692,7 +720,7 @@ public sealed class VoiceAssistantService : IDisposable
     rec.continuous = true;
     rec.interimResults = true;
     rec.maxAlternatives = 5;
-    rec.lang = '{{lang}}';
+    rec.lang = currentLang;
 
     rec.onstart = () => {
       if (window.chrome && window.chrome.webview) {
@@ -819,6 +847,15 @@ public sealed class VoiceAssistantService : IDisposable
   }
 
   window.__startListening = () => { start(); };
+  window.__setDictationMode = (active, lang) => {
+    isDictationMode = !!active;
+    if (lang) currentLang = lang;
+    if (recognition) {
+      try { recognition.abort(); } catch(e) {}
+      recognition = null;
+    }
+    start();
+  };
   window.__setMicrophone = async (deviceId) => {
     selectedDeviceId = deviceId;
     await setupMicrophone();
