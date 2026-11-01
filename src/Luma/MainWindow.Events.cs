@@ -77,9 +77,15 @@ public partial class MainWindow
         if (e.ChangedButton != MouseButton.Left) return;
 
         // When the sidebar is collapsed (48px icons-only), any click on the tab row is strictly an activation.
-        // It must NEVER close or execute secondary buttons.
+        // It must NEVER close or execute secondary buttons, and MUST be strictly within the 48px rail!
         if (!IsSidebarVisualExpanded)
         {
+            if (Sidebar is not null)
+            {
+                var pt = e.GetPosition(Sidebar);
+                if (pt.X < 0 || pt.X > 48.0) return;
+            }
+
             var collapsedTab = (sender as FrameworkElement)?.DataContext as BrowserTab
                 ?? (e.OriginalSource as FrameworkElement)?.DataContext as BrowserTab;
             if (collapsedTab is not null)
@@ -489,7 +495,7 @@ public partial class MainWindow
     private void DefaultBrowser_Click(object sender, RoutedEventArgs e) { CloseTransientUi(); BrowserRegistry.OpenDefaultAppsSettings(); }
     private async void CheckUpdates_Click(object sender, RoutedEventArgs e) { CloseTransientUi(); await CheckForUpdatesManuallyAsync(); }
     private async void AboutMenu_Click(object sender, RoutedEventArgs e) { CloseTransientUi(); await OpenAboutAsync(); }
-    public static string AppVersion => System.Reflection.Assembly.GetExecutingAssembly().GetName().Version is { } v ? $"{v.Major}.{v.Minor}.{v.Build}" : "2.1.5";
+    public static string AppVersion => System.Reflection.Assembly.GetExecutingAssembly().GetName().Version is { } v ? $"{v.Major}.{v.Minor}.{v.Build}" : "3.0.0";
     private async void Import_Click(object sender, RoutedEventArgs e) { CloseTransientUi(); await OpenImportAsync(); }
     private void Exit_Click(object sender, RoutedEventArgs e) => ((App)Application.Current).ExitCompletely();
     // Kept for the WPF chrome, but the cursor poll above is what actually drives the reveal,

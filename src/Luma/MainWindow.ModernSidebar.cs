@@ -36,6 +36,7 @@ public partial class MainWindow
     private bool _isSidebarExpanded = true;
     private bool _isSidebarHoverExpanded = false;
     private bool _suppressHoverExpandUntilLeave = false;
+    private bool _isEnteringFromOutside = false;
     public static readonly DependencyProperty IsSidebarVisualExpandedProperty =
         DependencyProperty.Register(nameof(IsSidebarVisualExpanded), typeof(bool), typeof(MainWindow), new PropertyMetadata(true));
 
@@ -1586,11 +1587,13 @@ public partial class MainWindow
             var rowBd = new Border
             {
                 Width = visualExpanded ? double.NaN : 36,
-                Height = 32,
-                Margin = new Thickness(0, 1, 0, 1),
+                Height = visualExpanded ? 32 : 36,
+                Margin = visualExpanded ? new Thickness(0, 1, 0, 1) : new Thickness(0, 2, 0, 2),
                 HorizontalAlignment = visualExpanded ? WpfHorizontalAlignment.Stretch : WpfHorizontalAlignment.Center,
-                CornerRadius = new CornerRadius(7),
-                Background = isSelected ? (Brush)FindResource("SidebarItemActiveBrush") : Brushes.Transparent,
+                CornerRadius = new CornerRadius(visualExpanded ? 7 : 10),
+                BorderThickness = new Thickness(!visualExpanded && isSelected ? 1.5 : 0),
+                BorderBrush = !visualExpanded && isSelected ? Brush("#8A8D93") : Brushes.Transparent,
+                Background = isSelected ? (visualExpanded ? (Brush)FindResource("SidebarItemActiveBrush") : Brush("#56565A")) : Brushes.Transparent,
                 Cursor = Cursors.Hand,
                 Tag = site,
                 ToolTip = $"ЗаРєСЂРµРїлеРЅРѕ РІ РІРѕСЂРєСЃРїРµР№СЃРµ В«{space.State.Name}В»: {site.Title}"
@@ -1598,7 +1601,7 @@ public partial class MainWindow
 
             rowBd.MouseEnter += (_, _) =>
             {
-                if (!isSelected) rowBd.Background = (Brush)FindResource("SidebarItemHoverBrush");
+                if (!isSelected) rowBd.Background = visualExpanded ? (Brush)FindResource("SidebarItemHoverBrush") : Brush("#525257");
             };
             rowBd.MouseLeave += (_, _) =>
             {
@@ -2893,6 +2896,8 @@ public partial class MainWindow
         if (Sidebar is not null)
         {
             Sidebar.Width = targetWidth;
+            Sidebar.MaxWidth = targetWidth;
+            Sidebar.Clip = new System.Windows.Media.RectangleGeometry(new System.Windows.Rect(0, 0, targetWidth, 10000));
         }
 
         IsSidebarVisualExpanded = _isSidebarExpanded;
@@ -3013,13 +3018,46 @@ public partial class MainWindow
     {
         bool expanded = _isSidebarExpanded || _isSidebarHoverExpanded;
         IsSidebarVisualExpanded = expanded;
+        StartSidebarEdgePolling();
+
+        double contentWidth = expanded ? 194.0 : 36.0;
+        double sidebarWidth = expanded ? 206.0 : 48.0;
+
+        if (Sidebar is not null)
+        {
+            Sidebar.Width = sidebarWidth;
+            Sidebar.MaxWidth = sidebarWidth;
+            Sidebar.IsHitTestVisible = true;
+            Sidebar.Clip = new System.Windows.Media.RectangleGeometry(new System.Windows.Rect(0, 0, sidebarWidth, 10000));
+        }
 
         if (ZenSidebarInnerGrid is not null)
         {
             ZenSidebarInnerGrid.Margin = new Thickness(6, 6, 6, 6);
-            ZenSidebarInnerGrid.HorizontalAlignment = WpfHorizontalAlignment.Left;
-            ZenSidebarInnerGrid.Width = 194;
+            ZenSidebarInnerGrid.HorizontalAlignment = expanded ? WpfHorizontalAlignment.Left : WpfHorizontalAlignment.Center;
+            ZenSidebarInnerGrid.Width = contentWidth;
+            ZenSidebarInnerGrid.MaxWidth = contentWidth;
         }
+
+        if (TabsListContainer is not null)
+        {
+            TabsListContainer.Width = contentWidth;
+            TabsListContainer.MaxWidth = contentWidth;
+            TabsListContainer.HorizontalAlignment = expanded ? WpfHorizontalAlignment.Stretch : WpfHorizontalAlignment.Center;
+        }
+        if (TabsList is not null)
+        {
+            TabsList.Width = contentWidth;
+            TabsList.MaxWidth = contentWidth;
+            TabsList.HorizontalAlignment = expanded ? WpfHorizontalAlignment.Stretch : WpfHorizontalAlignment.Center;
+        }
+
+        if (ZenNewTabBtn is not null)
+        {
+            ZenNewTabBtn.Width = contentWidth;
+            ZenNewTabBtn.HorizontalAlignment = expanded ? WpfHorizontalAlignment.Left : WpfHorizontalAlignment.Center;
+        }
+
         if (SidebarEdgeTrigger is not null)
         {
             SidebarEdgeTrigger.Visibility = Visibility.Collapsed;
@@ -3113,12 +3151,12 @@ public partial class MainWindow
         if (ZenEssentialsWrapper is not null)
         {
             ZenEssentialsWrapper.Width = expanded ? 194 : 36;
-            ZenEssentialsWrapper.HorizontalAlignment = WpfHorizontalAlignment.Left;
+            ZenEssentialsWrapper.HorizontalAlignment = expanded ? WpfHorizontalAlignment.Left : WpfHorizontalAlignment.Center;
         }
         if (ZenEssentialsHost is not null)
         {
             ZenEssentialsHost.Width = expanded ? 194 : 36;
-            ZenEssentialsHost.HorizontalAlignment = WpfHorizontalAlignment.Left;
+            ZenEssentialsHost.HorizontalAlignment = expanded ? WpfHorizontalAlignment.Left : WpfHorizontalAlignment.Center;
             ZenEssentialsHost.Columns = expanded ? 4 : 1;
         }
 
@@ -3154,7 +3192,7 @@ public partial class MainWindow
         }
         if (TabsList is not null)
         {
-            ScrollViewer.SetVerticalScrollBarVisibility(TabsList, expanded ? ScrollBarVisibility.Auto : ScrollBarVisibility.Hidden);
+            ScrollViewer.SetVerticalScrollBarVisibility(TabsList, expanded ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled);
         }
         if (SidebarAddressBar is not null)
         {
@@ -3205,23 +3243,93 @@ public partial class MainWindow
         }
     }
 
+    private DispatcherTimer? _sidebarEdgePollTimer;
+    private DateTime _sidebarEdgeSince = DateTime.MinValue;
+
+    private void StartSidebarEdgePolling()
+    {
+        if (_sidebarEdgePollTimer is not null) return;
+        _sidebarEdgePollTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(40) };
+        _sidebarEdgePollTimer.Tick += (_, _) => SidebarEdgePollTick();
+        _sidebarEdgePollTimer.Start();
+    }
+
+    private void SidebarEdgePollTick()
+    {
+        if (!IsLoaded || Sidebar is null) return;
+        if (_isSidebarExpanded || _isToolsDrawerOpen || _fullscreen) { _sidebarEdgeSince = DateTime.MinValue; return; }
+
+        // Already hover-expanded: let the regular logic collapse it when the cursor leaves
+        if (_isSidebarHoverExpanded) { _sidebarEdgeSince = DateTime.MinValue; CheckSidebarHoverState(); return; }
+
+        if (_suppressHoverExpandUntilLeave || !IsForegroundWindowOrChild() || !GetCursorPos(out var native))
+        {
+            _sidebarEdgeSince = DateTime.MinValue;
+            return;
+        }
+
+        Point topLeft;
+        try { topLeft = Sidebar.PointToScreen(new Point(0, 0)); }
+        catch { _sidebarEdgeSince = DateTime.MinValue; return; }
+
+        var transform = PresentationSource.FromVisual(this)?.CompositionTarget?.TransformFromDevice ?? Matrix.Identity;
+        var cur = transform.Transform(new Point(native.X - topLeft.X, native.Y - topLeft.Y));
+        bool insideHeight = cur.Y >= 0 && cur.Y <= Sidebar.ActualHeight;
+
+        // Expand ONLY when hovering at the far left edge of the screen/rail (-12px to 5px).
+        // Tab tiles start at 6px, so hovering or moving across tabs (6px..48px) never expands the panel!
+        bool atLeftEdge = insideHeight && cur.X >= -12.0 && cur.X <= 5.0;
+        if (!atLeftEdge) { _sidebarEdgeSince = DateTime.MinValue; return; }
+
+        if (_sidebarEdgeSince == DateTime.MinValue) _sidebarEdgeSince = DateTime.UtcNow;
+        else if ((DateTime.UtcNow - _sidebarEdgeSince).TotalMilliseconds >= 120)
+        {
+            _sidebarEdgeSince = DateTime.MinValue;
+            ExpandSidebarOnHover();
+        }
+    }
+
     private void OnSidebarMouseEnter()
     {
-        ExpandSidebarOnHover();
+        CheckSidebarHoverState();
     }
 
     private void ZenSidebar_MouseEnter(object sender, MouseEventArgs e)
     {
-        ExpandSidebarOnHover();
+        if (_isSidebarExpanded || _isToolsDrawerOpen || _fullscreen || Sidebar is null) return;
+        var pt = e.GetPosition(Sidebar);
+        // Entering from webpage side: flag it so moving across towards tabs does not expand panel
+        _isEnteringFromOutside = pt.X >= 42.0;
     }
 
     private void SidebarEdgeTrigger_MouseEnter(object sender, MouseEventArgs e)
     {
-        ExpandSidebarOnHover();
+    }
+
+    private void ZenSidebar_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (_isSidebarExpanded || _isToolsDrawerOpen || _fullscreen || Sidebar is null) return;
+        var pt = e.GetPosition(Sidebar);
+        bool insideHeight = pt.Y >= 0 && pt.Y <= Sidebar.ActualHeight;
+
+        if (!_isSidebarHoverExpanded)
+        {
+            // Expansion at the right edge is handled by StartSidebarEdgePolling (screen-space, works over WebView2 too)
+            _isEnteringFromOutside = false;
+        }
+        else
+        {
+            // In expanded mode, collapse if cursor leaves the expanded 206px panel
+            if (pt.X > 214.0 || pt.X < -12.0 || !insideHeight)
+            {
+                CollapseSidebarOnHover();
+            }
+        }
     }
 
     private void ExpandSidebarOnHover()
     {
+        _isEnteringFromOutside = false;
         if (_isSidebarExpanded || _isToolsDrawerOpen || _fullscreen || _isSidebarHoverExpanded) return;
         if (_suppressHoverExpandUntilLeave) return;
         _isSidebarHoverExpanded = true;
@@ -3230,6 +3338,7 @@ public partial class MainWindow
 
     private void CollapseSidebarOnHover()
     {
+        _isEnteringFromOutside = false;
         if (!_isSidebarHoverExpanded) return;
         _isSidebarHoverExpanded = false;
         AnimateHoverSidebar(48.0);
@@ -3271,19 +3380,10 @@ public partial class MainWindow
             return;
         }
 
-        if (!_isSidebarHoverExpanded)
+        // Only collapse if currently hover expanded and mouse is outside
+        if (_isSidebarHoverExpanded)
         {
-            // Expand when cursor hovers anywhere over the 48px collapsed strip
-            bool overCollapsedStrip = cursorDip.X >= 0 && cursorDip.X <= 50.0 && insideSidebarHeight;
-            if (overCollapsedStrip)
-            {
-                ExpandSidebarOnHover();
-            }
-        }
-        else
-        {
-            // Stay open while inside the 206px sidebar (+16px grace buffer)
-            bool insideExpandedSidebar = cursorDip.X >= -5.0 && cursorDip.X <= 222.0 && insideSidebarHeight;
+            bool insideExpandedSidebar = cursorDip.X >= -12.0 && cursorDip.X <= 214.0 && insideSidebarHeight;
             if (!insideExpandedSidebar)
             {
                 CollapseSidebarOnHover();
@@ -3293,6 +3393,7 @@ public partial class MainWindow
 
     private void ZenSidebar_MouseLeave(object sender, MouseEventArgs e)
     {
+        _isEnteringFromOutside = false;
         CheckSidebarHoverState();
     }
 

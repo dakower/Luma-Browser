@@ -46,7 +46,8 @@ function Sign-ReleaseFile([string]$Path) {
   if ($signed.Status -ne 'Valid') { throw "Invalid Authenticode signature on ${Path}: $($signed.Status)" }
 }
 
-if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) { throw ".NET 8 SDK not found" }
+$dotnet = if (Test-Path "$env:USERPROFILE\.dotnet\dotnet.exe") { "$env:USERPROFILE\.dotnet\dotnet.exe" } else { "dotnet" }
+$env:PATH = "$env:USERPROFILE\.dotnet;" + $env:PATH
 
 # Catch malformed #RGB/#RRGGBB/#AARRGGBB literals before WPF BAML compilation.
 Get-ChildItem (Join-Path $root "src\Luma") -Recurse -Filter *.xaml | ForEach-Object {
@@ -57,7 +58,7 @@ Get-ChildItem (Join-Path $root "src\Luma") -Recurse -Filter *.xaml | ForEach-Obj
 }
 
 Write-Host "Running Luma.Core tests..." -ForegroundColor Cyan
-dotnet test (Join-Path $root "tests\Luma.Core.Tests\Luma.Core.Tests.csproj") -c Release
+& $dotnet test (Join-Path $root "tests\Luma.Core.Tests\Luma.Core.Tests.csproj") -c Release
 if ($LASTEXITCODE -ne 0) { throw "Core tests failed" }
 
 New-Item $fontDir, $browserFontDir -ItemType Directory -Force | Out-Null
@@ -91,9 +92,9 @@ Remove-Item $publish, $dist, $payload, $payloadHash -Recurse -Force -ErrorAction
 New-Item $publish, $dist -ItemType Directory -Force | Out-Null
 
 Write-Host "Publishing compact self-contained browser..." -ForegroundColor Cyan
-dotnet restore $browserProject
+& $dotnet restore $browserProject
 if ($LASTEXITCODE -ne 0) { throw "Browser restore failed" }
-dotnet publish $browserProject -c Release -r win-x64 --self-contained true --no-restore -o $publish `
+& $dotnet publish $browserProject -c Release -r win-x64 --self-contained true --no-restore -o $publish `
   -p:PublishReadyToRun=false -p:DebugType=None -p:DebugSymbols=false
 if ($LASTEXITCODE -ne 0) { throw "Browser build failed" }
 if (-not (Test-Path (Join-Path $publish "Luma.exe"))) { throw "Luma.exe was not produced" }
@@ -109,9 +110,9 @@ $hash = (Get-FileHash $payload -Algorithm SHA256).Hash.ToLowerInvariant()
 Set-Content -Path $payloadHash -Value $hash -NoNewline -Encoding ascii
 
 Write-Host "Publishing compressed single-file installer..." -ForegroundColor Cyan
-dotnet restore $setupProject
+& $dotnet restore $setupProject
 if ($LASTEXITCODE -ne 0) { throw "Installer restore failed" }
-dotnet publish $setupProject -c Release -r win-x64 --self-contained true --no-restore -o $dist `
+& $dotnet publish $setupProject -c Release -r win-x64 --self-contained true --no-restore -o $dist `
   -p:Version=$version `
   -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true `
   -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishReadyToRun=false `

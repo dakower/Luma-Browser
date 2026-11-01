@@ -1011,6 +1011,15 @@ if (_homeEditMode)
         LoadSiteIcon(img, site.Url, site.FaviconUrl);
         cardGrid.Children.Add(img);
 
+        // Globe is only a fallback: once a real icon is present, show the icon exclusively.
+        fallbackPath.Visibility = img.Source is not null ? Visibility.Collapsed : Visibility.Visible;
+        System.ComponentModel.DependencyPropertyDescriptor
+            .FromProperty(Image.SourceProperty, typeof(Image))
+            .AddValueChanged(img, (_, _) =>
+            {
+                fallbackPath.Visibility = img.Source is not null ? Visibility.Collapsed : Visibility.Visible;
+            });
+
         // Delete button visible on hover or in edit mode
         var delBtn = new Button
         {

@@ -79,7 +79,7 @@ public sealed class BackgroundUpdateService : IUpdateService
     public BackgroundUpdateService(UpdateOptions options)
     {
         _options = options;
-        _http.DefaultRequestHeaders.UserAgent.ParseAdd("Luma-Browser/2.1.6");
+        _http.DefaultRequestHeaders.UserAgent.ParseAdd("Luma-Browser/3.0.0");
     }
 
     public bool IsConfigured => _options.IsConfigured;
